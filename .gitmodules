@@ -1,0 +1,9 @@
+[submodule "ml"]
+    path = ml
+    url = git@gitlab.desy.de:needle/ml.git
+    branch = main
+
+[submodule "preprocessor"]
+    path = preprocessor
+    url = git@gitlab.desy.de:needle/preprocessor.git
+    branch = main
