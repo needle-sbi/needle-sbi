@@ -1,4 +1,4 @@
 export LAW_HOME=$(pwd)
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
-export PYTHONPATH=PYTHONPATH=./ml:.
+export PYTHONPATH="./preprocessor/:ml:.:$PYTHONPATH"  # blame it on LAW that we have to overwrite PYTHONPATH
 source "$(law completion)"
