@@ -121,7 +121,7 @@ class TrainingBase:
 
         return epoch_loss / len(self.dataloader)
 
-    def train(self) -> None:
+    def train(self) -> dict:
         """
         Train the model from start to finish
         """
@@ -151,3 +151,7 @@ class TrainingBase:
                 ["Best Validation Loss", f"{best_validation_loss:.4f}"]
             ]
             logger.info("\n" + tabulate(table, headers=["Metric", "Value"], tablefmt="pretty"))
+
+        return {
+            "best_validation_loss": best_validation_loss,
+        }
