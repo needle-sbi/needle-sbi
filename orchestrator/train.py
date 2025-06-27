@@ -99,7 +99,6 @@ class TrainingBase:
             self.optimizer.step()
 
             epoch_loss += loss.item()
-            breakpoint()
 
             log_progress(
                 step=i + 1,
