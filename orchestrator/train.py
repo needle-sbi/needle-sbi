@@ -14,12 +14,21 @@ logger = logging.getLogger(__name__)
 
 
 class TrainingBase:
-    def __init__(self, ingestor: Ingestor, config: Config = Config()):
+    def __init__(
+            self,
+            features_ingestor: Ingestor,
+            labels_ingestor: Ingestor,
+            config: Config = Config()
+    ):
         self.config = config
-        self.ingestor = ingestor
+        self.features_ingestor = features_ingestor
+        self.labels_ingestor = labels_ingestor
 
     def prepare_dataset(self) -> None:
-        self.dataset = ParticleDataset(**self.ingestor.dict)
+        self.dataset = ParticleDataset(
+            features=self.features_ingestor.dict,
+            labels=self.labels_ingestor.dict,
+        )
 
     def count_parameters(self, model: torch.nn.Module) -> int:
         """
