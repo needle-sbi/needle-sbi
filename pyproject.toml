@@ -1,0 +1,29 @@
+[project]
+name = "needle_orchestrator"
+version = "0.0.0"
+description = "Workflow manager for NEEDLE"
+authors = []
+license = ""
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+python_paths = ["."]
+testpaths = ["tests"]
+addopts = "-ra --tb=short --disable-warnings"
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = false
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
