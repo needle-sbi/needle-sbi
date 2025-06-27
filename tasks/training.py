@@ -27,8 +27,19 @@ class TrainingBaseTask(law.Task):
     def run(self):
         self.config = MLConfig.from_yaml(self.config_yaml, strict=True)  # type: ignore
         training_base = TrainingBase(
-            ingestor=Ingestor.from_parquet(self.config.files_to_load),
-            config=self.config
+            features_ingestor=Ingestor.read(
+                self.config.files_to_load,
+                format=self.config.filetype,
+                columns=self.config.features_columns,
+                reader_kwargs=self.config.dak_reader_kwargs,
+            ),
+            labels_ingestor=Ingestor.read(
+                self.config.files_to_load,
+                format=self.config.filetype,
+                columns=self.config.labels_columns,
+                reader_kwargs=self.config.dak_reader_kwargs,
+            ),
+            config=self.config,
         )
         outputs = training_base.train()
 
