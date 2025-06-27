@@ -26,7 +26,7 @@ class TrainingBaseTask(law.Task):
     def output(self):
         return {
             "logs": law.LocalDirectoryTarget(f"{self.results_dir}/tensorboard_logs"),
-            "outputs": law.LocalFileTarget(f"{self.results_dir}/outputs"),
+            "outputs": law.LocalFileTarget(f"{self.results_dir}/training_output.json"),
         }
 
     def run(self):
@@ -55,5 +55,5 @@ class TrainingBaseTask(law.Task):
         )
         outputs = training_base.train()
 
-        with open(os.path.join(self.output()["outputs"], "training_output.json"), "w") as f:
+        with open(self.output()["outputs"].path, "w") as f:
             json.dump(outputs, f, indent=4)
