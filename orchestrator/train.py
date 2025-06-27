@@ -4,10 +4,10 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 
 from preprocessor.ingestion.formatter import Ingestor
-from ml.config import MLConfig as Config
+from ml.config import MLConfig
 from ml.data.padded_multiple import ParticleDataset
 from ml.util.epoch_timer import timing
-from ml.models.model.transformer import Transformer
+from ml.models.model.transformer import MockTransformer
 from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class TrainingBase:
             self,
             features_ingestor: Ingestor,
             labels_ingestor: Ingestor,
-            config: Config = Config()
+            config: MLConfig = MLConfig()
     ):
         self.config = config
         self.features_ingestor = features_ingestor
@@ -26,8 +26,8 @@ class TrainingBase:
 
     def prepare_dataset(self) -> None:
         self.dataset = ParticleDataset(
-            features=self.features_ingestor.dict,
-            labels=self.labels_ingestor.dict,
+            features=self.features_ingestor.arrays_dict,
+            labels=self.labels_ingestor.arrays_dict,
         )
 
     def count_parameters(self, model: torch.nn.Module) -> int:
@@ -40,16 +40,8 @@ class TrainingBase:
         """
         Prepare the model for training
         """
-        self.model = Transformer(
-            d_model=self.config.d_model,
-            enc_part_feature_size=self.config.enc_part_feature_size,
-            dec_part_feature_size=self.config.dec_part_feature_size,
-            max_len=self.config.max_len,
-            ffn_hidden=self.config.ffn_hidden,
-            n_head=self.config.n_heads,
-            n_layers=self.config.n_layers,
-            drop_prob=self.config.drop_prob,
-            device=self.config.device,
+        self.model = MockTransformer(
+            num_features=len(self.dataset.feature_names),
         ).to(self.config.device)
 
         logger.info(f"Model initialized with {self.count_parameters(self.model):,} trainable parameters")
