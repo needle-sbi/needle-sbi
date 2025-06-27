@@ -1,14 +1,15 @@
 import logging
 import torch
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 
 from preprocessor.ingestion.formatter import Ingestor
 from ml.config import MLConfig
 from ml.data.padded_multiple import ParticleDataset
 from ml.util.epoch_timer import timing
+from ml.util import log_progress
 from ml.models.model.transformer import MockTransformer
-from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +19,13 @@ class TrainingBase:
             self,
             features_ingestor: Ingestor,
             labels_ingestor: Ingestor,
-            config: MLConfig = MLConfig()
+            config: MLConfig = MLConfig(),
+            tensor_board_log_dir: str | None = None,
     ):
         self.config = config
         self.features_ingestor = features_ingestor
         self.labels_ingestor = labels_ingestor
+        self.tensor_board_writer = SummaryWriter(log_dir=tensor_board_log_dir) if tensor_board_log_dir else None
 
     def prepare_dataset(self) -> None:
         self.dataset = ParticleDataset(
@@ -96,6 +99,13 @@ class TrainingBase:
             self.optimizer.step()
 
             epoch_loss += loss.item()
+            breakpoint()
+
+            log_progress(
+                step=i + 1,
+                total_steps=int(len(self.dataloader) / self.config.batch_size) + 1,
+                loss=loss,
+            )
 
         return epoch_loss / len(self.dataloader)
 
@@ -135,6 +145,7 @@ class TrainingBase:
         self.prepare_model()
 
         for epoch in range(self.config.total_epoch):
+            
             train_loss = self._train_single_epoch()
             validation_loss = self._validate_single_epoch()
 
@@ -145,13 +156,12 @@ class TrainingBase:
                 self.scheduler.step(validation_loss)
 
             best_validation_loss = min(best_validation_loss, validation_loss)
-            table = [
-                ["Epoch", f"{epoch + 1}/{self.config.total_epoch}"],
-                ["Train Loss", f"{train_loss:.4f}"],
-                ["Validation Loss", f"{validation_loss:.4f}"],
-                ["Best Validation Loss", f"{best_validation_loss:.4f}"]
-            ]
-            logger.info("\n" + tabulate(table, headers=["Metric", "Value"], tablefmt="pretty"))
+
+            if self.tensor_board_writer:
+                self.tensor_board_writer.add_scalar("Loss/train", train_loss, epoch)
+                self.tensor_board_writer.add_scalar("Loss/validation", validation_loss, epoch)
+
+            logger.info(f"Epoch {epoch + 1}/{self.config.total_epoch} complete | Best Loss: {best_validation_loss:.4f}")
 
         return {
             "best_validation_loss": best_validation_loss,
