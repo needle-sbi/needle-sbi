@@ -1,4 +1,3 @@
-import os
 import json
 import logging
 
@@ -8,7 +7,7 @@ from ml.config import MLConfig
 from preprocessor.ingestion.formatter import Ingestor
 from orchestrator.train import TrainingBase
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("orchestrator")
 
 
 class TrainingBaseTask(law.Task):
