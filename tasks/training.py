@@ -2,10 +2,12 @@ import json
 import logging
 
 import law
+import law.decorator
 
 from ml.config import MLConfig
 from preprocessor.ingestion.formatter import Ingestor
 from orchestrator.train import TrainingBase
+from orchestrator.train_chunked import TrainingBaseChunked
 
 logger = logging.getLogger("orchestrator")
 
@@ -34,7 +36,7 @@ class TrainingBaseTask(law.Task):
         if self.config.device == "cpu":
             logger.warning("Running on CPU. This may be slow for large datasets.")
 
-        training_base = TrainingBase(
+        training_base = TrainingBaseChunked(
             features_ingestor=Ingestor.read(
                 self.config.files_to_load,
                 format=self.config.filetype,
