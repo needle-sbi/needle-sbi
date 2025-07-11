@@ -1,0 +1,15 @@
+files_to_load: [
+  "/work/kschmidt/NEEDLE/preprocessor/data/test.parquet",
+]
+features_columns: [
+  "Jet_pt",
+  "Jet_eta",
+  "Jet_phi",
+  "Jet_mass",
+]
+labels_columns: [
+  "Jet_btagDeepB",
+]
+max_number_events: 2400
+total_epoch: 20
+batch_size: 64

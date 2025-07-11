@@ -48,7 +48,7 @@ class TrainingBaseChunked(TrainingBase):
 
             log_progress(
                 step=i + 1,
-                total_steps=int(len(self.dataloader) / self.config.batch_size) + 1,
+                total_steps=len(self.dataloader),
                 loss=loss,
             )
 

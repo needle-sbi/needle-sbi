@@ -4,10 +4,9 @@ import logging
 import law
 import law.decorator
 
-from ml.config import MLConfig
+from ml.utils import MLConfig
 from preprocessor.ingestion.formatter import Ingestor
-from orchestrator.train import TrainingBase
-from orchestrator.train_chunked import TrainingBaseChunked
+from orchestrator import TrainingBaseChunked
 
 logger = logging.getLogger("orchestrator")
 
@@ -16,7 +15,7 @@ class TrainingBaseTask(law.Task):
 
     config_yaml = law.Parameter(
         description="Path to the YAML configuration file for the training.",
-        default="ml/config/config.yaml"
+        default="config.yaml"
     )
     results_dir = law.Parameter(
         description="Directory where the training results will be saved.",

@@ -4,10 +4,10 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 
-from preprocessor.ingestion.formatter import Ingestor
-from ml.config import MLConfig
-from ml.data.padded_multiple import ParticleDatasetBase
-from ml.utils.epoch_timer import timing
+from preprocessor.ingestion import Ingestor
+from ml.utils import MLConfig
+from ml.data import ParticleDatasetBase
+from ml.utils import timing
 from ml.utils import log_progress
 from ml.models.model.transformer import MockTransformer
 
