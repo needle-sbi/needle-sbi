@@ -1,0 +1,1 @@
+ - Fix setup.sh script returning Success even if law failed
