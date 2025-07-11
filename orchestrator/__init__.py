@@ -22,13 +22,25 @@ class ColorFormatter(logging.Formatter):
         record.levelname = f"{color}{record.levelname}{self.RESET}"
         return super().format(record)
 
+    @classmethod
+    def get_new_logger(cls, name, level: int = logging.INFO) -> logging.Logger:
+        """
+        Create a new logger with the specified name.
 
-logger = logging.getLogger("orchestrator")
-handler = logging.StreamHandler()
-formatter = ColorFormatter(
-    "%(levelname)s: needle-orchestrator (%(asctime)s) - %(message)s",
-    datefmt="%H:%M:%S"
-)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+        Format:
+            "%(levelname)s: %(name)s (%(asctime)s) - %(message)s"
+        With the time formatter
+        """
+        new_logger = logging.getLogger(name)
+        handler = logging.StreamHandler()
+        formatter = cls(
+            "%(levelname)s: %(name)s (%(asctime)s) - %(message)s",
+            datefmt="%H:%M:%S"
+        )
+        handler.setFormatter(formatter)
+        new_logger.addHandler(handler)
+        new_logger.setLevel(level)
+        return new_logger
+
+
+logger = ColorFormatter.get_new_logger("orchestrator")
