@@ -6,12 +6,12 @@ from torch.optim import Adam
 
 from preprocessor.ingestion.formatter import Ingestor
 from ml.config import MLConfig
-from ml.data.padded_multiple import ParticleDataset
-from ml.util.epoch_timer import timing
-from ml.util import log_progress
+from ml.data.padded_multiple import ParticleDatasetBase
+from ml.utils.epoch_timer import timing
+from ml.utils import log_progress
 from ml.models.model.transformer import MockTransformer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ml")
 
 
 class TrainingBase:
@@ -28,7 +28,7 @@ class TrainingBase:
         self.tensor_board_writer = SummaryWriter(log_dir=tensor_board_log_dir) if tensor_board_log_dir else None
 
     def prepare_dataset(self) -> None:
-        self.dataset = ParticleDataset(
+        self.dataset = ParticleDatasetBase(
             features=self.features_ingestor.arrays_dict,
             labels=self.labels_ingestor.arrays_dict,
         )

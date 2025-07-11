@@ -3,8 +3,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from ml.data.padded_multiple_chunked import ParticleDatasetChunked
-from ml.util.epoch_timer import timing
-from ml.util import log_progress
+from ml.utils.epoch_timer import timing
+from ml.utils import log_progress
 from orchestrator.train import TrainingBase
 
 logger = logging.getLogger(__name__)
