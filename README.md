@@ -30,3 +30,7 @@
     ``` 
 
     More information can be found on the `law` [documentation](https://law.readthedocs.io/en/latest/)
+
+## Tensorboard
+
+All log files are saved to TensorBoard under `runs/tensorboard_logs` (which cannot be changed in the config for now). The file paths are managed by LAW. To access them, either open the logs using the browser or with VSCode by installing the Tensorboard Extension and then using CMD+SHIFT+P to open the command palette and selecting "Python: Launch Tensorboard". Once prompted, manually set the log directory to `runs/tensorboard_logs`. A new tab with Tensorboard will then open.
