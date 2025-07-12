@@ -2,11 +2,11 @@ import json
 import logging
 
 import law
-import law.decorator
 
 from ml.utils import MLConfig
+from ml.data import ParticleChunked
 from preprocessor.ingestion.formatter import Ingestor
-from orchestrator import TrainingBaseChunked
+from orchestrator import TrainingBase
 
 logger = logging.getLogger("orchestrator")
 
@@ -34,22 +34,31 @@ class TrainingBaseTask(law.Task):
 
         if self.config.device == "cpu":
             logger.warning("Running on CPU. This may be slow for large datasets.")
-
-        training_base = TrainingBaseChunked(
-            features_ingestor=Ingestor.read(
-                self.config.files_to_load,
-                format=self.config.filetype,
-                columns=self.config.features_columns,
-                reader_kwargs=self.config.dak_reader_kwargs,
-                max_number_events=self.config.max_number_events,
-            ),
-            labels_ingestor=Ingestor.read(
-                self.config.files_to_load,
-                format=self.config.filetype,
-                columns=self.config.labels_columns,
-                reader_kwargs=self.config.dak_reader_kwargs,
-                max_number_events=self.config.max_number_events,
-            ),
+        
+        features_ingestor = Ingestor.read(
+            self.config.files_to_load,
+            format=self.config.filetype,
+            columns=self.config.features_columns,
+            reader_kwargs=self.config.dak_reader_kwargs,
+            max_number_events=self.config.max_number_events,
+        )
+        labels_ingestor = Ingestor.read(
+            self.config.files_to_load,
+            format=self.config.filetype,
+            columns=self.config.labels_columns,
+            reader_kwargs=self.config.dak_reader_kwargs,
+            max_number_events=self.config.max_number_events,
+        )
+        dataset = ParticleChunked(
+            features=features_ingestor.arrays_dict,
+            labels=labels_ingestor.arrays_dict,
+            chunk_size=self.config.chunk_size,
+            shuffle_chunks=self.config.shuffle_chunks,
+            shuffle_events=self.config.shuffle_events,
+            random_seed=self.config.random_seed,
+        )
+        training_base = TrainingBase(
+            dataset=dataset,
             config=self.config,
             tensor_board_log_dir=self.output()["logs"].path,
         )

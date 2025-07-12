@@ -4,9 +4,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import Adam
 
-from preprocessor.ingestion import Ingestor
 from ml.utils import MLConfig
-from ml.data import ParticleDatasetBase
+from ml.data import ParticleBase
 from ml.utils import timing
 from ml.utils import log_progress
 from ml.models.model.transformer import MockTransformer
@@ -17,22 +16,14 @@ logger = logging.getLogger("ml")
 class TrainingBase:
     def __init__(
             self,
-            features_ingestor: Ingestor,
-            labels_ingestor: Ingestor,
+            dataset: ParticleBase,
             config: MLConfig = MLConfig(),
             tensor_board_log_dir: str | None = None,
     ):
         self.config = config
-        self.features_ingestor = features_ingestor
-        self.labels_ingestor = labels_ingestor
+        self.dataset = dataset
         self.tensor_board_writer = SummaryWriter(log_dir=tensor_board_log_dir) if tensor_board_log_dir else None
-
-    def prepare_dataset(self) -> None:
-        self.dataset = ParticleDatasetBase(
-            features=self.features_ingestor.arrays_dict,
-            labels=self.labels_ingestor.arrays_dict,
-        )
-
+        
     def count_parameters(self, model: torch.nn.Module) -> int:
         """
         Count the number of parameters in model
@@ -85,7 +76,7 @@ class TrainingBase:
         self.dataloader = DataLoader(
             self.dataset,
             batch_size=self.config.batch_size,
-            shuffle=True,
+            shuffle=self.dataset.SHUFFLE_ALLOWED,
         )
         epoch_loss = 0.0
 
@@ -140,7 +131,6 @@ class TrainingBase:
         train_loss_list = []
         validation_loss_list = []
 
-        self.prepare_dataset()
         self.prepare_model()
 
         for epoch in range(self.config.total_epoch):

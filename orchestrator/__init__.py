@@ -1,10 +1,10 @@
 from preprocessor.utils import ColorFormatter
-from orchestrator.train_chunked import TrainingBaseChunked
+from orchestrator.train import TrainingBase
 
 
 orchestrator_logger = ColorFormatter.get_new_logger("orchestrator")
 
 
 __all__ = [
-    "TrainingBaseChunked",
+    "TrainingBase",
 ]
