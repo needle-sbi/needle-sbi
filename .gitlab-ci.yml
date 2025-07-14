@@ -1,0 +1,38 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  SIF_DEV_NAME: "needle.sif"
+  SIF_BASE_NAME: "needle-base.sif"
+
+build_singularity_images:
+  stage: build
+  tags:
+    - shell
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "main"'
+  script:
+    - echo "Building Singularity image..."
+    - singularity build -F $SIF_BASE_NAME singularity_base.def
+    - singularity build -F $SIF_DEV_NAME singularity_dev.def
+  artifacts:
+    paths:
+      - $SIF_DEV_NAME
+      - $SIF_BASE_NAME
+
+test_singularity_images:
+  stage: test
+  tags:
+    - shell
+  needs:
+    - build_singularity_images
+  script:
+    - echo "Testing Singularity image..."
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "main"'
+  script:
+    - singularity run $SIF_DEV_NAME pytest ml/tests
