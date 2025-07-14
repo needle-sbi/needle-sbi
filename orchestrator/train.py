@@ -99,6 +99,7 @@ class TrainingBase:
 
         return epoch_loss / len(self.dataloader)
 
+    @timing
     def _validate_single_epoch(self) -> float:
         """
         Validate the model for a single epoch.
@@ -134,7 +135,7 @@ class TrainingBase:
         self.prepare_model()
 
         for epoch in range(self.config.total_epoch):
-            
+
             train_loss = self._train_single_epoch()
             validation_loss = self._validate_single_epoch()
 
