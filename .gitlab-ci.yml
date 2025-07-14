@@ -31,8 +31,7 @@ test_singularity_images:
     - build_singularity_images
   script:
     - echo "Testing Singularity image..."
+    - singularity run $SIF_DEV_NAME pytest ml/tests
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "main"'
-  script:
-    - singularity run $SIF_DEV_NAME pytest ml/tests
