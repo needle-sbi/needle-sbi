@@ -16,12 +16,20 @@
 
 ## Setup
 
- 1. Create the python environment using the `requirements.txt` file. This is an early development stage, therefore we do not ship a finished environment yet
- 2. In order to use the [law](https://github.com/riga/law) workflow manager, run
+ 1. Installing the required python libraries
+      - **Option A**: Create the python environment using the `requirements.txt` file. This gives you full control over your libraries
+      - **Option B**: Run your code inside our `needle.sif` singularity container image. The required libraries are already installed in the container.
+         - If you are only using `singulariy run`, you may skip step 2, as that is performed automatically within the runscript of the container.
+          - For `singularity exec` and `singularity shell`, you still need to set up the environment using step 2.
+ 2. Setting up LAW:
+
+    In order to use the [law](https://github.com/riga/law) workflow manager, run
 
     ```bash
-    law index
+    source setup.sh  # sets up environment variables
+    law index  # looks for all available LAW tasks
     ```
+ 3. Running LAW tasks:
 
     This will allow you to run the workflow my calling the corresponding `law` Task from the command line with
 
