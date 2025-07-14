@@ -1,0 +1,17 @@
+Bootstrap: docker
+From: python:3.12-slim
+
+%post
+    apt-get update
+    apt-get install -y --no-install-recommends git
+    rm -rf /var/lib/apt/lists/*
+
+%files
+    requirements.txt /workspace/requirements.txt
+
+%post
+    pip install --no-cache-dir -r /workspace/requirements.txt
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
