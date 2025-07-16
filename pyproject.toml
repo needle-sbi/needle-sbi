@@ -24,6 +24,10 @@ check_untyped_defs = true
 disallow_untyped_defs = true
 ignore_missing_imports = false
 
+[[tool.mypy.overrides]]
+module = ["dask.*", "dask_awkward.*"]
+ignore_missing_imports = true
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

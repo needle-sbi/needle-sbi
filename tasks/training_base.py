@@ -50,10 +50,9 @@ class TrainingBaseTask(law.Task):
             max_number_events=self.config.max_number_events,
         )
         dataset = ParticleChunked(
-            features=features_ingestor.arrays_dict,
-            labels=labels_ingestor.arrays_dict,
-            chunk_size=self.config.chunk_size,
-            shuffle_chunks=self.config.shuffle_chunks,
+            features=features_ingestor.array,
+            labels=labels_ingestor.array,
+            shuffle_partitions=self.config.shuffle_partitions,
             shuffle_events=self.config.shuffle_events,
             random_seed=self.config.random_seed,
         )
