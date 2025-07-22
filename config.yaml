@@ -13,3 +13,4 @@ labels_columns: [
 max_number_events: 2400
 total_epoch: 20
 batch_size: 64
+num_workers: 4  # has to match the number of CPU cores made available by LAW

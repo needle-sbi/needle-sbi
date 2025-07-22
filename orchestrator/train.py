@@ -67,6 +67,10 @@ class TrainingBase:
         """
         return torch.nn.CrossEntropyLoss()
 
+    @property
+    def num_workers(self) -> int:
+        return self.config.num_workers if self.dataset.TORCH_MULTIPROCESSING_ALLOWED else 0
+
     @timing
     def _train_single_epoch(self) -> float:
         """
@@ -77,8 +81,10 @@ class TrainingBase:
             self.dataset,
             batch_size=self.config.batch_size,
             shuffle=self.dataset.SHUFFLE_ALLOWED,
+            num_workers=self.num_workers,
         )
         epoch_loss = 0.0
+        self.num_steps = len(self.dataloader)
 
         for i, (x, y) in enumerate(self.dataloader):
             self.optimizer.zero_grad()
@@ -151,7 +157,7 @@ class TrainingBase:
                 self.tensor_board_writer.add_scalar("Loss/train", train_loss, epoch)
                 self.tensor_board_writer.add_scalar("Loss/validation", validation_loss, epoch)
 
-            logger.info(f"Epoch {epoch + 1}/{self.config.total_epoch} complete | Best Loss: {best_validation_loss:.4f}")
+            logger.info(f"Epoch {epoch + 1}/{self.config.total_epoch} complete ({self.num_steps} steps / epoch) | Best Loss: {best_validation_loss:.4f}")
 
         return {
             "best_validation_loss": best_validation_loss,
