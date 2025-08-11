@@ -2,15 +2,23 @@
 
 ENV_NAME="NEEDLE"
 
+# colors
+
+NEEDLE_RED='\033[0;31m'
+NEEDLE_GREEN='\033[0;32m'
+NEEDLE_ORANGE='\033[0;33m'
+NEEDLE_NC='\033[0m' # No Color
+NEEDLE_BLUE='\033[0;34m'
+
 # Check if LAW package is available
 if ! command -v law &> /dev/null; then
-    echo -e "\033[0;33mThe package LAW not found, is your virtual environment active?\033[0m"
+    echo -e "${NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${NEEDLE_NC}"
     return 1
 fi
 
 # Check if the script was already sourced
 if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
-    echo -e "\033[0;32m$ENV_NAME environment is already active.\033[0;32m"
+    echo -e "${NEEDLE_GREEN}$ENV_NAME environment is already active.${NEEDLE_NC}"
     return 0
 fi
 
@@ -42,8 +50,10 @@ deactivate() {
     unset NEEDLE_ENV_ACTIVE
     unset -f deactivate
     unalias exit
-    echo -e "Exited $ENV_NAME environment"
+    echo -e "${NEEDLE_GREEN}Exited $ENV_NAME environment${NEEDLE_NC}"
     return 0
 }
 
 alias exit="deactivate"
+
+echo -e "${NEEDLE_GREEN}Activated $ENV_NAME environment. (Exit with 'exit' or 'deactivate')${NEEDLE_NC}"
