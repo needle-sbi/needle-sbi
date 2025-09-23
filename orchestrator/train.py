@@ -28,7 +28,7 @@ class TrainingBase:
         """
         Count the number of parameters in model
         """
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)  # type: ignore # TODO fix Error
 
     def prepare_model(self) -> None:
         """
@@ -157,7 +157,11 @@ class TrainingBase:
                 self.tensor_board_writer.add_scalar("Loss/train", train_loss, epoch)
                 self.tensor_board_writer.add_scalar("Loss/validation", validation_loss, epoch)
 
-            logger.info(f"Epoch {epoch + 1}/{self.config.total_epoch} complete ({self.num_steps} steps / epoch) | Best Loss: {best_validation_loss:.4f}")
+            n_chars = len(str(self.config.total_epoch))
+            logger.info(
+                f"Epoch {(epoch + 1):{n_chars}d}/{self.config.total_epoch} complete ({self.num_steps} steps / epoch) | "
+                f"Best Loss: {best_validation_loss:.4f}"
+            )
 
         return {
             "best_validation_loss": best_validation_loss,
