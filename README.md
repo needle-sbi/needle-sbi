@@ -17,10 +17,21 @@
 ## Setup
 
  1. Installing the required python libraries
-      - **Option A**: Create the python environment using the `requirements.txt` file. This gives you full control over your libraries
-      - **Option B**: Run your code inside our `needle.sif` singularity container image. The required libraries are already installed in the container.
+      - **Option A**:
+         
+         Create the python environment using the `requirements.txt` file. This gives you full control over your libraries
+
+      - **Option B**:
+         
+         Run your code inside our `needle.sif` singularity container image. The required libraries are already installed in the container.
+         
+         To create the container from scratch, use the `singularity_dev.def` (with all files copied) or `singularity_base.df` (with only the dependencies installed). The def files are found in the container folder.
+
+         Running the container:
+
          - If you are only using `singularity run`, you may skip step 2, as that is performed automatically within the runscript of the container.
           - For `singularity exec` and `singularity shell`, you still need to set up the environment using step 2.
+
  2. Setting up LAW:
 
     In order to use the [law](https://github.com/riga/law) workflow manager, run
@@ -34,10 +45,19 @@
     This will allow you to run the workflow my calling the corresponding `law` Task from the command line with
 
     ```bash
-    law run tasks.<LawTask>
+    law run tasks.<LawTask>  # if not specified 'tasks' in law.cfg
+    law run TrainingBaseTask  # this default Task is already in law.cfg
     ``` 
 
     More information can be found on the `law` [documentation](https://law.readthedocs.io/en/latest/)
+
+## Pushing with submodules
+
+There are two submodules registered in the orchestrator repository. To automatically push changes made to these submodules when you push to orchestrator, use
+
+```bash
+git push --recurse-submodules=on-demand
+```
 
 ## Tensorboard
 
