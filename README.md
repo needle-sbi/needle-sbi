@@ -19,7 +19,7 @@
  1. Installing the required python libraries
       - **Option A**: Create the python environment using the `requirements.txt` file. This gives you full control over your libraries
       - **Option B**: Run your code inside our `needle.sif` singularity container image. The required libraries are already installed in the container.
-         - If you are only using `singulariy run`, you may skip step 2, as that is performed automatically within the runscript of the container.
+         - If you are only using `singularity run`, you may skip step 2, as that is performed automatically within the runscript of the container.
           - For `singularity exec` and `singularity shell`, you still need to set up the environment using step 2.
  2. Setting up LAW:
 

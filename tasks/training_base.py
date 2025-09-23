@@ -35,14 +35,14 @@ class TrainingBaseTask(law.Task):
         if self.config.device == "cpu":
             logger.warning("Running on CPU. This may be slow for large datasets.")
         
-        features_ingestor = Ingestor.read(
+        features_ingestor = Ingestor(
             self.config.files_to_load,
             format=self.config.filetype,
             columns=self.config.features_columns,
             reader_kwargs=self.config.dak_reader_kwargs,
             max_number_events=self.config.max_number_events,
         )
-        labels_ingestor = Ingestor.read(
+        labels_ingestor = Ingestor(
             self.config.files_to_load,
             format=self.config.filetype,
             columns=self.config.labels_columns,
