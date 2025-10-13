@@ -91,6 +91,7 @@ dependencies = [
     "pure-eval==0.2.3",
     "pyarrow==19.0.1",
     "pycodestyle==2.12.1",
+    "pydantic>=2.11.10",
     "pyflakes==3.2.0",
     "pygments==2.19.1",
     "pyparsing==3.2.3",
