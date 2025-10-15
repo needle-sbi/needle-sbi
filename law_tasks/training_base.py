@@ -4,7 +4,7 @@ import logging
 import law
 
 from ml.utils import MLConfig
-from ml.data import ParticleChunked
+from ml.data import ParticleChunked, ParticleBase
 from preprocessor.ingestion.formatter import Ingestor
 from orchestrator import TrainingBase
 
@@ -49,13 +49,19 @@ class TrainingBaseTask(law.Task):
             reader_kwargs=self.config.dak_reader_kwargs,
             max_number_events=self.config.max_number_events,
         )
-        dataset = ParticleChunked(
-            features=features_ingestor,
-            labels=labels_ingestor,
-            shuffle_partitions=self.config.shuffle_partitions,
-            shuffle_events=self.config.shuffle_events,
-            random_seed=self.config.random_seed,
-        )
+        if features_ingestor.length < self.config.dataset_parallelization_threshold:
+            dataset = ParticleBase(
+                features=features_ingestor,
+                labels=labels_ingestor,
+            )
+        else:
+            dataset = ParticleChunked(
+                features=features_ingestor,
+                labels=labels_ingestor,
+                shuffle_partitions=self.config.shuffle_partitions,
+                shuffle_events=self.config.shuffle_events,
+                random_seed=self.config.random_seed,
+            )
         training_base = TrainingBase(
             dataset=dataset,
             config=self.config,
