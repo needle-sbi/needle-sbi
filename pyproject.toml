@@ -127,8 +127,8 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-python_paths = ["."]
-testpaths = ["tests"]
+pythonpath = ["."]
+testpaths = ["tests", "preprocessor/tests"]
 addopts = "-ra --tb=short --disable-warnings"
 
 [tool.isort]
