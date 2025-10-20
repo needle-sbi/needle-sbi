@@ -4,7 +4,7 @@ Mixin classes for remote task executing. Currently supports:
 """
 import law
 
-law.contrib.load("htcondor")
+law.contrib.load("htcondor")  # type: ignore
 
 # Plan:
 # Just a simple mixin class that add HTCondor and maybe adjusts the outputs
@@ -12,7 +12,7 @@ law.contrib.load("htcondor")
 # Add a htcondor config for NAF
 
 
-class HTCondorMixin(law.htcondor.HTCondorWorkflow):
+class HTCondorMixin(law.htcondor.HTCondorWorkflow):  # type: ignore
 
     max_runtime = law.DurationParameter(
         default=60.0,

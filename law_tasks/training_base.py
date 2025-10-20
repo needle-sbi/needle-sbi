@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Dict, Any
 
 import law
 
@@ -23,47 +24,61 @@ class TrainingBaseTask(law.Task):
         significant=False,
     )
 
-    def output(self):
+    def output(self) -> Dict[str, Any]:
         return {
             "logs": law.LocalDirectoryTarget(f"{self.results_dir}/tensorboard_logs"),
             "outputs": law.LocalFileTarget(f"{self.results_dir}/training_output.json"),
         }
 
-    def run(self):
-        self.config = MLConfig.from_yaml(self.config_yaml, strict=True)  # type: ignore
+    @property
+    def config(self) -> MLConfig:
+        return MLConfig.from_yaml(str(self.config_yaml), strict=True)
 
-        if self.config.device == "cpu":
-            logger.warning("Running on CPU. This may be slow for large datasets.")
-        
-        features_ingestor = Ingestor(
+    @property
+    def features_ingestor(self) -> Ingestor:
+        return Ingestor(
             self.config.files_to_load,
             format=self.config.filetype,
             columns=self.config.features_columns,
             reader_kwargs=self.config.dak_reader_kwargs,
             max_number_events=self.config.max_number_events,
         )
-        labels_ingestor = Ingestor(
+
+    @property
+    def labels_ingestor(self) -> Ingestor:
+        return Ingestor(
             self.config.files_to_load,
             format=self.config.filetype,
             columns=self.config.labels_columns,
             reader_kwargs=self.config.dak_reader_kwargs,
             max_number_events=self.config.max_number_events,
         )
-        if features_ingestor.length < self.config.dataset_parallelization_threshold:
+    
+    @property
+    def dataset(self) -> ParticleBase | ParticleChunked:
+        if self.features_ingestor.length < self.config.dataset_parallelization_threshold:
             dataset = ParticleBase(
-                features=features_ingestor,
-                labels=labels_ingestor,
+                features=self.features_ingestor,
+                labels=self.labels_ingestor,
             )
         else:
             dataset = ParticleChunked(
-                features=features_ingestor,
-                labels=labels_ingestor,
+                features=self.features_ingestor,
+                labels=self.labels_ingestor,
                 shuffle_partitions=self.config.shuffle_partitions,
                 shuffle_events=self.config.shuffle_events,
                 random_seed=self.config.random_seed,
             )
+        return dataset
+
+    def warn_if_device_is_cpu(self):
+        if self.config.device == "cpu":
+            logger.warning("Running on CPU. This may be slow for large datasets.")
+
+    def run(self):
+        self.warn_if_device_is_cpu()
         training_base = TrainingBase(
-            dataset=dataset,
+            dataset=self.dataset,
             config=self.config,
             tensor_board_log_dir=self.output()["logs"].path,
         )
