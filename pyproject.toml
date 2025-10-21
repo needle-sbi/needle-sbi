@@ -146,3 +146,8 @@ ignore_missing_imports = false
 [[tool.mypy.overrides]]
 module = ["dask.*", "dask_awkward.*"]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "snakeviz>=2.2.2",
+]

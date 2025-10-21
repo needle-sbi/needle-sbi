@@ -71,7 +71,6 @@ class TrainingBase:
     def num_workers(self) -> int:
         return self.config.num_workers if self.dataset.TORCH_MULTIPROCESSING_ALLOWED else 0
 
-    @timing
     def _train_single_epoch(self) -> float:
         """
         Train the model for a single epoch.
@@ -105,7 +104,6 @@ class TrainingBase:
 
         return epoch_loss / len(self.dataloader)
 
-    @timing
     def _validate_single_epoch(self) -> float:
         """
         Validate the model for a single epoch.

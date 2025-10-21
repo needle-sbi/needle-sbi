@@ -86,3 +86,8 @@ class TrainingBaseTask(law.Task):
 
         with open(self.output()["outputs"].path, "w") as f:
             json.dump(outputs, f, indent=4)
+
+
+if __name__ == "__main__":
+    training_base = TrainingBaseTask()
+    training_base.run()

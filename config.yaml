@@ -5,6 +5,6 @@ files_to_load: [
 features_columns: ['PRI_lep_pt']
 labels_columns: ['PRI_n_jets']
 max_number_events: 100000
-total_epoch: 20
+total_epoch: 1
 batch_size: 64
 num_workers: 4  # has to match the number of CPU cores made available by LAW
