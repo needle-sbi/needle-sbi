@@ -1,4 +1,3 @@
-import logging
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -6,11 +5,11 @@ from torch.optim import Adam
 
 from ml.utils import MLConfig
 from ml.data import ParticleBase
-from ml.utils import timing
 from ml.utils import log_progress
 from ml.models.model.transformer import MockTransformer
+from preprocessor.utils.logging import ColorFormatter
 
-logger = logging.getLogger("ml")
+logger = ColorFormatter.get_logger("ml")
 
 
 class TrainingBase:
