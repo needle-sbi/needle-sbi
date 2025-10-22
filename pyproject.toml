@@ -143,6 +143,10 @@ check_untyped_defs = true
 disallow_untyped_defs = true
 ignore_missing_imports = false
 
+[tool.flake8]
+max_line_length = 120
+extend_ignore = ["E203", "W503"]
+
 [[tool.mypy.overrides]]
 module = ["dask.*", "dask_awkward.*"]
 ignore_missing_imports = true
@@ -150,6 +154,7 @@ ignore_missing_imports = true
 [tool.uv.workspace]
 members = [
     "preprocessor",
+    "ml",
 ]
 
 [dependency-groups]

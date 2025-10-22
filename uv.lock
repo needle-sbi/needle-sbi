@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "needle-orchestrator",
+    "preprocessor",
+]
+
 [[package]]
 name = "absl-py"
 version = "2.3.0"
@@ -1541,6 +1547,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/2a/13/b62d075317d868607
 wheels = [
     { url = "https://files.pythonhosted.org/packages/43/b3/df14c580d82b9627d173ceea305ba898dca135feb360b6d84019d0803d3b/pre_commit-4.1.0-py2.py3-none-any.whl", hash = "sha256:d29e7cb346295bcc1cc75fc3e92e343495e3ea0196c9ec6ba53f49f10ab6ae7b", size = 220560, upload-time = "2025-01-20T18:31:47.319Z" },
 ]
+
+[[package]]
+name = "preprocessor"
+version = "0.1.0"
+source = { virtual = "preprocessor" }
 
 [[package]]
 name = "prompt-toolkit"

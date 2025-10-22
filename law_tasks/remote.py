@@ -2,6 +2,7 @@
 Mixin classes for remote task executing. Currently supports:
  - HTCondor
 """
+
 import law
 
 law.contrib.load("htcondor")  # type: ignore
@@ -13,7 +14,6 @@ law.contrib.load("htcondor")  # type: ignore
 
 
 class HTCondorMixin(law.htcondor.HTCondorWorkflow):  # type: ignore
-
     max_runtime = law.DurationParameter(
         default=60.0,
         unit="min",
