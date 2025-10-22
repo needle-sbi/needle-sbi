@@ -1,23 +1,25 @@
 import json
-from typing import Dict, Any
+import os
+from pathlib import Path
+from typing import Any, Dict
 
 import law
 
+from ml.data import ParticleBase, ParticleChunked
 from ml.utils import MLConfig
-from ml.data import ParticleChunked, ParticleBase
+from orchestrator import TrainingBase
 from preprocessor.ingestion.formatter import Ingestor
 from preprocessor.utils.logging import ColorFormatter
-from orchestrator import TrainingBase
 
 logger = ColorFormatter.get_logger("orchestrator")
 
 
 class TrainingBaseTask(law.Task):
-
     config_yaml = law.Parameter(
-        description="Path to the YAML configuration file for the training.", default="config.yaml"
+        description="Path to the YAML configuration file for the training.",
+        default="config.yaml",
     )
-    results_dir = law.Parameter(
+    results_dir_path = law.Parameter(
         description="Directory where the training results will be saved.",
         default="runs",
         significant=False,
@@ -28,6 +30,10 @@ class TrainingBaseTask(law.Task):
             "logs": law.LocalDirectoryTarget(f"{self.results_dir}/tensorboard_logs"),
             "outputs": law.LocalFileTarget(f"{self.results_dir}/training_output.json"),
         }
+
+    @property
+    def results_dir(self) -> Path:
+        return os.path.abspath(self.results_dir_path)  # type: ignore
 
     @property
     def config(self) -> MLConfig:

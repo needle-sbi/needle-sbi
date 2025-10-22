@@ -3,22 +3,29 @@ Task for a single fold of the training.
 """
 
 import json
+
+import law
 import luigi
 
-from preprocessor.utils import ColorFormatter
 from law_tasks.training_base import TrainingBaseTask
-from orchestrator import TrainingBase
 from ml.data.padded_multiple_chunked import ParticleChunked
+from orchestrator import TrainingBase
+from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
 
 
 class FoldTask(TrainingBaseTask):
-
     fold = luigi.IntParameter(
         description="K-Fold index",
         significant=True,
     )
+
+    def output(self):
+        return {
+            "logs": law.LocalDirectoryTarget(f"{self.results_dir}/fold_{self.fold}/tensorboard_logs"),
+            "outputs": law.LocalFileTarget(f"{self.results_dir}/fold_{self.fold}/training_output.json"),
+        }
 
     def run(self):
         training_dataset = ParticleChunked(

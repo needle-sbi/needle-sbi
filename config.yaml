@@ -8,3 +8,4 @@ max_number_events: 100000
 total_epoch: 1
 batch_size: 64
 num_workers: 4  # has to match the number of CPU cores made available by LAW
+n_folds: 2
