@@ -1,5 +1,4 @@
 import json
-import logging
 from typing import Dict, Any
 
 import law
@@ -7,9 +6,10 @@ import law
 from ml.utils import MLConfig
 from ml.data import ParticleChunked, ParticleBase
 from preprocessor.ingestion.formatter import Ingestor
+from preprocessor.utils.logging import ColorFormatter
 from orchestrator import TrainingBase
 
-logger = logging.getLogger("orchestrator")
+logger = ColorFormatter.get_logger("orchestrator")
 
 
 class TrainingBaseTask(law.Task):
