@@ -1,6 +1,7 @@
 """
 Task for a single fold of the training.
 """
+
 import json
 import luigi
 
@@ -18,7 +19,7 @@ class FoldTask(TrainingBaseTask):
         description="K-Fold index",
         significant=True,
     )
-    
+
     def run(self):
         training_dataset = ParticleChunked(
             features=self.features_ingestor,
@@ -39,4 +40,3 @@ class FoldTask(TrainingBaseTask):
 
         with open(self.output()["outputs"].path, "w") as f:
             json.dump(outputs, f, indent=4)
-

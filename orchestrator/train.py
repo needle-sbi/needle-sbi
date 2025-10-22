@@ -14,15 +14,15 @@ logger = ColorFormatter.get_logger("ml")
 
 class TrainingBase:
     def __init__(
-            self,
-            dataset: ParticleBase,
-            config: MLConfig = MLConfig(),
-            tensor_board_log_dir: str | None = None,
+        self,
+        dataset: ParticleBase,
+        config: MLConfig = MLConfig(),
+        tensor_board_log_dir: str | None = None,
     ):
         self.config = config
         self.dataset = dataset
         self.tensor_board_writer = SummaryWriter(log_dir=tensor_board_log_dir) if tensor_board_log_dir else None
-        
+
     def count_parameters(self, model: torch.nn.Module) -> int:
         """
         Count the number of parameters in model
@@ -43,7 +43,7 @@ class TrainingBase:
             params=self.model.parameters(),
             lr=self.config.init_lr,
             weight_decay=self.config.weight_decay,
-            eps=self.config.adam_eps
+            eps=self.config.adam_eps,
         )
 
     @property

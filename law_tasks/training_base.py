@@ -15,8 +15,7 @@ logger = ColorFormatter.get_logger("orchestrator")
 class TrainingBaseTask(law.Task):
 
     config_yaml = law.Parameter(
-        description="Path to the YAML configuration file for the training.",
-        default="config.yaml"
+        description="Path to the YAML configuration file for the training.", default="config.yaml"
     )
     results_dir = law.Parameter(
         description="Directory where the training results will be saved.",
@@ -53,7 +52,7 @@ class TrainingBaseTask(law.Task):
             reader_kwargs=self.config.dak_reader_kwargs,
             max_number_events=self.config.max_number_events,
         )
-    
+
     @property
     def dataset(self) -> ParticleBase | ParticleChunked:
         if self.features_ingestor.length < self.config.dataset_parallelization_threshold:

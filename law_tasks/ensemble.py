@@ -1,6 +1,7 @@
 """
 Task for a single ensemble training, includes multiple folds.
 """
+
 import json
 import law
 import luigi
@@ -12,14 +13,13 @@ logger = ColorFormatter.get_logger("ensemble")
 
 
 class EnsembleTask(law.Task):
-    
+
     num_folds = luigi.IntParameter(
         description="Number of folds in the ensemble.",
         default=10,
     )
     config_yaml = law.Parameter(
-        description="Path to the YAML configuration file for the training.",
-        default="config.yaml"
+        description="Path to the YAML configuration file for the training.", default="config.yaml"
     )
     results_dir = law.Parameter(
         description="Directory where the ensemble training results will be saved.",
@@ -39,9 +39,7 @@ class EnsembleTask(law.Task):
         ]
 
     def output(self):
-        return {
-            "outputs": law.LocalFileTarget(f"{self.results_dir}/ensemble_done.txt")
-        }
+        return {"outputs": law.LocalFileTarget(f"{self.results_dir}/ensemble_done.txt")}
 
     def run(self):
         with open(self.output()["outputs"].path, "w") as f:
