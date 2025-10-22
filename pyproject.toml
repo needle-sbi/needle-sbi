@@ -147,6 +147,11 @@ ignore_missing_imports = false
 module = ["dask.*", "dask_awkward.*"]
 ignore_missing_imports = true
 
+[tool.uv.workspace]
+members = [
+    "preprocessor",
+]
+
 [dependency-groups]
 dev = [
     "snakeviz>=2.2.2",
