@@ -2,7 +2,6 @@
 Task for a single ensemble training, includes multiple folds.
 """
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -11,6 +10,7 @@ import law
 
 from law_tasks.fold import FoldTask
 from ml.utils.config import MLConfig
+from orchestrator.results import EnsembleResults, FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("ensemble")
@@ -48,8 +48,13 @@ class EnsembleTask(law.Task):
         ]
 
     def output(self) -> Dict[str, Any]:
-        return {"outputs": law.LocalFileTarget(f"{self.results_dir}/ensemble_done.txt")}
+        return {"outputs": law.LocalFileTarget(f"{self.results_dir}/ensemble_results.json")}
 
     def run(self):
-        with open(self.output()["outputs"].path, "w") as f:
-            json.dump("done", f, indent=4)
+        ensemble_results = EnsembleResults()
+
+        for fold_outputs in self.input():
+            fold_result = FoldResults.from_json(fold_outputs["outputs"].path)
+            ensemble_results.folds.append(fold_result)
+
+        ensemble_results.to_json(self.output()["outputs"].path)

@@ -93,7 +93,10 @@ class TrainingBaseTask(law.Task):
             logger.warning("Running on CPU. This may be slow for large datasets.")
 
     def run(self):
-        """Simple implementation for testing."""
+        """Simple implementation for testing.
+
+        Should be overridden in derived classes.
+        """
         self.warn_if_device_is_cpu()
         training_base = TrainingBase(
             training_dataset=self.training_dataset,
@@ -102,9 +105,7 @@ class TrainingBaseTask(law.Task):
             tensor_board_log_dir=self.output()["logs"].path,
         )
         outputs = training_base.train()
-
-        with open(self.output()["outputs"].path, "w") as f:
-            json.dump(outputs, f, indent=4)
+        outputs.to_json(self.output()["outputs"].path)
 
 
 if __name__ == "__main__":

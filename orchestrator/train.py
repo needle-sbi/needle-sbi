@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from ml.data import ParticleBase
 from ml.models.model.transformer import MockTransformer
 from ml.utils import MLConfig, log_progress
+from orchestrator.results import TrainingResults
 from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("ml")
@@ -72,9 +73,10 @@ class TrainingBase:
         """
         Whether to use torch's multiprocessing to load data into memory.
 
-        NOTE Since this clashes with dask's multiprocessing, we have to make sure the datasets are compatible with torch.
+        NOTE Since this clashes with dask's multiprocessing, we have to make sure the datasets are compatible
+        with torch.
 
-        TODO Might want to separate training and validation if for some reason one cannot be ran on multiple workers.
+        TODO Might want to separate training and validation if for some reason one cannot be run on multiple workers.
         """
         use_torch_multiprocessing = (
             self.training_dataset.TORCH_MULTIPROCESSING_ALLOWED
@@ -136,7 +138,7 @@ class TrainingBase:
 
         return epoch_loss / len(self.dataloader)
 
-    def train(self) -> dict:
+    def train(self) -> TrainingResults:
         """
         Train the model from start to finish
         """
@@ -169,6 +171,6 @@ class TrainingBase:
                 f"Best Loss: {best_validation_loss:.4f}"
             )
 
-        return {
-            "best_validation_loss": best_validation_loss,
-        }
+        return TrainingResults(
+            best_validation_loss=best_validation_loss,
+        )

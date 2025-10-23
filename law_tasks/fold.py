@@ -2,14 +2,13 @@
 Task for a single fold of the training.
 """
 
-import json
-
 import law
 import luigi
 
 from law_tasks.training_base import TrainingBaseTask
 from ml.data.padded_multiple_chunked import ParticleChunked
 from orchestrator import TrainingBase
+from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
@@ -61,7 +60,10 @@ class FoldTask(TrainingBaseTask):
             config=self.config,
             tensor_board_log_dir=self.output()["logs"].path,
         )
-        outputs = training_base.train()
-
-        with open(self.output()["outputs"].path, "w") as f:
-            json.dump(outputs, f, indent=4)
+        training_outputs = training_base.train()
+        fold_outputs = FoldResults(
+            **training_outputs.asdict(),
+            fold_index=self.fold,  # type: ignore
+            n_folds=self.config.n_folds,
+        )
+        fold_outputs.to_json(self.output()["outputs"].path)

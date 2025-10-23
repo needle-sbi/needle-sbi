@@ -1,7 +1,7 @@
 """Test a simple run of the whole pipeline
 """
-import importlib
 import os
+from importlib.util import find_spec
 from pathlib import Path
 
 import pytest
@@ -9,7 +9,7 @@ import pytest
 from law_tasks.training_base import TrainingBaseTask
 from ml.utils.config import MLConfig
 
-if importlib.util.find_spec("preprocessor"):  # type: ignore
+if find_spec("preprocessor"):
     pytest_plugins = ["preprocessor.tests.conftest"]
 
 
