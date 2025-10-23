@@ -1,12 +1,11 @@
 import torch
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim import Adam
 
-from ml.utils import MLConfig
 from ml.data import ParticleBase
-from ml.utils import log_progress
 from ml.models.model.transformer import MockTransformer
+from ml.utils import MLConfig, log_progress
 from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("ml")
@@ -15,12 +14,14 @@ logger = ColorFormatter.get_logger("ml")
 class TrainingBase:
     def __init__(
         self,
-        dataset: ParticleBase,
+        training_dataset: ParticleBase,
+        validation_dataset: ParticleBase,
         config: MLConfig = MLConfig(),
         tensor_board_log_dir: str | None = None,
     ):
         self.config = config
-        self.dataset = dataset
+        self.training_dataset = training_dataset
+        self.validation_dataset = validation_dataset
         self.tensor_board_writer = SummaryWriter(log_dir=tensor_board_log_dir) if tensor_board_log_dir else None
 
     def count_parameters(self, model: torch.nn.Module) -> int:
@@ -34,7 +35,7 @@ class TrainingBase:
         Prepare the model for training
         """
         self.model = MockTransformer(
-            num_features=len(self.dataset.feature_names),
+            num_features=len(self.training_dataset.feature_names),
         ).to(self.config.device)
 
         logger.info(f"Model initialized with {self.count_parameters(self.model):,} trainable parameters")
@@ -68,7 +69,18 @@ class TrainingBase:
 
     @property
     def num_workers(self) -> int:
-        return self.config.num_workers if self.dataset.TORCH_MULTIPROCESSING_ALLOWED else 0
+        """
+        Whether to use torch's multiprocessing to load data into memory.
+
+        NOTE Since this clashes with dask's multiprocessing, we have to make sure the datasets are compatible with torch.
+
+        TODO Might want to separate training and validation if for some reason one cannot be ran on multiple workers.
+        """
+        use_torch_multiprocessing = (
+            self.training_dataset.TORCH_MULTIPROCESSING_ALLOWED
+            and self.validation_dataset.TORCH_MULTIPROCESSING_ALLOWED
+        )
+        return self.config.num_workers if use_torch_multiprocessing else 0
 
     def _train_single_epoch(self) -> float:
         """
@@ -76,9 +88,9 @@ class TrainingBase:
         """
         self.model.train()
         self.dataloader = DataLoader(
-            self.dataset,
+            self.training_dataset,
             batch_size=self.config.batch_size,
-            shuffle=self.dataset.SHUFFLE_ALLOWED,
+            shuffle=self.training_dataset.SHUFFLE_ALLOWED,
             num_workers=self.num_workers,
         )
         epoch_loss = 0.0
@@ -96,8 +108,8 @@ class TrainingBase:
             epoch_loss += loss.item()
 
             log_progress(
-                step=i + 1,
-                total_steps=int(len(self.dataloader) / self.config.batch_size) + 1,
+                step=i,
+                total_steps=int(len(self.dataloader) / self.config.batch_size),
                 loss=loss,
             )
 
@@ -106,12 +118,10 @@ class TrainingBase:
     def _validate_single_epoch(self) -> float:
         """
         Validate the model for a single epoch.
-
-        NOTE Currently validation occurs on the training dataset.
         """
         self.model.eval()
         self.dataloader = DataLoader(
-            self.dataset,
+            self.validation_dataset,
             batch_size=self.config.batch_size,
             shuffle=False,
         )
@@ -138,7 +148,6 @@ class TrainingBase:
         self.prepare_model()
 
         for epoch in range(self.config.total_epoch):
-
             train_loss = self._train_single_epoch()
             validation_loss = self._validate_single_epoch()
 

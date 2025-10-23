@@ -5,6 +5,8 @@ NOTE This Task is called EnsembleTask but it wraps the k-fold Training Tasks, wh
 use if in this test. Once the EnsembleTask has more functionality than just calling several
 FoldTasks, we can refactor this test.
 """
+from pathlib import Path
+
 import pytest
 
 from law_tasks.ensemble import EnsembleTask
@@ -14,6 +16,7 @@ from ml.utils.config import MLConfig
 @pytest.mark.law
 def test_kfold_training(
     config_yaml: str,
+    tmp_path: Path,
 ):
     config = MLConfig.from_yaml(config_yaml)
     config.n_folds = 2
@@ -21,4 +24,5 @@ def test_kfold_training(
 
     ensemble = EnsembleTask()
     ensemble.config_yaml = config_yaml  # type: ignore
-    assert ensemble.law_run(remove_output=[2, "a", "y"])
+    ensemble.results_dir_path = tmp_path  # type: ignore
+    assert ensemble.law_run()

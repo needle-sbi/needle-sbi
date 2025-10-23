@@ -27,8 +27,9 @@ class FoldTask(TrainingBaseTask):
             "outputs": law.LocalFileTarget(f"{self.results_dir}/fold_{self.fold}/training_output.json"),
         }
 
-    def run(self):
-        training_dataset = ParticleChunked(
+    @property
+    def training_dataset(self) -> ParticleChunked:
+        return ParticleChunked(
             features=self.features_ingestor,
             labels=self.labels_ingestor,
             shuffle_partitions=self.config.shuffle_partitions,
@@ -38,8 +39,25 @@ class FoldTask(TrainingBaseTask):
             fold_index=self.fold,
             n_folds=self.config.n_folds,
         )
+
+    @property
+    def validation_dataset(self) -> ParticleChunked:
+        return ParticleChunked(
+            features=self.features_ingestor,
+            labels=self.labels_ingestor,
+            shuffle_partitions=self.config.shuffle_partitions,
+            shuffle_events=self.config.shuffle_events,
+            random_seed=self.config.random_seed,
+            is_training=False,
+            fold_index=self.fold,
+            n_folds=self.config.n_folds,
+        )
+
+    def run(self):
+        self.warn_if_device_is_cpu()
         training_base = TrainingBase(
-            dataset=training_dataset,
+            training_dataset=self.training_dataset,
+            validation_dataset=self.validation_dataset,
             config=self.config,
             tensor_board_log_dir=self.output()["logs"].path,
         )

@@ -47,3 +47,14 @@ def test_training_base_task_single_epoch_fair_universe(
     training_base = TrainingBaseTask()
     training_base.config_yaml = config_yaml  # type: ignore
     training_base.law_run()
+
+
+def test_training_base_task_require_run_implementation_in_subclass():
+    with pytest.raises(TypeError):
+
+        class SubClassWrong(TrainingBaseTask):
+            pass
+
+    class SubClassCorrect(TrainingBaseTask):
+        def run(self):
+            pass

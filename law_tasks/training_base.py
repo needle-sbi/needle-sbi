@@ -15,6 +15,13 @@ logger = ColorFormatter.get_logger("orchestrator")
 
 
 class TrainingBaseTask(law.Task):
+    def __init_subclass__(cls, **kwargs):
+        if "run" not in cls.__dict__:
+            raise TypeError(
+                "Classes inheriting from TrainingBaseTask must implement their "
+                "own 'run()', as law will otherwise not resolve dependencies correctly."
+            )
+
     config_yaml = law.Parameter(
         description="Path to the YAML configuration file for the training.",
         default="config.yaml",
@@ -60,7 +67,7 @@ class TrainingBaseTask(law.Task):
         )
 
     @property
-    def dataset(self) -> ParticleBase | ParticleChunked:
+    def training_dataset(self) -> ParticleBase | ParticleChunked:
         if self.features_ingestor.length < self.config.dataset_parallelization_threshold:
             dataset = ParticleBase(
                 features=self.features_ingestor,
@@ -76,14 +83,21 @@ class TrainingBaseTask(law.Task):
             )
         return dataset
 
+    @property
+    def validation_dataset(self) -> ParticleBase | ParticleChunked:
+        """Placeholder for actual implementations of the validation dataset."""
+        return self.training_dataset
+
     def warn_if_device_is_cpu(self):
         if self.config.device == "cpu":
             logger.warning("Running on CPU. This may be slow for large datasets.")
 
     def run(self):
+        """Simple implementation for testing."""
         self.warn_if_device_is_cpu()
         training_base = TrainingBase(
-            dataset=self.dataset,
+            training_dataset=self.training_dataset,
+            validation_dataset=self.validation_dataset,
             config=self.config,
             tensor_board_log_dir=self.output()["logs"].path,
         )
@@ -95,4 +109,4 @@ class TrainingBaseTask(law.Task):
 
 if __name__ == "__main__":
     training_base = TrainingBaseTask()
-    training_base.run()
+    training_base.law_run()
