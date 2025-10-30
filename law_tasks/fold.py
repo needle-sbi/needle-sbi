@@ -8,17 +8,25 @@ import luigi
 from law_tasks.training_base import TrainingBaseTask
 from ml.data.kfold import KFold
 from ml.data.padded_multiple_chunked import ParticleChunked
+from ml.data.padded_multiple_dask import ParticleDaskChunked
 from orchestrator import TrainingBase
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
 
+type ChunkedDataset = ParticleChunked | ParticleDaskChunked
+
 
 class FoldTask(TrainingBaseTask):
     fold = luigi.IntParameter(
         description="K-Fold index",
         significant=True,
+    )
+    multiprocessing_type = law.Parameter(
+        description="Which multiprocessing library to use, options are `dask` and `torch`",
+        significant=False,
+        default="torch",
     )
 
     def output(self):
@@ -27,15 +35,28 @@ class FoldTask(TrainingBaseTask):
             "outputs": law.LocalFileTarget(f"{self.results_dir}/fold_{self.fold}/training_output.json"),
         }
 
+    def get_dataset_type(self) -> type[ChunkedDataset]:
+        allowed_types = ["dask", "torch"]
+        m_type = str(self.multiprocessing_type)
+
+        match m_type:
+            case "dask":
+                return ParticleDaskChunked
+            case "torch":
+                return ParticleChunked
+            case _:
+                raise ValueError(f"Parameter 'multiprocessing_type' must from {allowed_types} but is {m_type}")
+
     @property
-    def training_dataset(self) -> ParticleChunked:
+    def training_dataset(self) -> ChunkedDataset:
         kfold = KFold(
             fold_index=self.fold,  # type: ignore
             n_folds=self.config.n_folds,
             is_training=True,
             divisions=self.features_ingestor.array.divisions,
         )
-        return ParticleChunked(
+        Dataset = self.get_dataset_type()
+        return Dataset(
             features=self.features_ingestor,
             labels=self.labels_ingestor,
             shuffle_partitions=self.config.shuffle_partitions,
@@ -45,14 +66,15 @@ class FoldTask(TrainingBaseTask):
         )
 
     @property
-    def validation_dataset(self) -> ParticleChunked:
+    def validation_dataset(self) -> ChunkedDataset:
         kfold = KFold(
             fold_index=self.fold,  # type: ignore
             n_folds=self.config.n_folds,
             is_training=False,
             divisions=self.features_ingestor.array.divisions,
         )
-        return ParticleChunked(
+        Dataset = self.get_dataset_type()
+        return Dataset(
             features=self.features_ingestor,
             labels=self.labels_ingestor,
             shuffle_partitions=self.config.shuffle_partitions,

@@ -27,6 +27,11 @@ class EnsembleTask(law.Task):
         default="runs/ensembles",
         significant=False,
     )
+    multiprocessing_type = law.Parameter(
+        description="Which multiprocessing library to use, options are `dask` and `torch`",
+        significant=False,
+        default="torch",
+    )
 
     @property
     def results_dir(self) -> Path:
@@ -43,6 +48,7 @@ class EnsembleTask(law.Task):
                 fold=i,
                 config_yaml=self.config_yaml,
                 results_dir_path=self.results_dir,
+                multiprocessing_type=self.multiprocessing_type,
             )
             for i in range(self.config.n_folds)
         ]
