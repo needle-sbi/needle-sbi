@@ -12,7 +12,8 @@ class TrainingResults(SerializableDataclass):
 
 
 @dataclass
-class FoldResults(TrainingResults):
+class FoldResults(SerializableDataclass):
+    best_validation_loss: float
     fold_index: int
     n_folds: int
 

@@ -6,6 +6,7 @@ import law
 import luigi
 
 from law_tasks.training_base import TrainingBaseTask
+from ml.data.kfold import KFold
 from ml.data.padded_multiple_chunked import ParticleChunked
 from orchestrator import TrainingBase
 from orchestrator.results import FoldResults
@@ -28,28 +29,36 @@ class FoldTask(TrainingBaseTask):
 
     @property
     def training_dataset(self) -> ParticleChunked:
+        kfold = KFold(
+            fold_index=self.fold,  # type: ignore
+            n_folds=self.config.n_folds,
+            is_training=True,
+            divisions=self.features_ingestor.array.divisions,
+        )
         return ParticleChunked(
             features=self.features_ingestor,
             labels=self.labels_ingestor,
             shuffle_partitions=self.config.shuffle_partitions,
             shuffle_events=self.config.shuffle_events,
             random_seed=self.config.random_seed,
-            is_training=True,
-            fold_index=self.fold,
-            n_folds=self.config.n_folds,
+            kfold=kfold,
         )
 
     @property
     def validation_dataset(self) -> ParticleChunked:
+        kfold = KFold(
+            fold_index=self.fold,  # type: ignore
+            n_folds=self.config.n_folds,
+            is_training=False,
+            divisions=self.features_ingestor.array.divisions,
+        )
         return ParticleChunked(
             features=self.features_ingestor,
             labels=self.labels_ingestor,
             shuffle_partitions=self.config.shuffle_partitions,
             shuffle_events=self.config.shuffle_events,
             random_seed=self.config.random_seed,
-            is_training=False,
-            fold_index=self.fold,
-            n_folds=self.config.n_folds,
+            kfold=kfold,
         )
 
     def run(self):
