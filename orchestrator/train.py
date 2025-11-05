@@ -13,6 +13,8 @@ logger = ColorFormatter.get_logger("ml")
 
 
 class TrainingBase:
+    model: torch.nn.Module
+
     def __init__(
         self,
         training_dataset: ParticleBase,

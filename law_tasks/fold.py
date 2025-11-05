@@ -6,10 +6,10 @@ import law
 import luigi
 
 from law_tasks.training_base import TrainingBaseTask
+from ml.data import ParticleChunked, ParticleDaskChunked
 from ml.data.kfold import KFold
-from ml.data.padded_multiple_chunked import ParticleChunked
-from ml.data.padded_multiple_dask import ParticleDaskChunked
 from orchestrator import TrainingBase
+from orchestrator.mlflow import log_to_mlflow
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
@@ -98,3 +98,10 @@ class FoldTask(TrainingBaseTask):
             n_folds=self.config.n_folds,
         )
         fold_outputs.to_json(self.output()["outputs"].path)
+        log_to_mlflow(
+            name=f"fold_{self.fold}",
+            config=self.config,
+            law_cli_args=dict(self.cli_args()),
+            results=fold_outputs,
+            model=training_base.model,
+        )
