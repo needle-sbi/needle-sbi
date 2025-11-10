@@ -6,7 +6,7 @@ import law
 import luigi
 
 from law_tasks.training_base import TrainingBaseTask
-from ml.data import ParticleChunked, ParticleDaskChunked
+from ml.data import PaddedTorchDataset, ParticleDaskChunked
 from ml.data.kfold import KFold
 from orchestrator import TrainingBase
 from orchestrator.mlflow import log_to_mlflow
@@ -15,7 +15,7 @@ from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
 
-type ChunkedDataset = ParticleChunked | ParticleDaskChunked
+type ChunkedDataset = PaddedTorchDataset | ParticleDaskChunked
 
 
 class FoldTask(TrainingBaseTask):
@@ -43,7 +43,7 @@ class FoldTask(TrainingBaseTask):
             case "dask":
                 return ParticleDaskChunked
             case "torch":
-                return ParticleChunked
+                return PaddedTorchDataset
             case _:
                 raise ValueError(f"Parameter 'multiprocessing_type' must from {allowed_types} but is {m_type}")
 

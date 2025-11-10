@@ -45,6 +45,7 @@ dependencies = [
     "jupyter-core==5.7.2",
     "kiwisolver==1.4.8",
     "law==0.1.20",
+    "lightning>=2.5.6",
     "locket==1.0.0",
     "lockfile==0.12.2",
     "luigi==3.6.0",
@@ -146,7 +147,7 @@ ignore_missing_imports = false
 
 [tool.flake8]
 max_line_length = 120
-extend_ignore = ["E203", "W503"]
+extend_ignore = ["E203", "W503", "E704"]
 
 [[tool.mypy.overrides]]
 module = ["dask.*", "dask_awkward.*"]

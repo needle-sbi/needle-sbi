@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 import law
 
-from ml.data import ParticleBase, ParticleChunked
+from ml.data import PaddedDatasetBase, PaddedTorchDataset
 from ml.utils import MLConfig
 from orchestrator import TrainingBase
 from preprocessor.ingestion.formatter import Ingestor
@@ -66,14 +66,14 @@ class TrainingBaseTask(law.Task):
         )
 
     @property
-    def training_dataset(self) -> ParticleBase | ParticleChunked:
+    def training_dataset(self) -> PaddedDatasetBase:
         if self.features_ingestor.length < self.config.dataset_parallelization_threshold:
-            dataset = ParticleBase(
+            dataset = PaddedDatasetBase(
                 features=self.features_ingestor,
                 labels=self.labels_ingestor,
             )
         else:
-            dataset = ParticleChunked(
+            dataset = PaddedTorchDataset(
                 features=self.features_ingestor,
                 labels=self.labels_ingestor,
                 shuffle_partitions=self.config.shuffle_partitions,
@@ -83,7 +83,7 @@ class TrainingBaseTask(law.Task):
         return dataset
 
     @property
-    def validation_dataset(self) -> ParticleBase | ParticleChunked:
+    def validation_dataset(self) -> PaddedDatasetBase:
         """Placeholder for actual implementations of the validation dataset."""
         return self.training_dataset
 

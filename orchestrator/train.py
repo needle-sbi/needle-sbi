@@ -3,7 +3,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from ml.data import ParticleBase
+from ml.data import PaddedDatasetBase
 from ml.models.model.transformer import MockTransformer
 from ml.utils import MLConfig, log_progress
 from orchestrator.results import TrainingResults
@@ -12,13 +12,43 @@ from preprocessor.utils.logging import ColorFormatter
 logger = ColorFormatter.get_logger("ml")
 
 
+class TrainingProtocol:
+    def __init__(
+        self,
+        training_dataset: PaddedDatasetBase,
+        validation_dataset: PaddedDatasetBase,
+        config: MLConfig,
+        tensor_board_log_dir: str = None,
+    ) -> None:
+        ...
+
+    def count_parameters(self, model: torch.nn.Module) -> int:
+        ...
+
+    def prepare_model(self) -> None:
+        ...
+
+    @property
+    def num_workers(self) -> int:
+        ...
+
+    def _train_single_epoch(self) -> float:
+        ...
+
+    def _validate_single_epoch(self) -> float:
+        ...
+
+    def train(self) -> TrainingResults:
+        ...
+
+
 class TrainingBase:
     model: torch.nn.Module
 
     def __init__(
         self,
-        training_dataset: ParticleBase,
-        validation_dataset: ParticleBase,
+        training_dataset: PaddedDatasetBase,
+        validation_dataset: PaddedDatasetBase,
         config: MLConfig = MLConfig(),
         tensor_board_log_dir: str | None = None,
     ):
