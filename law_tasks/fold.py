@@ -3,19 +3,16 @@ Task for a single fold of the training.
 """
 
 import law
+import lightning
 import luigi
 
 from law_tasks.training_base import TrainingBaseTask
-from ml.data import PaddedTorchDataset, ParticleDaskChunked
-from ml.data.kfold import KFold
-from orchestrator import TrainingBase
-from orchestrator.mlflow import log_to_mlflow
+from ml.lightning.mock_transformer import MockTransformerModule
+from ml.lightning.padded_datamodule import PaddedDataModule
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
-
-type ChunkedDataset = PaddedTorchDataset | ParticleDaskChunked
 
 
 class FoldTask(TrainingBaseTask):
@@ -35,73 +32,24 @@ class FoldTask(TrainingBaseTask):
             "outputs": law.LocalFileTarget(f"{self.results_dir}/fold_{self.fold}/training_output.json"),
         }
 
-    def get_dataset_type(self) -> type[ChunkedDataset]:
-        allowed_types = ["dask", "torch"]
-        m_type = str(self.multiprocessing_type)
-
-        match m_type:
-            case "dask":
-                return ParticleDaskChunked
-            case "torch":
-                return PaddedTorchDataset
-            case _:
-                raise ValueError(f"Parameter 'multiprocessing_type' must from {allowed_types} but is {m_type}")
-
-    @property
-    def training_dataset(self) -> ChunkedDataset:
-        kfold = KFold(
-            fold_index=self.fold,  # type: ignore
-            n_folds=self.config.n_folds,
-            is_training=True,
-            divisions=self.features_ingestor.array.divisions,
-        )
-        Dataset = self.get_dataset_type()
-        return Dataset(
-            features=self.features_ingestor,
-            labels=self.labels_ingestor,
-            shuffle_partitions=self.config.shuffle_partitions,
-            shuffle_events=self.config.shuffle_events,
-            random_seed=self.config.random_seed,
-            kfold=kfold,
-        )
-
-    @property
-    def validation_dataset(self) -> ChunkedDataset:
-        kfold = KFold(
-            fold_index=self.fold,  # type: ignore
-            n_folds=self.config.n_folds,
-            is_training=False,
-            divisions=self.features_ingestor.array.divisions,
-        )
-        Dataset = self.get_dataset_type()
-        return Dataset(
-            features=self.features_ingestor,
-            labels=self.labels_ingestor,
-            shuffle_partitions=self.config.shuffle_partitions,
-            shuffle_events=self.config.shuffle_events,
-            random_seed=self.config.random_seed,
-            kfold=kfold,
-        )
-
     def run(self):
         self.warn_if_device_is_cpu()
-        training_base = TrainingBase(
-            training_dataset=self.training_dataset,
-            validation_dataset=self.validation_dataset,
+        model = MockTransformerModule(
             config=self.config,
-            tensor_board_log_dir=self.output()["logs"].path,
+            tensor_board_log_dir=self.output().get("logs"),
         )
-        training_outputs = training_base.train()
-        fold_outputs = FoldResults(
-            **training_outputs.asdict(),
+        data_module = PaddedDataModule(
+            config=self.config,
+            fold_index=self.fold,  # type: ignore
+            multiprocessing_type=self.multiprocessing_type,  # type: ignore
+        )
+        trainer = lightning.Trainer(
+            max_epochs=self.config.total_epoch,
+        )
+        trainer.fit(model=model, datamodule=data_module)
+        fold_results = FoldResults(
+            **model.results.asdict(),
             fold_index=self.fold,  # type: ignore
             n_folds=self.config.n_folds,
         )
-        fold_outputs.to_json(self.output()["outputs"].path)
-        log_to_mlflow(
-            name=f"fold_{self.fold}",
-            config=self.config,
-            law_cli_args=dict(self.cli_args()),
-            results=fold_outputs,
-            model=training_base.model,
-        )
+        fold_results.to_json(self.output()["outputs"].path)
