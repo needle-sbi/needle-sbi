@@ -36,7 +36,7 @@ class FoldTask(TrainingBaseTask):
         self.warn_if_device_is_cpu()
         model = MockTransformerModule(
             config=self.config,
-            tensor_board_log_dir=self.output().get("logs"),
+            tensor_board_log_dir=self.output()["logs"].path,
         )
         data_module = PaddedDataModule(
             config=self.config,
