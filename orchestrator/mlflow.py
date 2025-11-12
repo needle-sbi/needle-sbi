@@ -5,13 +5,13 @@ from typing import Any
 import mlflow
 import torch
 
-from ml.utils.config import MLConfig
+from orchestrator.config import MainConfig
 from orchestrator.results import SerializableDataclass
 
 
 def log_to_mlflow(
     name: str,
-    config: MLConfig,
+    config: MainConfig,
     law_cli_args: dict[str, str],
     results: SerializableDataclass | dict[str, Any],
     model: torch.nn.Module,
