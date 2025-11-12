@@ -1,0 +1,4 @@
+paths: /ceph/kschmidt/needle/fair_universe/input_data/train/data/data.parquet
+features_columns: ['PRI_lep_pt']
+labels_columns: ['PRI_n_jets']
+max_number_events: 100000
