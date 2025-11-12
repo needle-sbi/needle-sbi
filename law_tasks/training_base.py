@@ -22,11 +22,7 @@ class TrainingBaseTask(law.Task, HydraMixin):
                 "own 'run()', as law will otherwise not resolve dependencies correctly."
             )
 
-    config_path = law.Parameter(
-        description="Path to the hydra conf folder for the training.",
-        default="conf",
-    )
-    results_dir_path = law.Parameter(
+    rel_results_path = law.Parameter(
         description="Directory where the training results will be saved.",
         default="runs",
         significant=False,
@@ -34,13 +30,13 @@ class TrainingBaseTask(law.Task, HydraMixin):
 
     def output(self) -> Dict[str, Any]:
         return {
-            "logs": law.LocalDirectoryTarget(f"{self.results_dir}/tensorboard_logs"),
-            "outputs": law.LocalFileTarget(f"{self.results_dir}/training_output.json"),
+            "logs": law.LocalDirectoryTarget(f"{self.abs_results_path}/tensorboard_logs"),
+            "outputs": law.LocalFileTarget(f"{self.abs_results_path}/training_output.json"),
         }
 
     @property
-    def results_dir(self) -> Path:
-        return os.path.abspath(self.results_dir_path)  # type: ignore
+    def abs_results_path(self) -> Path:
+        return os.path.abspath(self.rel_results_path)  # type: ignore
 
     def run(self):
         """Simple implementation for testing.

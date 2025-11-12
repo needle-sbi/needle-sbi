@@ -1,7 +1,6 @@
 """
 Task for a single ensemble training, includes multiple folds.
 """
-
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -17,40 +16,30 @@ logger = ColorFormatter.get_logger("ensemble")
 
 
 class EnsembleTask(law.Task, HydraMixin):
-    config_yaml = law.Parameter(
-        description="Path to the YAML configuration file for the training.",
-        default="config.yaml",
-        significant=True,
-    )
-    results_dir_path = law.Parameter(
+    rel_results_path = law.Parameter(
         description="Directory where the ensemble training results will be saved.",
         default="runs/ensembles",
         significant=False,
     )
-    multiprocessing_type = law.Parameter(
-        description="Which multiprocessing library to use, options are `dask` and `torch`",
-        significant=False,
-        default="torch",
-    )
-
-    @property
-    def results_dir(self) -> Path:
-        return os.path.abspath(self.results_dir_path)  # type: ignore
 
     def requires(self):
         return [
             FoldTask.req(
                 self,
-                fold=i,
-                config_yaml=self.config_yaml,
-                results_dir_path=self.results_dir,
-                multiprocessing_type=self.multiprocessing_type,
+                fold_index=i,
+                config_path=self.config_path,
+                rel_results_path=self.rel_results_path,
             )
             for i in range(self.config.n_folds)
         ]
 
     def output(self) -> Dict[str, Any]:
-        return {"outputs": law.LocalFileTarget(f"{self.results_dir}/ensemble_results.json")}
+        os.makedirs(self.abs_results_path, exist_ok=True)
+        return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/ensemble_results.json")}
+
+    @property
+    def abs_results_path(self) -> Path:
+        return os.path.abspath(self.rel_results_path)  # type: ignore
 
     def run(self):
         ensemble_results = EnsembleResults()

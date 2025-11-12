@@ -24,5 +24,5 @@ def test_kfold_training(
 
     ensemble = EnsembleTask()
     ensemble.config_yaml = config_yaml  # type: ignore
-    ensemble.results_dir_path = tmp_path  # type: ignore
+    ensemble.rel_results_path = tmp_path  # type: ignore
     assert ensemble.law_run()
