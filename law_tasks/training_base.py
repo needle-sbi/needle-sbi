@@ -6,16 +6,15 @@ import hydra
 import law
 import lightning
 from lightning.pytorch.loggers import MLFlowLogger
-from omegaconf import OmegaConf
 
-from orchestrator.config import MainConfig
+from law_tasks.mixins import HydraMixin
 from orchestrator.results import TrainingResults
 from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
 
 
-class TrainingBaseTask(law.Task):
+class TrainingBaseTask(law.Task, HydraMixin):
     def __init_subclass__(cls, **kwargs):
         if "run" not in cls.__dict__:
             raise TypeError(
@@ -42,11 +41,6 @@ class TrainingBaseTask(law.Task):
     @property
     def results_dir(self) -> Path:
         return os.path.abspath(self.results_dir_path)  # type: ignore
-
-    @property
-    def config(self) -> MainConfig:
-        with hydra.initialize(config_path=str(Path("..") / str(self.config_path))):
-            return OmegaConf.structured(hydra.compose(config_name="config"))
 
     def run(self):
         """Simple implementation for testing.

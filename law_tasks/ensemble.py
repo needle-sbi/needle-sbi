@@ -9,14 +9,14 @@ from typing import Any, Dict
 import law
 
 from law_tasks.fold import FoldTask
-from ml.utils.config import MLConfig
+from law_tasks.mixins import HydraMixin
 from orchestrator.results import EnsembleResults, FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("ensemble")
 
 
-class EnsembleTask(law.Task):
+class EnsembleTask(law.Task, HydraMixin):
     config_yaml = law.Parameter(
         description="Path to the YAML configuration file for the training.",
         default="config.yaml",
@@ -36,10 +36,6 @@ class EnsembleTask(law.Task):
     @property
     def results_dir(self) -> Path:
         return os.path.abspath(self.results_dir_path)  # type: ignore
-
-    @property
-    def config(self):
-        return MLConfig.from_yaml(self.config_yaml)  # type: ignore
 
     def requires(self):
         return [
