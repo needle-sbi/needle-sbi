@@ -10,19 +10,17 @@ from pathlib import Path
 import pytest
 
 from law_tasks.ensemble import EnsembleTask
-from ml.utils.config import MLConfig
+from orchestrator.config import MainConfig
 
 
 @pytest.mark.law
 def test_kfold_training(
-    config_yaml: str,
+    config: MainConfig,
     tmp_path: Path,
 ):
-    config = MLConfig.from_yaml(config_yaml)
     config.n_folds = 2
-    config.to_yaml(config_yaml)
 
     ensemble = EnsembleTask()
-    ensemble.config_yaml = config_yaml  # type: ignore
+    ensemble.config = config
     ensemble.rel_results_path = tmp_path  # type: ignore
     assert ensemble.law_run()

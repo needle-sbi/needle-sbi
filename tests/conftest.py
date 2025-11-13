@@ -1,9 +1,12 @@
 import os
 from pathlib import Path
+from typing import Callable
 
+import hydra
 import pytest
+from omegaconf import OmegaConf
 
-from ml.utils.config import MLConfig
+from orchestrator.config import MainConfig
 
 
 @pytest.fixture(scope="session")
@@ -23,32 +26,30 @@ def fair_universe_sample() -> str:
 
 
 @pytest.fixture
-def config_yaml(
-    tmp_path: Path,
-    request: pytest.FixtureRequest,
-) -> str:
+def simple_sample(request: pytest.FixtureRequest) -> str:
     pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
     from preprocessor.tests.conftest import ArrayField
 
     try:
-        make_parquet_file = request.getfixturevalue("make_parquet_file")
+        make_parquet_file: Callable = request.getfixturevalue("make_parquet_file")
     except pytest.FixtureLookupError:
         pytest.skip("Fixture 'make_parquet_file' from preprocessor could not be found")
 
     template = ArrayField(dtype=float, shape=(10000, 1, 1))
-    file = make_parquet_file(
+    file_path: str = make_parquet_file(
         columns={
             "Lepton": {"pt": template},
             "Jet": {"eta": template},
         },
         file_name="simple",
     )
+    return file_path
 
-    config = MLConfig()
-    config.files_to_load = [file]
-    config.total_epoch = 1
-    config.features_columns = ["Lepton.pt"]
-    config.labels_columns = ["Jet.eta"]
-    config_path = os.path.abspath(tmp_path / "config.yaml")
-    config.to_yaml(config_path)
-    return config_path
+
+@pytest.fixture
+def config() -> MainConfig:
+    with hydra.initialize(config_path="hydra_test_conf"):
+        config_dict = hydra.compose(config_name="config")
+        config: MainConfig = OmegaConf.structured(config_dict)
+
+    return config

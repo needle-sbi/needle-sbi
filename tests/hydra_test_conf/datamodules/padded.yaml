@@ -1,0 +1,4 @@
+_target_: ml.lightning.data.padded_datamodule.PaddedDataModule
+multiprocessing_type: torch
+batch_size: 1024
+n_folds: 10
