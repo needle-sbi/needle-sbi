@@ -27,7 +27,7 @@ class EnsembleTask(law.Task, HydraMixin):
             FoldTask.req(
                 self,
                 fold_index=i,
-                config_path=self.config_path,
+                config_file=self.config_file,
                 rel_results_path=self.rel_results_path,
             )
             for i in range(self.config.n_folds)

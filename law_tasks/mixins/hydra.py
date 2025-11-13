@@ -8,16 +8,28 @@ from orchestrator.config import MainConfig
 
 
 class HydraMixin:
-    config_path = law.Parameter(
+    config_file = law.Parameter(
         description="Path to config folder",
-        default="conf",
+        default="conf/config.yaml",
         significant=True,
     )
 
+    _config: MainConfig
+
     @property
     def config(self) -> MainConfig:
+        if hasattr(self, "_config"):
+            return self._config
+
+        config_file = Path(str(self.config_file))
+
         with hydra.initialize(
-            config_path=str(Path("../..") / str(self.config_path)),
+            config_path=str(Path("../..") / config_file.parent),
             version_base=None,
         ):
-            return OmegaConf.structured(hydra.compose(config_name="config"))
+            self._config = OmegaConf.structured(hydra.compose(config_name=str(config_file.stem)))
+            return self._config
+
+    @config.setter
+    def config(self, new_config: MainConfig):
+        self._config = new_config
