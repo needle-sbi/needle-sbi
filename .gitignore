@@ -8,3 +8,4 @@ runs
 *.prof
 mlruns*
 lightning_logs*
+*.log

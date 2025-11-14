@@ -1,8 +1,0 @@
-[2025-11-12 16:15:12,490][root][INFO] - Benchmarking PaddedEagerDataset with batch_size=32
-[2025-11-12 16:15:13,621][root][INFO] - Benchmarking PaddedTorchDataset with batch_size=32
-[2025-11-12 16:15:14,691][root][INFO] - Benchmarking ParticleDaskChunked with batch_size=32
-[2025-11-12 16:15:16,242][root][INFO] - Benchmarking PaddedEagerDataset with batch_size=64
-[2025-11-12 16:15:17,404][root][INFO] - Benchmarking PaddedTorchDataset with batch_size=64
-[2025-11-12 16:15:18,525][root][INFO] - Benchmarking ParticleDaskChunked with batch_size=64
-[2025-11-12 16:15:19,651][root][INFO] - Benchmarking PaddedEagerDataset with batch_size=128
-[2025-11-12 16:15:20,843][root][INFO] - Benchmarking PaddedTorchDataset with batch_size=128
