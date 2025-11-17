@@ -148,7 +148,7 @@ ignore_missing_imports = false
 
 [tool.flake8]
 max_line_length = 120
-extend_ignore = ["E203", "W503", "E704"]
+extend_ignore = ["E203", "W503", "E704", "E123", "W293"]
 
 [[tool.mypy.overrides]]
 module = ["dask.*", "dask_awkward.*"]
