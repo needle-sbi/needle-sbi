@@ -51,5 +51,6 @@ def config() -> MainConfig:
     with hydra.initialize(config_path="hydra_test_conf"):
         config_dict = hydra.compose(config_name="config")
         config: MainConfig = OmegaConf.structured(config_dict)
+        config.datasets.max_number_events = 1000
 
     return config

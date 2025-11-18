@@ -21,10 +21,12 @@ class HydraMixin:
         if hasattr(self, "_config"):
             return self._config
 
-        config_file = Path(str(self.config_file))
+        config_file = Path(str(self.config_file)).resolve()
 
-        with hydra.initialize(
-            config_path=str(Path("../..") / config_file.parent),
+        print(f"DEBUG {self=} {config_file=}")
+
+        with hydra.initialize_config_dir(
+            config_dir=str(config_file.parent),
             version_base=None,
         ):
             self._config = OmegaConf.structured(hydra.compose(config_name=str(config_file.stem)))
