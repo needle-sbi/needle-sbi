@@ -29,6 +29,8 @@ class TrainingBaseTask(law.Task, HydraMixin):
     )
 
     def output(self) -> Dict[str, Any]:
+        if not os.path.isdir(self.abs_results_path):
+            os.makedirs(self.abs_results_path, exist_ok=True)
         return {
             "logs": law.LocalDirectoryTarget(f"{self.abs_results_path}/tensorboard_logs"),
             "outputs": law.LocalFileTarget(f"{self.abs_results_path}/training_output.json"),
