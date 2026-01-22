@@ -134,6 +134,9 @@ dependencies = [
 pythonpath = ["."]
 testpaths = ["tests", "preprocessor/tests"]
 addopts = "-ra --tb=short --disable-warnings --benchmark-skip"
+markers = [
+    "slow",
+]
 
 [tool.isort]
 profile = "black"

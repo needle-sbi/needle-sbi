@@ -27,24 +27,39 @@ above.
 """
 
 from pathlib import Path
-from typing import Callable, List
+from typing import Annotated, Callable, List
 
 import pytest
+from pydantic import Field
 from pytest_benchmark.fixture import BenchmarkFixture
 
 from orchestrator.config import MainConfig
 
 pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
 from preprocessor.ingestion.formatter import Ingestor  # noqa: E402
+from preprocessor.utils.array import resolve_paths  # noqa: E402
 from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
+
+Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
 class BenchmarkUtility:
     COLUMN_MODES = {
-        "one",
-        "config",
-        "all",
+        pytest.param("one", id="columns=1"),
+        pytest.param("config", id="columns=config"),
+        pytest.param("all", id="columns=all"),
     }
+    FILE_PERCENTAGE = [
+        pytest.param(0.0, id="files=0%"),
+        pytest.param(10.0, id="files=10%", marks=pytest.mark.slow),
+        pytest.param(50.0, id="files=50%", marks=pytest.mark.slow),
+        pytest.param(100.0, id="files=100%", marks=pytest.mark.slow),
+    ]
+    NUM_EVENTS = [
+        pytest.param(10**3, id="events=1k"),
+        pytest.param(10**5, id="events=100k", marks=pytest.mark.slow),
+        pytest.param(10**7, id="events=10M", marks=pytest.mark.slow),
+    ]
 
     @staticmethod
     def get_column(column_mode: str, columns: List[str] | None) -> List[str] | None:
@@ -56,11 +71,15 @@ class BenchmarkUtility:
             case "all" | None:
                 return None
 
+    @staticmethod
+    def get_files(file_percentage: Percentage, paths: List[str]) -> List[str]:
+        return paths[: max(1, int(len(paths) * file_percentage))]
 
-def run_test(config: MainConfig) -> Callable:
+
+def run_test(config: MainConfig, paths: List[str]) -> Callable:
     def _run_test():
         ingestor = Ingestor(
-            paths=config.datasets.paths,
+            paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
@@ -71,47 +90,35 @@ def run_test(config: MainConfig) -> Callable:
     return _run_test
 
 
+@pytest.mark.parametrize("file_percentage", BenchmarkUtility.FILE_PERCENTAGE)
 @pytest.mark.parametrize("column_mode", BenchmarkUtility.COLUMN_MODES)
-def test_root_speed(
-    benchmark: BenchmarkFixture,
-    delphes_sample_root: str,
-    config_factory,
-    column_mode: str,
-) -> None:
-    config: MainConfig = config_factory(overrides=["datasets=delphes"])
-    config.datasets.features_columns = BenchmarkUtility.get_column(
-        column_mode=column_mode,
-        columns=config.datasets.features_columns,
-    )
-
-    if delphes_sample_root:
-        config.datasets.paths = delphes_sample_root
-    benchmark(run_test(config=config))
-
-
-@pytest.mark.parametrize("column_mode", BenchmarkUtility.COLUMN_MODES)
-def test_parquet_speed(
+@pytest.mark.parametrize("num_events", BenchmarkUtility.NUM_EVENTS)
+@pytest.mark.parametrize("file_type", ["root", "parquet"])
+def test_ingestion_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
     delphes_sample_parquet: str,
     config_factory,
     column_mode: str,
+    file_percentage: Percentage,
+    file_type: str,
+    num_events: int,
 ) -> None:
-    """Test the speed of reading from parquet files. Will first convert the dataset to parquet if not
-    already done.
-    """
-    convert_root_to_parquet(
-        delphes_sample_root,
-        Path(delphes_sample_parquet).parent,
-        drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
-    )
+    if file_type == "parquet":
+        convert_root_to_parquet(
+            delphes_sample_root,
+            Path(delphes_sample_parquet).parent,
+            drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
+        )
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
+    config.datasets.max_number_events = num_events
     config.datasets.features_columns = BenchmarkUtility.get_column(
         column_mode=column_mode,
         columns=config.datasets.features_columns,
     )
-
-    if delphes_sample_parquet:
-        config.datasets.paths = delphes_sample_parquet
-
-    benchmark(run_test(config=config))
+    paths_glob = delphes_sample_root or config.datasets.paths
+    paths = BenchmarkUtility.get_files(
+        file_percentage=file_percentage,
+        paths=resolve_paths(paths_glob),
+    )
+    benchmark(run_test(config=config, paths=paths))
