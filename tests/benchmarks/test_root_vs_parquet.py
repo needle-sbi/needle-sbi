@@ -89,11 +89,13 @@ def test_root_speed(
     benchmark(run_test(config=config))
 
 
+@pytest.mark.parametrize("column_mode", BenchmarkUtility.COLUMN_MODES)
 def test_parquet_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
     delphes_sample_parquet: str,
     config_factory,
+    column_mode: str,
 ) -> None:
     """Test the speed of reading from parquet files. Will first convert the dataset to parquet if not
     already done.
@@ -104,6 +106,10 @@ def test_parquet_speed(
         drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
     )
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
+    config.datasets.features_columns = BenchmarkUtility.get_column(
+        column_mode=column_mode,
+        columns=config.datasets.features_columns,
+    )
 
     if delphes_sample_parquet:
         config.datasets.paths = delphes_sample_parquet
