@@ -1,0 +1,24 @@
+paths: ""
+features_columns:
+  [
+    "Track.PID",
+    "Track.Charge",
+    "Track.P",
+    "Track.PT",
+    "Track.Eta",
+    "Track.Phi",
+    "Track.C",
+    "Track.Mass",
+  ]
+labels_columns:
+  [
+    "Photon.PT",
+    "Photon.Eta",
+    "Photon.Phi",
+    "Photon.E",
+    "Photon.T",
+    "Photon.EhadOverEem",
+    "Photon.Particles.fName",
+    "Photon.Particles.fSize",
+  ]
+max_number_events: -1

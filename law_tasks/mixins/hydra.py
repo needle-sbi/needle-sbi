@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import cast
 
 import hydra
 import law
@@ -25,7 +26,7 @@ class HydraMixin:
 
         >>> my_class = MyClass()
         >>> my_class.config_file = </path/to/conf/config.yaml>   # full file path (can be relative)
-    
+
         You can now change individual values inside the config, for example:
 
         >>> my_class.config.datasets.paths = <new_paths>
@@ -35,6 +36,7 @@ class HydraMixin:
         between Tasks. An alternative would be to save the updated config to file and send the path
         to downstream Tasks.
     """
+
     config_file = law.Parameter(
         description="Path to config folder",
         default="conf/config.yaml",
@@ -54,7 +56,9 @@ class HydraMixin:
             config_dir=str(config_file.parent),
             version_base=None,
         ):
-            self._config = OmegaConf.structured(hydra.compose(config_name=str(config_file.stem)))
+            cfg_dict = hydra.compose(config_name=str(config_file.stem))
+            cfg_defaults = OmegaConf.structured(MainConfig)
+            self._config = cast(MainConfig, OmegaConf.merge(cfg_defaults, cfg_dict))
             return self._config
 
     @config.setter
