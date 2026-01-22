@@ -27,7 +27,7 @@ above.
 """
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List
 
 import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
@@ -37,6 +37,24 @@ from orchestrator.config import MainConfig
 pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
 from preprocessor.ingestion.formatter import Ingestor  # noqa: E402
 from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
+
+
+class BenchmarkUtility:
+    COLUMN_MODES = {
+        "one",
+        "config",
+        "all",
+    }
+
+    @staticmethod
+    def get_column(column_mode: str, columns: List[str] | None) -> List[str] | None:
+        match column_mode:
+            case "one":
+                return [columns[0]] if columns else None
+            case "config":
+                return columns
+            case "all" | None:
+                return None
 
 
 def run_test(config: MainConfig) -> Callable:
@@ -53,12 +71,18 @@ def run_test(config: MainConfig) -> Callable:
     return _run_test
 
 
+@pytest.mark.parametrize("column_mode", BenchmarkUtility.COLUMN_MODES)
 def test_root_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
     config_factory,
+    column_mode: str,
 ) -> None:
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
+    config.datasets.features_columns = BenchmarkUtility.get_column(
+        column_mode=column_mode,
+        columns=config.datasets.features_columns,
+    )
 
     if delphes_sample_root:
         config.datasets.paths = delphes_sample_root
