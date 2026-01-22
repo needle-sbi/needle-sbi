@@ -3,8 +3,8 @@
 from importlib.util import find_spec
 from pathlib import Path
 
-import pytest
 import omegaconf
+import pytest
 
 from law_tasks.training_base import TrainingBaseTask
 from orchestrator.config import MainConfig
@@ -22,14 +22,14 @@ def test_training_base_task_single_epoch(
     datasets: str,
 ):
     if datasets == "simple":
-        config.datasets.paths = simple_sample
+        config.datasets.paths = list(simple_sample)
         config.datasets.features_columns = ["Lepton.pt"]
         config.datasets.labels_columns = ["Jet.eta"]
     elif datasets == "fair_universe":
-        config.datasets.paths = fair_universe_sample
+        config.datasets.paths = list(fair_universe_sample)
     else:
         raise ValueError("Invalid dataset")
-    
+
     config_tmp_file = tmp_path / "config.yaml"
     omegaconf.OmegaConf.save(config, config_tmp_file)
 

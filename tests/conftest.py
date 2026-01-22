@@ -1,28 +1,11 @@
 import os
-from pathlib import Path
-from typing import Callable
+from typing import Callable, List, cast
 
 import hydra
 import pytest
 from omegaconf import OmegaConf
 
 from orchestrator.config import MainConfig
-
-
-@pytest.fixture(scope="session")
-def fair_universe_sample() -> str:
-    path = os.getenv("FAIR_UNIVERSE_DATA")
-
-    if not path:
-        pytest.skip(
-            "Environment variable 'FAIR_UNIVERSE_DATA' not set. Should point to a parquet file: "
-            "'export FAIR_UNIVERSE_DATA=../fair_universe/input_data/train/data/data.parquet'."
-        )
-
-    if not Path(path).exists():
-        pytest.skip(f"Path {path} does not exist")
-
-    return path
 
 
 @pytest.fixture
@@ -46,11 +29,56 @@ def simple_sample(request: pytest.FixtureRequest) -> str:
     return file_path
 
 
-@pytest.fixture
-def config() -> MainConfig:
-    with hydra.initialize(config_path="hydra_test_conf"):
-        config_dict = hydra.compose(config_name="config")
-        config: MainConfig = OmegaConf.structured(config_dict)
-        config.datasets.max_number_events = 1000
+@pytest.fixture(scope="session")
+def check_cli_path() -> Callable[[str], str]:
+    def _check_cli_path(env_path: str, extension: str = None) -> str:
+        path = os.getenv(env_path)
 
-    return config
+        if not path:
+            pytest.skip(
+                f"Environment variable '{env_path}' not set. Should point to {extension} files: "
+                f"'export {env_path}=<path/to/files.{extension}'"
+            )
+        return path
+
+    return _check_cli_path
+
+
+@pytest.fixture()
+def fair_universe_sample(check_cli_path) -> str:
+    return check_cli_path("FAIR_UNIVERSE_DATA", "parquet")
+
+
+@pytest.fixture()
+def delphes_sample_root(check_cli_path) -> str:
+    return check_cli_path("DELPHES_DATA_ROOT", "root")
+
+
+@pytest.fixture()
+def delphes_sample_parquet(check_cli_path) -> str:
+    return check_cli_path("DELPHES_DATA_PARQUET", "parquet")
+
+
+@pytest.fixture()
+def config_factory() -> Callable[[None], MainConfig]:
+    """Create configs from the .yaml file together with the defaults from the corresponding
+    dataclass.
+
+    Returns:
+        Callable[[None], MainConfig]: Factory to create new configs. Use the hydra `overrides`
+            argument to replace a value from the .yaml with a new value.
+    """
+
+    def _factory(overrides: List[str] | None = None):
+        with hydra.initialize(config_path="hydra_test_conf"):
+            cfg_dict = hydra.compose(config_name="config", overrides=overrides)
+            cfg_defaults = OmegaConf.structured(MainConfig)
+            cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
+            return cast(MainConfig, cfg)
+
+    return _factory
+
+
+@pytest.fixture(scope="function")
+def config(config_factory) -> MainConfig:
+    return config_factory(overrides=None)
