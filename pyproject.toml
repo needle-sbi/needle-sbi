@@ -99,6 +99,7 @@ dependencies = [
     "pygments==2.19.1",
     "pyparsing==3.2.3",
     "pytest==8.3.5",
+    "pytest-benchmark>=5.2.3",
     "python-daemon==3.1.2",
     "python-dateutil==2.9.0.post0",
     "pytz==2025.1",
@@ -132,7 +133,7 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "preprocessor/tests"]
-addopts = "-ra --tb=short --disable-warnings"
+addopts = "-ra --tb=short --disable-warnings --benchmark-skip"
 
 [tool.isort]
 profile = "black"
