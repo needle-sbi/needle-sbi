@@ -3,6 +3,7 @@ from typing import Callable, List, cast
 
 import hydra
 import pytest
+from dask.distributed import Client, LocalCluster
 from omegaconf import OmegaConf
 
 from orchestrator.config import MainConfig
@@ -82,3 +83,19 @@ def config_factory() -> Callable[[None], MainConfig]:
 @pytest.fixture(scope="function")
 def config(config_factory) -> MainConfig:
     return config_factory(overrides=None)
+
+
+@pytest.fixture(scope="session")
+def dask_client():
+    cluster = LocalCluster(
+        n_workers=1,
+        threads_per_worker=1,
+        memory_limit="10GB",
+    )
+    client = Client(cluster)
+    client.run(lambda: None)
+
+    yield client
+
+    client.close()
+    cluster.close()
