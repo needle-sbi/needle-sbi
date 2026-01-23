@@ -10,7 +10,7 @@ class DatasetConfig(SerializableDataclass):
     features_columns: Optional[List[str]] = None
     labels_columns: Optional[List[str]] = None
     format: str = "automatic"
-    dak_reader_kwargs: Optional[dict[str, Any]] = None
+    dak_reader_kwargs: dict[str, Any] = field(default_factory=dict)
     max_number_events: int = -1
 
 
