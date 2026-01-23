@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Annotated, Callable, List
 
 import pytest
+from dask.distributed import Client
 from pydantic import Field
 from pytest_benchmark.fixture import BenchmarkFixture
 
@@ -47,7 +48,6 @@ class BenchmarkUtility:
     COLUMN_MODES = {
         pytest.param("one", id="columns=1"),
         pytest.param("config", id="columns=config"),
-        pytest.param("all", id="columns=all"),
     }
     FILE_PERCENTAGE = [
         pytest.param(0.0, id="files=0%"),
@@ -62,7 +62,14 @@ class BenchmarkUtility:
     ]
 
     @staticmethod
-    def get_column(column_mode: str, columns: List[str] | None) -> List[str] | None:
+    def get_column(
+        column_mode: str,
+        columns: List[str] | None,
+        drop_branches: List[str] = ["fBits"],
+    ) -> List[str] | None:
+        """BUG `drop_branches` will not be applied if `columns == None`"""
+        if columns:
+            columns = [col for col in columns if all(drop not in col for drop in drop_branches)]
         match column_mode:
             case "one":
                 return [columns[0]] if columns else None
@@ -76,16 +83,20 @@ class BenchmarkUtility:
         return paths[: max(1, int(len(paths) * file_percentage))]
 
 
-def run_test(config: MainConfig, paths: List[str]) -> Callable:
+def run_test(config: MainConfig, paths: List[str], drop_branches: List[str]) -> Callable:
+    def filter_name_func(name: str) -> bool:
+        return not any(d in name for d in drop_branches)
+
     def _run_test():
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
-            reader_kwargs=config.datasets.dak_reader_kwargs,
         )
-        ingestor.array
+        for column in ingestor.fields:
+            if filter_name_func(column):
+                ingestor.array[column].map_partitions(lambda x: x).compute()
 
     return _run_test
 
@@ -99,26 +110,29 @@ def test_ingestion_speed(
     delphes_sample_root: str,
     delphes_sample_parquet: str,
     config_factory,
+    dask_client: Client,
     column_mode: str,
     file_percentage: Percentage,
     file_type: str,
     num_events: int,
+    drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
 ) -> None:
     if file_type == "parquet":
         convert_root_to_parquet(
             delphes_sample_root,
             Path(delphes_sample_parquet).parent,
-            drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
+            drop_branches=drop_branches,
         )
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
     config.datasets.max_number_events = num_events
     config.datasets.features_columns = BenchmarkUtility.get_column(
         column_mode=column_mode,
         columns=config.datasets.features_columns,
+        drop_branches=drop_branches,
     )
     paths_glob = delphes_sample_root or config.datasets.paths
     paths = BenchmarkUtility.get_files(
         file_percentage=file_percentage,
         paths=resolve_paths(paths_glob),
     )
-    benchmark(run_test(config=config, paths=paths))
+    benchmark(run_test(config=config, paths=paths, drop_branches=drop_branches))
