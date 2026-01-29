@@ -133,9 +133,9 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "preprocessor/tests"]
-addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave"
+addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m='not slow'"
 markers = [
-    "slow",
+    "slow",  # Tests that take more than a few seconds to run
 ]
 
 [tool.isort]
