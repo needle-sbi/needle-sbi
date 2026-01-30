@@ -1,4 +1,4 @@
-paths: Null
+paths: ""
 features_columns: ['PRI_lep_pt']
 labels_columns: ['PRI_n_jets']
 max_number_events: 1000
