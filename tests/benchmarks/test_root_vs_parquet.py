@@ -27,12 +27,13 @@ above.
 """
 
 from pathlib import Path
-from typing import Annotated, Callable, List
+from typing import Annotated, Callable, List, Literal
 
 import pytest
 from dask.distributed import Client
 from pydantic import Field
 from pytest_benchmark.fixture import BenchmarkFixture
+from torch.utils.data import DataLoader
 
 from orchestrator.config import MainConfig
 
@@ -40,6 +41,9 @@ pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
 from preprocessor.ingestion.formatter import Ingestor  # noqa: E402
 from preprocessor.utils.array import resolve_paths  # noqa: E402
 from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
+
+pytest.importorskip("ml", reason="Could not import 'ml'")
+from ml.data.padded.eager import PaddedDataset  # noqa: E402
 
 Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
@@ -83,28 +87,70 @@ class BenchmarkUtility:
         return paths[: max(1, int(len(paths) * file_percentage))]
 
 
-def run_test(config: MainConfig, paths: List[str], drop_branches: List[str]) -> Callable:
+def run_test(
+    method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
+    config: MainConfig,
+    paths: List[str],
+    drop_branches: List[str],
+) -> Callable:
     def filter_name_func(name: str) -> bool:
         return not any(d in name for d in drop_branches)
 
-    def _run_test():
+    def _test_only_metadata():
+        _ = Ingestor(
+            paths=paths,
+            format="automatic",
+            columns=config.datasets.features_columns,
+            max_number_events=config.datasets.max_number_events,
+        )
+
+    def _test_materialize_partitions():
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
         )
-        for column in ingestor.fields:
-            if filter_name_func(column):
-                ingestor.array[column].map_partitions(lambda x: x).compute()
+        arr = ingestor.array[[c for c in ingestor.fields if filter_name_func(c)]]
+        arr.map_partitions(lambda x: x).compute()
 
-    return _run_test
+    def _test_iterate_dataloader():
+        ingestor_features = Ingestor(
+            paths=paths,
+            format="automatic",
+            columns=config.datasets.features_columns,
+            max_number_events=config.datasets.max_number_events,
+        )
+        ingestor_features.array = ingestor_features.array[[c for c in ingestor_features.fields if filter_name_func(c)]]
+        ingestor_labels = Ingestor(
+            paths=paths,
+            format="automatic",
+            columns=config.datasets.features_columns,
+            max_number_events=config.datasets.max_number_events,
+        )
+        ingestor_labels.array = ingestor_labels.array[[c for c in ingestor_labels.fields if filter_name_func(c)]]
+        datamodule = PaddedDataset(
+            ingestor_features,
+            ingestor_labels,
+        )
+        dataloader = DataLoader(datamodule)
+        for _ in dataloader:
+            pass
+
+    test_methods = {
+        "only_metadata": _test_only_metadata,
+        "materialize_partitions": _test_materialize_partitions,
+        "iterate_dataloader": _test_iterate_dataloader,
+    }
+
+    return test_methods[method]
 
 
 @pytest.mark.parametrize("file_percentage", BenchmarkUtility.FILE_PERCENTAGE)
 @pytest.mark.parametrize("column_mode", BenchmarkUtility.COLUMN_MODES)
 @pytest.mark.parametrize("num_events", BenchmarkUtility.NUM_EVENTS)
 @pytest.mark.parametrize("file_type", ["root", "parquet"])
+@pytest.mark.parametrize("test_method", ["only_metadata", "materialize_partitions", "iterate_dataloader"])
 def test_ingestion_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
@@ -114,6 +160,7 @@ def test_ingestion_speed(
     column_mode: str,
     file_percentage: Percentage,
     file_type: str,
+    test_method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
 ) -> None:
@@ -152,4 +199,6 @@ def test_ingestion_speed(
         file_percentage=file_percentage,
         paths=resolve_paths(paths_glob),
     )
-    benchmark(run_test(config=config, paths=paths, drop_branches=drop_branches))
+    benchmark(
+        run_test(method=test_method, config=config, paths=paths, drop_branches=drop_branches),
+    )
