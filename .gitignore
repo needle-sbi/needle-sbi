@@ -9,3 +9,4 @@ runs
 mlruns*
 lightning_logs*
 *.log
+.benchmarks
