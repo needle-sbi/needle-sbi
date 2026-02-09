@@ -35,7 +35,30 @@ trainer: lightning.Trainer
 trainer.fit(model=model, datamodule=data_module)
 ```
 
-How exactly we load up the modules is part of the next Section
+### Typed schema layer for module-specific validation
+
+Each instantiable class (model, datamodule, trainer) has a corresponding `@dataclass` schema registered with Hydra's `ConfigStore` under the appropriate config group. This gives compose-time validation so typos and type errors can be caught before any code actually runs. This also allows for polymorphic config groups, such that adding a new model only requires a new schema (just a call to `cs.store()`) and a YAML file. The actual dispatch logic remains the same. If a config is built instead from a dictionary, e.g. bypassing a compose step from Hydra, then dedicated helpers are provided in the api to check fields against the schema. Unknown `_target_` values pass through unchanged, which should preserve extensibility. An example useage is shown below:
+
+```python
+validated_model_cfg = validate_model_config(self.config.models)
+validated_data_cfg = validate_datamodule_config(self.config.datamodules)
+validated_trainer_cfg = validate_trainer_config(self.config.trainers)
+
+model = hydra.utils.instantiate(
+    validated_model_cfg,
+    dataset_config=self.config.datasets,
+)
+data_module = hydra.utils.instantiate(
+    validated_data_cfg,
+    dataset_config=self.config.datasets,
+)
+trainer = hydra.utils.instantiate(
+    validated_trainer_cfg,
+    logger=mlflow_logger,
+)
+```
+
+How modules are loaded and orchestrated is covered in the next section.
 
 ## Hydra
 
