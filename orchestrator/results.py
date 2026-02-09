@@ -1,6 +1,7 @@
 """
 Dataclass for the results of a specific type of training
 """
+
 from dataclasses import dataclass, field
 
 from ml.utils.dataclass import SerializableDataclass

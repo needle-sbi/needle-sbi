@@ -15,28 +15,10 @@ class DatasetConfig(SerializableDataclass):
 
 
 @dataclass
-class LightningDataModuleConfig:
-    _target_: str  # type[LightningDataModule]
-    kwargs: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class LightningModuleConfig:
-    _target_: str  # type[LightningModule]
-    kwargs: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class LightningTrainerConfig:
-    _target_: str  # type[Trainer]
-    kwargs: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
 class MainConfig(SerializableDataclass):
-    datamodules: LightningDataModuleConfig
+    datamodules: Any
     datasets: DatasetConfig
-    models: LightningModuleConfig
-    trainers: LightningTrainerConfig
+    models: Any
+    trainers: Any
 
     n_folds: int = 5
