@@ -2,58 +2,85 @@
 
 ENV_NAME="NEEDLE"
 
-# colors
+# prefixed with underscore and cleaned up at end to avoid leaking into env
+_NEEDLE_RED='\033[0;31m'
+_NEEDLE_GREEN='\033[0;32m'
+_NEEDLE_ORANGE='\033[0;33m'
+_NEEDLE_NC='\033[0m' # No Color
+_NEEDLE_BLUE='\033[0;34m'
 
-NEEDLE_RED='\033[0;31m'
-NEEDLE_GREEN='\033[0;32m'
-NEEDLE_ORANGE='\033[0;33m'
-NEEDLE_NC='\033[0m' # No Color
-NEEDLE_BLUE='\033[0;34m'
+# guard: `source setup.sh` works, `bash setup.sh` does not
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]] 2>/dev/null; then
+    echo -e "\033[0;31mError: This script must be sourced, not executed. Run: source setup.sh\033[0m"
+    exit 1
+fi
+if [[ -n "$ZSH_EVAL_CONTEXT" ]] && [[ "$ZSH_EVAL_CONTEXT" != *:file* ]]; then
+    echo -e "\033[0;31mError: This script must be sourced, not executed. Run: source setup.sh\033[0m"
+    exit 1
+fi
 
 # Check if LAW package is available
 if ! command -v law &> /dev/null; then
-    echo -e "${NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${NEEDLE_NC}"
+    echo -e "${_NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${_NEEDLE_NC}"
     return 1
 fi
 
 # Check if the script was already sourced
 if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
-    echo -e "${NEEDLE_GREEN}$ENV_NAME environment is already active.${NEEDLE_NC}"
+    echo -e "${_NEEDLE_GREEN}$ENV_NAME environment is already active.${_NEEDLE_NC}"
     return 0
 fi
 
-# Save old shell variables and export the new ones
+# resolve script dir instead of relying on pwd (bash/zsh compatible)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
+
+# save current values so deactivate can restore them
 export _OLD_PYTHONPATH="$PYTHONPATH"
 export _OLD_PS1="$PS1"
-export LAW_HOME=$(pwd)
+# use resolved script dir so LAW_HOME is always correct
+export LAW_HOME="$SCRIPT_DIR"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
 export NEEDLE_ENV_ACTIVE=1
 
-# Blame it on LAW that we have to overwrite PYTHONPATH
+# use absolute paths so PYTHONPATH works regardless of cwd
 for p in "preprocessor" "ml" "."; do
-    if [[ ":$PYTHONPATH:" != *":$p:"* ]]; then
-        export PYTHONPATH="$p:$PYTHONPATH"
+    abs_p="$LAW_HOME/$p"
+    if [[ ":$PYTHONPATH:" != *":$abs_p:"* ]]; then
+        export PYTHONPATH="$abs_p:$PYTHONPATH"
     fi
 done
 
-# Only source LAW completion if we're in an interactive bash shell
-if [[ $- == *i* ]] && [[ -n "$BASH_VERSION" ]]; then
-    . "$(law completion)" 2>/dev/null || true
+# load shell completions for both bash and zsh
+# TODO: add for fish shell types
+if [[ $- == *i* ]]; then
+    if [[ -n "$BASH_VERSION" ]]; then
+        . "$(law completion)" 2>/dev/null || true
+    elif [[ -n "$ZSH_VERSION" ]]; then
+        eval "$(law completion --zsh 2>/dev/null)" || true
+    fi
 fi
 
-export PYTHONPATH
 export PS1="($ENV_NAME):$PS1"
 
+# fully restore env: unset all exported vars, not just PYTHONPATH/PS1
 deactivate() {
     export PYTHONPATH="$_OLD_PYTHONPATH"
     export PS1="$_OLD_PS1"
     unset NEEDLE_ENV_ACTIVE
+    unset LAW_HOME
+    unset LAW_CONFIG_FILE
+    unset _OLD_PYTHONPATH
+    unset _OLD_PS1
     unset -f deactivate
-    unalias exit
-    echo -e "${NEEDLE_GREEN}Exited $ENV_NAME environment${NEEDLE_NC}"
+    # guard: only unalias if the alias exists!
+    alias exit &>/dev/null && unalias exit
+    echo -e "\033[0;32mExited $ENV_NAME environment\033[0m"
     return 0
 }
 
 alias exit="deactivate"
 
-echo -e "${NEEDLE_GREEN}Activated $ENV_NAME environment. (Exit with 'exit' or 'deactivate')${NEEDLE_NC}"
+# clean up colour vars so they don't pollute the users env
+unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC _NEEDLE_BLUE
+
+echo -e "\033[0;32mActivated $ENV_NAME environment. (Exit with 'exit' or 'deactivate')\033[0m"
