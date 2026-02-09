@@ -1,64 +1,131 @@
 # Orchestrator for NEEDLE ML workflows
 
-## Installation
+![pipeline](https://gitlab.desy.de/needle/orchestrator/badges/dev/pipeline.svg)
+![coverage](https://gitlab.desy.de/needle/orchestrator/badges/dev/coverage.svg)
 
- 1. Clone the repository along with its two submodules [ml](https://gitlab.desy.de/needle/ml) and [preprocessor](https://gitlab.desy.de/needle/preprocessor) using
+## Overview
 
-    ```bash
-    git clone git@gitlab.desy.de:needle/orchestrator.git --recurse-submodules
-    ```
+The orchestrator ties together the [ml](https://gitlab.desy.de/needle/ml) and [preprocessor](https://gitlab.desy.de/needle/preprocessor) submodules with a [LAW](https://github.com/riga/law)-based workflow manager and [Hydra](https://hydra.cc/) configuration. It supports k-fold training, experiment tracking via `MLflow` and `TensorBoard`, and remote job submission via a range of job scheduling technologies (HTCondor, Slurm, etc.).
 
- 2. Register the submodules with
-    
-    ```bash
-    git submodule update --init --recursive
-    ```
+The current structure is as follows:
+```
+orchestrator/
+|─ conf/                  # hydra configs (datasets, models, trainers, datamodules)
+|─ container/             # singularity container definitions
+|─ law_tasks/             # LAW workflow tasks (training, fold, ensemble)
+|─ ml/                    # [submodule] models, datasets, blocks, lightning modules
+|─ notebooks/             # development notebooks
+|─ orchestrator/          # config dataclasses, results, MLflow logging
+|─ preprocessor/          # [submodule] data ingestion, normalisation, utilities
+|─ tests/                 # Integration tests
+|- pyproject.toml         # deps, dev deps and tools 
+|─ setup.sh               # LAW environment setup
+|─ law.cfg                # LAW task registry
+```
 
-## Setup
+## Getting started
 
- 1. Installing the required python libraries
-      - **Option A**:
-         
-         Create the python environment using the `requirements.txt` file. This gives you full control over your libraries
+> **Note:** The active development branch is `dev`, not `main` currently.
 
-      - **Option B**:
-         
-         Run your code inside our `needle.sif` singularity container image. The required libraries are already installed in the container.
-         
-         To create the container from scratch, use the `singularity_dev.def` (with all files copied) or `singularity_base.df` (with only the dependencies installed). The def files are found in the container folder.
+### 1. Clone
 
-         Running the container:
+```bash
+git clone git@gitlab.desy.de:needle/orchestrator.git --recurse-submodules
+cd orchestrator
+git checkout dev
+git submodule update --init --recursive
+```
 
-         - If you are only using `singularity run`, you may skip step 2, as that is performed automatically within the runscript of the container.
-          - For `singularity exec` and `singularity shell`, you still need to set up the environment using step 2.
+### 2. Install dependencies
 
- 2. Setting up LAW:
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
-    In order to use the [law](https://github.com/riga/law) workflow manager, run
+```bash
+uv sync              # install runtime dependencies
+uv sync --group dev  # include dev tools (pytest, black, flake8, etc.)
+```
 
-    ```bash
-    source setup.sh  # sets up environment variables
-    law index  # looks for all available LAW tasks
-    ```
- 3. Running LAW tasks:
+### 3 Activate the environment
 
-    This will allow you to run the workflow my calling the corresponding `law` Task from the command line with
+```bash
+source .venv/bin/activate
+source setup.sh   # sets LAW environment variables
+law index          # indexes available LAW tasks in the law.cfg file
+```
 
-    ```bash
-    law run tasks.<LawTask>  # if not specified 'tasks' in law.cfg
-    law run TrainingBaseTask  # this default Task is already in law.cfg
-    ``` 
+### 4. Run tests
 
-    More information can be found on the `law` [documentation](https://law.readthedocs.io/en/latest/)
+```bash
+pytest  # runs non-slow, non-benchmark tests by default
+```
 
-## Pushing with submodules
+Some training tests require the `FAIR_UNIVERSE_DATA` environment variable pointing to a parquet file:
 
-There are two submodules registered in the orchestrator repository. To automatically push changes made to these submodules when you push to orchestrator, use
+```bash
+export FAIR_UNIVERSE_DATA=/path/to/fair_universe/data.parquet
+```
+
+## Running LAW tasks
+
+```bash
+law run TrainingBaseTask                          # single training run
+law run EnsembleTask                              # k-fold ensemble
+law run FoldTask --fold-index 0                   # single fold
+law run TrainingBaseTask --config-file conf/config.yaml  # custom config
+```
+See the [LAW documentation](https://law.readthedocs.io/en/latest/) for more details.
+
+---
+
+> **Note:** (Only For Levi's local setup and testing)
+
+Quick Fair-Universe example (using `../DATA/fair-universe/data/*.parquet` from this repo):
+
+```bash
+law run TrainingBaseTask --config-file conf/config_fair_universe_local.yaml
+law run EnsembleTask --config-file conf/config_fair_universe_local.yaml
+```
+
+
+## Jupyter notebooks
+
+After installing dev dependencies, register the kernel:
+
+```bash
+uv run python -m ipykernel install --user --name needle --display-name "NEEDLE"
+```
+
+Then select the **NEEDLE** kernel when opening notebooks.
+
+## TensorBoard
+
+Training logs are saved under `runs/tensorboard_logs` (which cannot be changed in the config for now).The file paths are managed by LAW. To view them:
+
+```bash
+tensorboard --logdir runs/tensorboard_logs
+```
+or you can open them with VSCode by installing the Tensorboard Extension and then using CMD+SHIFT+P to open the command palette and selecting "Python: Launch Tensorboard". Once prompted, manually set the log directory to `runs/tensorboard_logs`. A new tab with Tensorboard will then open.
+
+## Singularity containers
+
+Pre-built container definitions are in `container/`:
+
+- `singularity_base.def` — dependencies only (Python 3.12 + all packages)
+- `singularity_dev.def` — full image with source code copied in
+
+```bash
+singularity build needle-base.sif container/singularity_base.def
+singularity build needle.sif container/singularity_dev.def
+singularity run needle.sif pytest ml/tests
+```
+
+When using `singularity exec` or `singularity shell`, you still need to `source setup.sh` and `law index` manually.
+
+## Working with submodules
+
+Push orchestrator and submodule changes together:
 
 ```bash
 git push --recurse-submodules=on-demand
 ```
 
-## Tensorboard
-
-All log files are saved to TensorBoard under `runs/tensorboard_logs` (which cannot be changed in the config for now). The file paths are managed by LAW. To access them, either open the logs using the browser or with VSCode by installing the Tensorboard Extension and then using CMD+SHIFT+P to open the command palette and selecting "Python: Launch Tensorboard". Once prompted, manually set the log directory to `runs/tensorboard_logs`. A new tab with Tensorboard will then open.
