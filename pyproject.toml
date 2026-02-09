@@ -1,5 +1,5 @@
 [project]
-name = "needle_orchestrator"
+name = "needle-orchestrator"
 version = "0.0.0"
 description = "Workflow manager for NEEDLE"
 authors = []
