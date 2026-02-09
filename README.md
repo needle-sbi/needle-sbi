@@ -86,6 +86,7 @@ law run TrainingBaseTask --config-file conf/config_fair_universe_local.yaml
 law run EnsembleTask --config-file conf/config_fair_universe_local.yaml
 ```
 
+> **Note:** if running on ARM arch Macbook will need to set `--workers 1` to avoid Luigi spawn/pickling issues with patched worker callbacks :(
 
 ## Jupyter notebooks
 
