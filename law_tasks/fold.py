@@ -12,6 +12,11 @@ import luigi
 from lightning.pytorch.loggers import MLFlowLogger, TensorBoardLogger
 
 from law_tasks.mixins import HydraMixin
+from orchestrator.config_schema import (
+    validate_datamodule_config,
+    validate_model_config,
+    validate_trainer_config,
+)
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
@@ -43,18 +48,22 @@ class FoldTask(law.Task, HydraMixin):
     def run(self):
         mlflow_logger = MLFlowLogger(save_dir=self.output()["logs"].path, experiment_name="mlflow")
         tensorboard_logger = TensorBoardLogger(save_dir=self.output()["logs"].path, name="tensorboard")
+        validated_model_config = validate_model_config(self.config.models)
+        validated_datamodule_config = validate_datamodule_config(self.config.datamodules)
+        validated_trainer_config = validate_trainer_config(self.config.trainers)
 
         model: lightning.LightningModule = hydra.utils.instantiate(
-            self.config.models,
+            validated_model_config,
             dataset_config=self.config.datasets,
         )
         data_module: lightning.LightningDataModule = hydra.utils.instantiate(
-            self.config.datamodules,
+            validated_datamodule_config,
             dataset_config=self.config.datasets,
             fold_index=self.fold_index,
+            n_folds=self.config.n_folds,
         )
         trainer: lightning.Trainer = hydra.utils.instantiate(
-            self.config.trainers,
+            validated_trainer_config,
             logger=[mlflow_logger, tensorboard_logger],
         )
 
