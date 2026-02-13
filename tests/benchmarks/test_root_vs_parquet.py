@@ -193,7 +193,7 @@ def test_ingestion_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
     delphes_sample_parquet: str,
-    config_factory,
+    config_factory: Callable[..., MainConfig],
     dask_client: Client,
     column_mode: str,
     file_percentage: Percentage,
@@ -202,7 +202,10 @@ def test_ingestion_speed(
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
 ) -> None:
-    """_summary_
+    """Test function to compare the ingestion speeds of parquet and root files in different scenarios.
+
+    The larger and longer test for many events are marked as slow. To run them, add the '-m slow' marker
+    when running the tests. More info is given in the corresponding `BenchmarkUtility` class.
 
     Args:
         benchmark (BenchmarkFixture): Registers this test as a pytest-benchmark instance

@@ -61,13 +61,31 @@ def delphes_sample_parquet(check_cli_path) -> str:
 
 
 @pytest.fixture()
-def config_factory() -> Callable[[None], MainConfig]:
+def config_factory() -> Callable[..., MainConfig]:
     """Create configs from the .yaml file together with the defaults from the corresponding
     dataclass.
 
     Returns:
-        Callable[[None], MainConfig]: Factory to create new configs. Use the hydra `overrides`
+        Callable[List[str] | None, MainConfig]: Factory to create new configs. Use the hydra `overrides`
             argument to replace a value from the .yaml with a new value.
+
+    Example:
+        Default config with no overrides
+
+        ```python
+        config: MainConfig = config_factory()
+        ```
+
+        Config with extra overrides
+
+        ```python
+        config: MainConfig = config_factory(overrides=["datasets=delphes"])
+        ```
+
+    Note:
+        The schema of the overrides is determined by the hydra package, but follows mostly the str
+        version of keyword assignment, e.g. `'<key>=<value>'` as a list of str.
+
     """
 
     def _factory(overrides: List[str] | None = None):
