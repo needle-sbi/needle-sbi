@@ -93,10 +93,28 @@ def run_test(
     paths: List[str],
     drop_branches: List[str],
 ) -> Callable:
+    """_summary_
+
+    Args:
+        method (Literal[&quot;only_metadata&quot;, &quot;materialize_partitions&quot;, &quot;iterate_dataloader&quot;]):
+            Which kind of test to run from the list of implemented functions.
+        config (MainConfig):
+        paths (List[str]): List of paths to the data files. Valid paths are all paths accepted by `Ingestor`
+        drop_branches (List[str]): List of potentially corrupted branches to drop at runtime
+
+    Returns:
+        Callable: A function without args that will run the desired test
+    """
+
     def filter_name_func(name: str) -> bool:
+        """Check if the str is in the list of branches to drop"""
         return not any(d in name for d in drop_branches)
 
     def _test_only_metadata():
+        """Test function to read the metadata from the files
+
+        Does not materialize partitions and does not perform any computation of the arrays.
+        """
         _ = Ingestor(
             paths=paths,
             format="automatic",
@@ -105,6 +123,13 @@ def run_test(
         )
 
     def _test_materialize_partitions():
+        """Test function to materialize partitions from ingested data.
+
+        Creates an Ingestor instance with specified configuration, filters columns
+        based on a filter function, and computes the mapped partitions to materialize
+        them in memory. Performs no actual calculation.
+        """
+
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
@@ -115,6 +140,19 @@ def run_test(
         arr.map_partitions(lambda x: x).compute()
 
     def _test_iterate_dataloader():
+        """Test function to iterate through a dataloader with padded dataset.
+
+        This function creates two Ingestor instances for features and labels,
+        filters their columns based on the filter function, combines them into
+        a PaddedDataset, and then iterates through a DataLoader to verify
+        that the data pipeline works correctly without errors.
+
+        The test verifies that:
+        - Data can be loaded and filtered properly
+        - The PaddedDataset correctly combines features and labels
+        - The DataLoader can iterate through the dataset without exceptions
+        """
+
         ingestor_features = Ingestor(
             paths=paths,
             format="automatic",
@@ -179,7 +217,8 @@ def test_ingestion_speed(
         num_events (int): How many events to load. Will cap at the maximal amount of events found in
             the loaded files.
         drop_branches (list, optional): Remove these branches when reading and converting files.
-            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"].
+            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
+            in the default Delphes dataset.
     """
     if file_type == "parquet":
         convert_root_to_parquet(
