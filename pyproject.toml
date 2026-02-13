@@ -75,7 +75,14 @@ members = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "preprocessor/tests"]
-addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m='not slow'"
+addopts = [
+    "-ra",
+    "--tb=short",
+    "--disable-warnings",
+    "--benchmark-skip",
+    "--benchmark-autosave",
+    "-m='not slow'",
+]
 markers = [
     "slow",
 ]
