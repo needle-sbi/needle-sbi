@@ -131,6 +131,10 @@ def run_test(
 
         Does not materialize partitions and does not perform any computation of the arrays.
         """
+        """Test function to read the metadata from the files
+
+        Does not materialize partitions and does not perform any computation of the arrays.
+        """
         _ = Ingestor(
             paths=paths,
             format="automatic",
@@ -225,6 +229,8 @@ def test_ingestion_speed(
         num_events (int): How many events to load. Will cap at the maximal amount of events found in
             the loaded files.
         drop_branches (list, optional): Remove these branches when reading and converting files.
+            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
+            in the default Delphes dataset.
             Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
             in the default Delphes dataset.
     """
