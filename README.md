@@ -86,7 +86,7 @@ law run TrainingBaseTask --config-file conf/config_fair_universe_local.yaml
 law run EnsembleTask --config-file conf/config_fair_universe_local.yaml
 ```
 
-> **Note:** if running on ARM arch Macbook will need to set `--workers 1` to avoid Luigi spawn/pickling issues with patched worker callbacks :(
+> **Note:** if running on ARM arch Macbook will need to set `--workers 1` to avoid Luigi spawn/pickling issues with patched worker callbacks :
 
 ## Jupyter notebooks
 
@@ -130,3 +130,25 @@ Push orchestrator and submodule changes together:
 git push --recurse-submodules=on-demand
 ```
 
+## Documentation
+
+> Note: under development
+
+To build the documentation, follow these steps:
+
+```bash
+# install docs dependencies from pyproject [dependency-groups].docs
+uv sync --group docs
+```
+
+then run the following to build the docs:
+
+```bash
+uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
+```
+
+You can view the documentation locally by then running the following:
+
+```bash
+open docs/_build/html/index.html
+```
