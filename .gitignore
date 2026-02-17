@@ -10,3 +10,5 @@ mlruns*
 lightning_logs*
 *.log
 .benchmarks
+.coverage
+docs/_build/
