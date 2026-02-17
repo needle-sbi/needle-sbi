@@ -1,5 +1,4 @@
 _target_: ml.lightning.models.mock_transformer.MockTransformerModule
-kwargs:
-  factor: 0.1
-  patience: 10
-  init_lr: 0.001
+factor: 0.1
+patience: 10
+init_lr: 0.001

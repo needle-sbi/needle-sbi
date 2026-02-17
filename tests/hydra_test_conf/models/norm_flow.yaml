@@ -1,0 +1,7 @@
+_target_: ml.lightning.models.norm_flow.NormFlowModule
+features_dim: 8
+context_dim: 0
+flow_type: nsf
+n_transforms: 3
+hidden_dim: 64
+init_lr: 0.001
