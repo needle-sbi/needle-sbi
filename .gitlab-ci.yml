@@ -1,7 +1,6 @@
 stages:
   - build
   - test
-  - deploy
 
 variables:
   SIF_DEV_NAME: "needle.sif"
@@ -16,12 +15,27 @@ build_singularity_images:
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "main"'
   script:
     - echo "Building Singularity image..."
-    - singularity build -F $SIF_BASE_NAME singularity_base.def
-    - singularity build -F $SIF_DEV_NAME singularity_dev.def
+    # just use uv to generate the pinned requirements for the container at build time
+    - uv export --frozen --no-emit-workspace --no-emit-project > requirements.txt
+    - singularity build -F $SIF_BASE_NAME container/singularity_base.def
+    - singularity build -F $SIF_DEV_NAME container/singularity_dev.def
   artifacts:
     paths:
       - $SIF_DEV_NAME
       - $SIF_BASE_NAME
+
+# future
+test_coverage:
+  stage: test
+  tags:
+    - shell
+  script:
+    - uv sync
+    - uv run pytest --cov --cov-report=term
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+)%/'
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "dev"'
 
 test_singularity_images:
   stage: test
