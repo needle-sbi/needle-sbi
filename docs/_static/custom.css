@@ -1,0 +1,30 @@
+/* tighten up the main content width */
+.bd-main .bd-content .bd-article-container {
+    max-width: 80rem;
+}
+
+/* give API signatures a subtle background so they stand out */
+dl.py dt {
+    background-color: var(--pst-color-surface);
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--pst-color-primary);
+    border-radius: 0 4px 4px 0;
+    font-size: 0.95em;
+}
+
+/* softer parameter list styling */
+dl.field-list > dt {
+    font-weight: 600;
+}
+
+/* code blocks: slightly smaller font, rounder corners */
+div.highlight pre {
+    border-radius: 6px;
+    font-size: 0.88em;
+    line-height: 1.5;
+}
+
+/* add breathing room between sections */
+section > section {
+    margin-top: 2rem;
+}
