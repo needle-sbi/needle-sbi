@@ -50,19 +50,20 @@ Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
 class BenchmarkUtility:
     COLUMN_MODES = {
-        pytest.param("one", id="columns=1"),
-        pytest.param("config", id="columns=config"),
+        pytest.param("one", id="columns_1"),
+        pytest.param("config", id="columns_config"),
     }
     FILE_PERCENTAGE = [
-        pytest.param(0.0, id="files=0%"),
-        pytest.param(10.0, id="files=10%", marks=pytest.mark.slow),
-        pytest.param(50.0, id="files=50%", marks=pytest.mark.slow),
-        pytest.param(100.0, id="files=100%", marks=pytest.mark.slow),
+        pytest.param(0.0, id="files_0percent"),
+        pytest.param(10.0, id="files_10percent", marks=pytest.mark.slow),
+        pytest.param(50.0, id="files_50percent", marks=pytest.mark.slow),
+        pytest.param(100.0, id="files_100percent", marks=pytest.mark.slow),
     ]
     NUM_EVENTS = [
-        pytest.param(10**3, id="events=1k"),
-        pytest.param(10**5, id="events=100k", marks=pytest.mark.slow),
-        pytest.param(10**7, id="events=10M", marks=pytest.mark.slow),
+        pytest.param(10**3, id="events_1k"),
+        pytest.param(10**5, id="events_100k", marks=pytest.mark.slow),
+        pytest.param(10**7, id="events_10M", marks=pytest.mark.slow),
+        pytest.param(-1, id="events_all", marks=pytest.mark.slow),
     ]
 
     @staticmethod
@@ -194,7 +195,6 @@ def test_ingestion_speed(
     delphes_sample_root: str,
     delphes_sample_parquet: str,
     config_factory: Callable[..., MainConfig],
-    dask_client: Client,
     column_mode: str,
     file_percentage: Percentage,
     file_type: str,
@@ -229,6 +229,10 @@ def test_ingestion_speed(
             Path(delphes_sample_parquet).parent,
             drop_branches=drop_branches,
         )
+        data_path = delphes_sample_parquet
+    else:
+        data_path = delphes_sample_root
+
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
     config.datasets.max_number_events = num_events
     config.datasets.features_columns = BenchmarkUtility.get_column(
@@ -236,10 +240,9 @@ def test_ingestion_speed(
         columns=config.datasets.features_columns,
         drop_branches=drop_branches,
     )
-    paths_glob = delphes_sample_root or config.datasets.paths
     paths = BenchmarkUtility.get_files(
         file_percentage=file_percentage,
-        paths=resolve_paths(paths_glob),
+        paths=resolve_paths(data_path),
     )
     benchmark(
         run_test(method=test_method, config=config, paths=paths, drop_branches=drop_branches),

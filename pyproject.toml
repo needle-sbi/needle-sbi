@@ -81,7 +81,7 @@ addopts = [
     "--disable-warnings",
     "--benchmark-skip",
     "--benchmark-autosave",
-    "-m='not slow'",
+    "-m not slow",
 ]
 markers = [
     "slow",

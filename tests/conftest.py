@@ -107,11 +107,10 @@ def config(config_factory) -> MainConfig:
 def dask_client():
     cluster = LocalCluster(
         n_workers=1,
-        threads_per_worker=1,
-        memory_limit="10GB",
+        threads_per_worker=2,
+        memory_limit="20GB",
     )
     client = Client(cluster)
-    client.run(lambda: None)
 
     yield client
 

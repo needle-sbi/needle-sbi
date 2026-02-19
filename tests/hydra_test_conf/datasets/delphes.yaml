@@ -22,3 +22,5 @@ labels_columns:
     "Photon.Particles.fSize",
   ]
 max_number_events: -1
+dak_reader_kwargs:
+  ignore_metadata_file: True
