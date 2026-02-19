@@ -54,9 +54,9 @@ class BenchmarkUtility:
     }
     FILE_PERCENTAGE = [
         pytest.param(0.0, id="files_0percent"),
-        pytest.param(0.1, id="files_10percent", marks=pytest.mark.slow),
-        pytest.param(0.5, id="files_50percent", marks=pytest.mark.slow),
-        pytest.param(1.0, id="files_100percent", marks=pytest.mark.slow),
+        pytest.param(10.0, id="files_10percent", marks=pytest.mark.slow),
+        pytest.param(50.0, id="files_50percent", marks=pytest.mark.slow),
+        pytest.param(100.0, id="files_100percent", marks=pytest.mark.slow),
     ]
     NUM_EVENTS = [
         pytest.param(10**3, id="events_1k"),

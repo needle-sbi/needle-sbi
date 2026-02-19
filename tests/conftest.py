@@ -115,3 +115,18 @@ def config_factory() -> Callable[..., MainConfig]:
 @pytest.fixture(scope="function")
 def config(config_factory) -> MainConfig:
     return config_factory(overrides=None)
+
+
+@pytest.fixture(scope="session")
+def dask_client():
+    cluster = LocalCluster(
+        n_workers=1,
+        threads_per_worker=2,
+        memory_limit="20GB",
+    )
+    client = Client(cluster)
+
+    yield client
+
+    client.close()
+    cluster.close()
