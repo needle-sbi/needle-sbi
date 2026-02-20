@@ -29,9 +29,8 @@ above.
 from pathlib import Path
 from typing import Annotated, Callable, List, Literal
 
+import pydantic
 import pytest
-from dask.distributed import Client
-from pydantic import Field
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
@@ -45,7 +44,7 @@ from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
 pytest.importorskip("ml", reason="Could not import 'ml'")
 from ml.data.padded.eager import PaddedDataset  # noqa: E402
 
-Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
+Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
 
 
 class BenchmarkUtility:
@@ -55,9 +54,9 @@ class BenchmarkUtility:
     }
     FILE_PERCENTAGE = [
         pytest.param(0.0, id="files_0percent"),
-        pytest.param(10.0, id="files_10percent", marks=pytest.mark.slow),
-        pytest.param(50.0, id="files_50percent", marks=pytest.mark.slow),
-        pytest.param(100.0, id="files_100percent", marks=pytest.mark.slow),
+        pytest.param(0.1, id="files_10percent", marks=pytest.mark.slow),
+        pytest.param(0.5, id="files_50percent", marks=pytest.mark.slow),
+        pytest.param(1.0, id="files_100percent", marks=pytest.mark.slow),
     ]
     NUM_EVENTS = [
         pytest.param(10**3, id="events_1k"),
@@ -84,6 +83,7 @@ class BenchmarkUtility:
                 return None
 
     @staticmethod
+    @pydantic.validate_call
     def get_files(file_percentage: Percentage, paths: List[str]) -> List[str]:
         return paths[: max(1, int(len(paths) * file_percentage))]
 
