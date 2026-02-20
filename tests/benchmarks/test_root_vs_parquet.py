@@ -94,6 +94,7 @@ def run_test(
     paths: List[str],
     drop_branches: List[str],
     file_type: Literal["parquet", "root"],
+    file_type: Literal["parquet", "root"],
 ) -> Callable:
     """_summary_
 
@@ -141,6 +142,7 @@ def run_test(
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
             reader_kwargs=reader_kwargs(),
+            reader_kwargs=reader_kwargs(),
         )
 
     def _test_materialize_partitions():
@@ -156,7 +158,10 @@ def run_test(
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
             reader_kwargs=reader_kwargs(),
+            reader_kwargs=reader_kwargs(),
         )
+        for field in ingestor.fields:
+            ingestor[field].compute()
         for field in ingestor.fields:
             ingestor[field].compute()
 
@@ -207,6 +212,7 @@ def test_ingestion_speed(
     column_mode: str,
     file_percentage: Percentage,
     file_type: Literal["parquet", "root"],
+    file_type: Literal["parquet", "root"],
     test_method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
@@ -256,6 +262,13 @@ def test_ingestion_speed(
         paths=resolve_paths(data_path),
     )
     benchmark(
+        run_test(
+            method=test_method,
+            config=config,
+            paths=paths,
+            drop_branches=drop_branches,
+            file_type=file_type,
+        ),
         run_test(
             method=test_method,
             config=config,
