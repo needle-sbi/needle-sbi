@@ -108,16 +108,23 @@ def run_test(
         Callable: A function without args that will run the desired test
     """
 
-    def filter_name_func(name: str) -> bool:
+    def filter_name_func(columns: List[str]) -> Callable[[str], bool]:
         """Check if the str is in the list of branches to drop"""
-        return not any(d in name for d in drop_branches)
+
+        def _filter(name: str) -> bool:
+            is_valid = not any(d in name for d in drop_branches)
+            is_in_columns = name in columns
+            return is_valid and is_in_columns
+
+        return _filter
 
     def reader_kwargs() -> Dict[str, Callable]:
         match file_type:
             case "parquet":
                 return {}
             case "root":
-                return {"filter_name": filter_name_func}
+                assert config.datasets.features_columns
+                return {"filter_name": filter_name_func(config.datasets.features_columns)}
 
     def _test_only_metadata():
         """Test function to read the metadata from the files
@@ -152,35 +159,23 @@ def run_test(
     def _test_iterate_dataloader():
         """Test function to iterate through a dataloader with padded dataset.
 
-        This function creates two Ingestor instances for features and labels,
-        filters their columns based on the filter function, combines them into
-        a PaddedDataset, and then iterates through a DataLoader to verify
-        that the data pipeline works correctly without errors.
+        This function creates an Ingestor instance and filters the columns based on the filter
+        function, combines them into a PaddedDataset, and then iterates through a DataLoader to
+        verify that the data pipeline works correctly without errors.
 
         The test verifies that:
         - Data can be loaded and filtered properly
-        - The PaddedDataset correctly combines features and labels
         - The DataLoader can iterate through the dataset without exceptions
         """
 
-        ingestor_features = Ingestor(
+        ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
-        ingestor_labels = Ingestor(
-            paths=paths,
-            format="automatic",
-            columns=config.datasets.features_columns,
-            max_number_events=config.datasets.max_number_events,
-            reader_kwargs=reader_kwargs(),
-        )
-        datamodule = PaddedDataset(
-            ingestor_features,
-            ingestor_labels,
-        )
+        datamodule = PaddedDataset(ingestor, ingestor)
         dataloader = DataLoader(datamodule)
 
         for _ in dataloader:
