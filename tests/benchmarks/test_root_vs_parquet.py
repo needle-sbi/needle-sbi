@@ -27,7 +27,7 @@ above.
 """
 
 from pathlib import Path
-from typing import Annotated, Callable, List, Literal
+from typing import Annotated, Callable, Dict, List, Literal
 
 import pydantic
 import pytest
@@ -93,6 +93,7 @@ def run_test(
     config: MainConfig,
     paths: List[str],
     drop_branches: List[str],
+    file_type: Literal["parquet", "root"],
 ) -> Callable:
     """_summary_
 
@@ -111,6 +112,13 @@ def run_test(
         """Check if the str is in the list of branches to drop"""
         return not any(d in name for d in drop_branches)
 
+    def reader_kwargs() -> Dict[str, Callable]:
+        match file_type:
+            case "parquet":
+                return {}
+            case "root":
+                return {"filter_name": filter_name_func}
+
     def _test_only_metadata():
         """Test function to read the metadata from the files
 
@@ -121,6 +129,7 @@ def run_test(
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
 
     def _test_materialize_partitions():
@@ -130,15 +139,15 @@ def run_test(
         based on a filter function, and computes the mapped partitions to materialize
         them in memory. Performs no actual calculation.
         """
-
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
-        arr = ingestor.array[[c for c in ingestor.fields if filter_name_func(c)]]
-        arr.map_partitions(lambda x: x).compute()
+        for field in ingestor.fields:
+            ingestor[field].compute()
 
     def _test_iterate_dataloader():
         """Test function to iterate through a dataloader with padded dataset.
@@ -159,20 +168,21 @@ def run_test(
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
-        ingestor_features.array = ingestor_features.array[[c for c in ingestor_features.fields if filter_name_func(c)]]
         ingestor_labels = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
-        ingestor_labels.array = ingestor_labels.array[[c for c in ingestor_labels.fields if filter_name_func(c)]]
         datamodule = PaddedDataset(
             ingestor_features,
             ingestor_labels,
         )
         dataloader = DataLoader(datamodule)
+
         for _ in dataloader:
             pass
 
@@ -197,7 +207,7 @@ def test_ingestion_speed(
     config_factory: Callable[..., MainConfig],
     column_mode: str,
     file_percentage: Percentage,
-    file_type: str,
+    file_type: Literal["parquet", "root"],
     test_method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
@@ -245,5 +255,11 @@ def test_ingestion_speed(
         paths=resolve_paths(data_path),
     )
     benchmark(
-        run_test(method=test_method, config=config, paths=paths, drop_branches=drop_branches),
+        run_test(
+            method=test_method,
+            config=config,
+            paths=paths,
+            drop_branches=drop_branches,
+            file_type=file_type,
+        ),
     )
