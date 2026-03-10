@@ -8,7 +8,7 @@ import lightning
 from lightning.pytorch.loggers import MLFlowLogger
 
 from law_tasks.mixins import HydraMixin
-from orchestrator.config_schema import (
+from orchestrator.registry import (
     validate_datamodule_config,
     validate_model_config,
     validate_trainer_config,
