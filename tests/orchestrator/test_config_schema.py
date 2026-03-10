@@ -1,7 +1,7 @@
 import pytest
 from omegaconf import OmegaConf
 
-from orchestrator.config_schema import (
+from orchestrator.registry import (
     validate_datamodule_config,
     validate_model_config,
     validate_trainer_config,

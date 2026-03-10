@@ -3,9 +3,10 @@ from typing import cast
 
 import hydra
 import law
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 
 from orchestrator.config import MainConfig
+from orchestrator.registry import resolve_defaults
 
 
 class HydraMixin:
@@ -51,14 +52,18 @@ class HydraMixin:
             return self._config
 
         config_file = Path(str(self.config_file)).resolve()
+        config_dir = str(config_file.parent)
+        config_name = str(config_file.stem)
 
         with hydra.initialize_config_dir(
-            config_dir=str(config_file.parent),
+            config_dir=str(config_dir),
             version_base=None,
         ):
-            cfg_dict = hydra.compose(config_name=str(config_file.stem))
-            cfg_defaults = OmegaConf.structured(MainConfig)
-            self._config = cast(MainConfig, OmegaConf.merge(cfg_defaults, cfg_dict))
+            cfg_dict = hydra.compose(config_name=config_name)
+            cfg_defaults: DictConfig = OmegaConf.structured(MainConfig)
+            cfg_merged: DictConfig = OmegaConf.merge(cfg_defaults, cfg_dict)  # type: ignore
+            cfg_resolved = resolve_defaults(cfg_merged)
+            self._config = cast(MainConfig, cfg_resolved)
             return self._config
 
     @config.setter

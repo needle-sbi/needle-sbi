@@ -22,3 +22,13 @@ class FoldResults(SerializableDataclass):
 @dataclass
 class EnsembleResults(SerializableDataclass):
     folds: list[FoldResults] = field(default_factory=list)
+
+
+@dataclass
+class SystematicResults(SerializableDataclass):
+    ensembles: list[EnsembleResults] = field(default_factory=list)
+
+
+@dataclass
+class EstimatorResults(SerializableDataclass):
+    systematics: list[SystematicResults] = field(default_factory=list)

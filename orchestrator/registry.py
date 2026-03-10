@@ -6,65 +6,19 @@ Each schema is a ``@dataclass`` registered with the Hydra ``ConfigStore`` under 
 appropriate config group (``models``, ``datamodules``, ``trainers``).
 """
 
-from dataclasses import dataclass, fields
-from typing import Any
+from dataclasses import fields
+from typing import Any, Mapping
 
+import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import DictConfig, OmegaConf
-
-
-@dataclass
-class MockTransformerSchema:
-    """Typed schema for ml.lightning.models.mock_transformer.MockTransformerModule."""
-
-    _target_: str = "ml.lightning.models.mock_transformer.MockTransformerModule"
-    factor: float = 0.1
-    patience: int = 10
-    init_lr: float = 1e-3
-
-
-@dataclass
-class SimpleMLPSchema:
-    """Typed schema for ml.lightning.models.simple_mlp.SimpleMLPModule."""
-
-    _target_: str = "ml.lightning.models.simple_mlp.SimpleMLPModule"
-    hidden_dim: int = 64
-    init_lr: float = 1e-3
-
-
-@dataclass
-class PaddedDataModuleSchema:
-    """Typed schema for ml.lightning.data.padded_datamodule.PaddedDataModule."""
-
-    _target_: str = "ml.lightning.data.padded_datamodule.PaddedDataModule"
-    multiprocessing_type: str = "torch"
-    batch_size: int = 1024
-    n_workers: int = 0
-    shuffle_partitions: bool = True
-    shuffle_events: bool = True
-
-
-@dataclass
-class NormFlowSchema:
-    """Typed schema for ml.lightning.models.norm_flow.NormFlowModule."""
-
-    _target_: str = "ml.lightning.models.norm_flow.NormFlowModule"
-    features_dim: int = 8
-    context_dim: int = 0
-    flow_type: str = "nsf"
-    n_transforms: int = 5
-    hidden_dim: int = 128
-    init_lr: float = 1e-3
-
-
-@dataclass
-class LightningTrainerSchema:
-    """Typed schema for lightning.Trainer."""
-
-    _target_: str = "lightning.Trainer"
-    max_epochs: int = 1
-    log_every_n_steps: int = 50
-
+from .schemas import (
+    MockTransformerSchema,
+    SimpleMLPSchema,
+    PaddedDataModuleSchema,
+    NormFlowSchema,
+    LightningTrainerSchema,
+)
 
 # ---------------------------------------------------------------------------
 # `ConfigStore` registration
@@ -108,9 +62,65 @@ def _register_all_schemas() -> None:
 _register_all_schemas()
 
 
+def resolve_defaults(cfg: DictConfig) -> DictConfig:
+    """Resolve the default fields in the hydra config.
+
+    This method mimics the usual hydra behavior of the 'defaults' field, but extends it to nested fields
+    inside the config. Meaning fields like 'dataset' are looked up in the group 'datasets' and the
+    values are added to 'dataset_override'. This in turn is also compatible with overriding a value
+    inside the group by directly assigning 'dataset_override' afterwards.
+
+    Note that further nesting like Systematics that also provide the `*_override` keyword will not
+    have all keywords automatically, but have to be merged with the main field.
+
+    Groups that are registered:
+        - "datasets": Resolves the "dataset" field and populates "dataset_override"
+        - "datamodules": Resolves the "datamodule" field and populates "datamodule_override"
+        - "models": Resolves the "model" field and populates "model_override"
+        - "trainers": Resolves the "trainer" field and populates "trainer_override"
+
+    Args:
+        cfg (DictConfig): The config object to resolve
+    
+    Returns:
+        DictConfig: A config object with the fields resolved to the corresponding group
+    
+    """
+
+    DEFAULT_GROUPS: Mapping[str, str] = {
+        "dataset": "datasets",
+        "datamodule": "datamodules",
+        "model": "models",
+        "trainer": "trainers",
+    }
+
+    def _load_group(group: str, name: str) -> DictConfig:
+        cfg = hydra.compose(overrides=[f"+{group}={name}"])
+        return cfg[group]
+
+    estimators: DictConfig = cfg.get("estimators", {})
+
+    for _, est_cfg in estimators.items():
+        for field, group in DEFAULT_GROUPS.items():
+            group_member = est_cfg.get(field)
+
+            if group_member is None:
+                continue
+            
+            override_key = f"{field}_override"
+            group_cfg = _load_group(group, group_member)
+            base_cfg = est_cfg.get(override_key)
+
+            if base_cfg:
+                est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
+            else:
+                est_cfg[override_key] = group_cfg
+
+    return cfg
+
+
 # ---------------------------------------------------------------------------
 # Some validation helpers
-
 def _to_dict(config: DictConfig | dict[str, Any]) -> dict[str, Any]:
     if isinstance(config, DictConfig):
         return dict(OmegaConf.to_container(config, resolve=True))  # type: ignore[arg-type]
