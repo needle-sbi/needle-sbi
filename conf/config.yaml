@@ -1,7 +1,21 @@
-defaults:
-  - models: mock_transformer
-  - datamodules: padded
-  - datasets: fair_universe
-  - trainers: default
-
-n_folds: 5
+estimators:
+  model_A:
+    model: mock_transformer
+    datamodule: padded
+    dataset: fair_universe
+    trainer: default
+    expands:
+      systematics:
+        up_qcd:
+          dataset: fair_universe_local
+          dataset_override:
+            labels_columns: ['PRI_n_jets']
+      ensembles:
+        num_ensembles: 2
+        aggregation_method: "mean"
+      folds: 2
+  model_B:
+    model: mock_transformer
+    datamodule: padded
+    dataset: fair_universe
+    trainer: default

@@ -1,0 +1,4 @@
+paths: /home/kylian/work/NEEDLE/delphes_samples/*.root
+features_columns: ["Muon.PT", "Muon.Eta"]
+labels_columns: ["Jet.Phi"]
+max_number_events: 100000
