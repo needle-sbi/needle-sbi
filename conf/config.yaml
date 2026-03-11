@@ -20,3 +20,7 @@ estimators:
     dataset: fair_universe
     trainer: default
     requires: ["model_A"]
+    expands:
+      ensembles:
+        num_ensembles: 1
+        aggregation_method: "max"
