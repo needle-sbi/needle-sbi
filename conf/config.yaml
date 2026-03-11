@@ -19,3 +19,4 @@ estimators:
     datamodule: padded
     dataset: fair_universe
     trainer: default
+    requires: ["model_A"]

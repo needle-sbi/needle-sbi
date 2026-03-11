@@ -27,7 +27,7 @@ from .schemas import (
 _SCHEMA_REGISTRY: dict[str, type] = {}
 
 
-def _register_all_schemas() -> None:
+def register_all_schemas() -> None:
     """Register every schema with the Hydra ConfigStore under the correct group.
 
     Called once at module import time.  Adding a new model only requires:
@@ -57,9 +57,6 @@ def _register_all_schemas() -> None:
         LightningTrainerSchema,
     ):
         _SCHEMA_REGISTRY[schema_cls._target_] = schema_cls
-
-
-_register_all_schemas()
 
 
 def resolve_defaults(cfg: DictConfig) -> DictConfig:

@@ -71,6 +71,21 @@ class FoldTask(law.Task, HydraMixin):
             ),
             self.estimator_config,
         )  # type: ignore
+    
+    def requires(self):
+        if not self.estimator_config.requires:
+            return None
+
+        from law_tasks import EstimatorTask
+
+        return [
+            EstimatorTask.req(
+                self,
+                config_file=self.config_file,
+                estimator=dependency,
+            )
+            for dependency in self.estimator_config.requires
+        ]
 
     def run(self):
         mlflow_logger = MLFlowLogger(save_dir=self.output()["logs"].path, experiment_name="mlflow")

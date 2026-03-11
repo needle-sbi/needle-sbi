@@ -114,6 +114,8 @@ class EstimatorConfig(SerializableDataclass):
     trainer: str = ""
     trainer_override: Optional[Any] = None
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
+    requires: Optional[List[str]] = None
+
 
 @dataclass
 class MainConfig(SerializableDataclass):

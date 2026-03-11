@@ -11,7 +11,7 @@ import luigi
 from law_tasks.fold import FoldTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import EnsembleResults, FoldResults
-from orchestrator.config import EstimatorConfig, EnsembleConfig
+from orchestrator.config import EstimatorConfig
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("ensemble")
