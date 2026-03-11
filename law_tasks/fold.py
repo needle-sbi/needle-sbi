@@ -13,8 +13,8 @@ from lightning.pytorch.loggers import MLFlowLogger, TensorBoardLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
-from orchestrator.results import FoldResults
 from orchestrator.config import EstimatorConfig, SystematicConfig
+from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
@@ -71,10 +71,10 @@ class FoldTask(law.Task, HydraMixin):
             ),
             self.estimator_config,
         )  # type: ignore
-    
+
     def requires(self):
         if not self.estimator_config.requires:
-            return None
+            return []
 
         from law_tasks import EstimatorTask
 
@@ -110,7 +110,6 @@ class FoldTask(law.Task, HydraMixin):
             trainer_config,
             logger=[mlflow_logger, tensorboard_logger],
         )
-
         trainer.fit(model=model, datamodule=data_module)
 
         results = FoldResults(

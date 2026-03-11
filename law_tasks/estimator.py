@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import law
 
@@ -32,8 +32,15 @@ class EstimatorTask(law.Task, HydraMixin):
     def estimator_config(self) -> EstimatorConfig:
         return self.config.estimators[self.estimator]
 
-    def requires(self):
-        return [
+    def requires(self) -> List[SystematicTask]:
+        nominal = [
+            SystematicTask.req(
+                self,
+                config_file=self.config_file,
+                systematic="nominal",
+            )
+        ]
+        systematic_shifts = [
             SystematicTask.req(
                 self,
                 config_file=self.config_file,
@@ -42,7 +49,8 @@ class EstimatorTask(law.Task, HydraMixin):
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
-    
+        return nominal + systematic_shifts
+
     def output(self) -> Dict[str, Any]:
         os.makedirs(self.abs_results_path, exist_ok=True)
         return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/estimator_outputs.json")}
@@ -55,4 +63,3 @@ class EstimatorTask(law.Task, HydraMixin):
             systematic_results.systematics.append(fold_result)
 
         systematic_results.to_json(self.output()["outputs"].path)
-

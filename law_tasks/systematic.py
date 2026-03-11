@@ -9,7 +9,7 @@ import law
 
 from law_tasks.ensemble import EnsembleTask
 from law_tasks.mixins import HydraMixin
-from orchestrator.config import SystematicConfig, EstimatorConfig
+from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.results import EnsembleResults, SystematicResults
 from preprocessor.utils import ColorFormatter
 
@@ -34,16 +34,19 @@ class SystematicTask(law.Task, HydraMixin):
     @property
     def abs_results_path(self) -> Path:
         return os.path.abspath(self.rel_results_path)  # type: ignore
-    
+
     @property
     def estimator_config(self) -> EstimatorConfig:
         return self.config.estimators[self.estimator]
-    
+
     @property
     def systematic_config(self) -> SystematicConfig:
         return self.config.estimators[self.estimator].expands.systematics[self.systematic]
 
     def requires(self):
+        num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
+        num_ensembles = max(1, num_ensembles)
+
         return [
             EnsembleTask.req(
                 self,
@@ -52,9 +55,9 @@ class SystematicTask(law.Task, HydraMixin):
                 systematic=self.systematic,
                 ensemble=ensemble_index,
             )
-            for ensemble_index in range(self.estimator_config.expands.ensembles.num_ensembles)
+            for ensemble_index in range(num_ensembles)
         ]
-    
+
     def output(self) -> Dict[str, Any]:
         os.makedirs(self.abs_results_path, exist_ok=True)
         return {"outputs": law.LocalDirectoryTarget(f"{self.abs_results_path}/systematic_results.json")}

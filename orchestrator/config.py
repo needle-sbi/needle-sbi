@@ -19,6 +19,7 @@ class SystematicConfig(SerializableDataclass):
     """In contrast to the `EstimatorConfig` dataclass, entries here can be inferred from the Asimov
     dataclass, e.g. by adopting the entries from the parent estimator.
     """
+
     datamodule: Optional[str] = None
     datamodule_override: Optional[Any] = None
     dataset: Optional[str] = None
@@ -40,6 +41,9 @@ class ExpansionConfig(SerializableDataclass):
     ensembles: EnsembleConfig = field(default_factory=EnsembleConfig)
     systematics: dict[str, SystematicConfig] = field(default_factory=dict)
     folds: int = 1
+
+    def __post_init__(self):
+        self.systematics.setdefault("nominal", SystematicConfig())
 
 
 @dataclass
@@ -105,6 +109,7 @@ class EstimatorConfig(SerializableDataclass):
     >>> cfg2.dataset_override.labels_columns
     ['PRI_n_jets']
     """
+
     datamodule: str = ""
     datamodule_override: Optional[Any] = None
     dataset: str = ""
