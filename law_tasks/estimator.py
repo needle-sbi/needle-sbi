@@ -33,14 +33,7 @@ class EstimatorTask(law.Task, HydraMixin):
         return self.config.estimators[self.estimator]
 
     def requires(self) -> List[SystematicTask]:
-        nominal = [
-            SystematicTask.req(
-                self,
-                config_file=self.config_file,
-                systematic="nominal",
-            )
-        ]
-        systematic_shifts = [
+        return [
             SystematicTask.req(
                 self,
                 config_file=self.config_file,
@@ -49,7 +42,6 @@ class EstimatorTask(law.Task, HydraMixin):
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
-        return nominal + systematic_shifts
 
     def output(self) -> Dict[str, Any]:
         os.makedirs(self.abs_results_path, exist_ok=True)

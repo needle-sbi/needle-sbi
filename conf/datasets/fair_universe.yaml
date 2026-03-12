@@ -1,4 +1,4 @@
-paths: /home/kylian/work/NEEDLE/FAIR_Universe_HiggsML_data/FAIR_Universe_HiggsML_data.parquet
+paths: /ceph/kschmidt/needle/fair_universe/input_data/train/data/data.parquet
 features_columns: ['PRI_lep_pt']
 labels_columns: ['PRI_n_jets']
-max_number_events: 100000
+max_number_events: 1000

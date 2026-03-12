@@ -7,17 +7,18 @@ appropriate config group (``models``, ``datamodules``, ``trainers``).
 """
 
 from dataclasses import fields
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import DictConfig, OmegaConf
+
 from .schemas import (
-    MockTransformerSchema,
-    SimpleMLPSchema,
-    PaddedDataModuleSchema,
-    NormFlowSchema,
     LightningTrainerSchema,
+    MockTransformerSchema,
+    NormFlowSchema,
+    PaddedDataModuleSchema,
+    SimpleMLPSchema,
 )
 
 # ---------------------------------------------------------------------------
@@ -59,63 +60,6 @@ def register_all_schemas() -> None:
         _SCHEMA_REGISTRY[schema_cls._target_] = schema_cls
 
 
-def resolve_defaults(cfg: DictConfig) -> DictConfig:
-    """Resolve the default fields in the hydra config.
-
-    This method mimics the usual hydra behavior of the 'defaults' field, but extends it to nested fields
-    inside the config. Meaning fields like 'dataset' are looked up in the group 'datasets' and the
-    values are added to 'dataset_override'. This in turn is also compatible with overriding a value
-    inside the group by directly assigning 'dataset_override' afterwards.
-
-    Note that further nesting like Systematics that also provide the `*_override` keyword will not
-    have all keywords automatically, but have to be merged with the main field.
-
-    Groups that are registered:
-        - "datasets": Resolves the "dataset" field and populates "dataset_override"
-        - "datamodules": Resolves the "datamodule" field and populates "datamodule_override"
-        - "models": Resolves the "model" field and populates "model_override"
-        - "trainers": Resolves the "trainer" field and populates "trainer_override"
-
-    Args:
-        cfg (DictConfig): The config object to resolve
-    
-    Returns:
-        DictConfig: A config object with the fields resolved to the corresponding group
-    
-    """
-
-    DEFAULT_GROUPS: Mapping[str, str] = {
-        "dataset": "datasets",
-        "datamodule": "datamodules",
-        "model": "models",
-        "trainer": "trainers",
-    }
-
-    def _load_group(group: str, name: str) -> DictConfig:
-        cfg = hydra.compose(overrides=[f"+{group}={name}"])
-        return cfg[group]
-
-    estimators: DictConfig = cfg.get("estimators", {})
-
-    for _, est_cfg in estimators.items():
-        for field, group in DEFAULT_GROUPS.items():
-            group_member = est_cfg.get(field)
-
-            if group_member is None:
-                continue
-            
-            override_key = f"{field}_override"
-            group_cfg = _load_group(group, group_member)
-            base_cfg = est_cfg.get(override_key)
-
-            if base_cfg:
-                est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
-            else:
-                est_cfg[override_key] = group_cfg
-
-    return cfg
-
-
 # ---------------------------------------------------------------------------
 # Some validation helpers
 def _to_dict(config: DictConfig | dict[str, Any]) -> dict[str, Any]:
@@ -136,6 +80,7 @@ def _validate_against_schema(
     raw = _to_dict(config)
     allowed_fields = {f.name for f in fields(schema_cls)}
     unknown_fields = set(raw) - allowed_fields
+    print(f"DEBUG {raw=}")
     if unknown_fields:
         raise ValueError(
             f"Unknown config field(s) for {schema_cls.__name__}: {sorted(unknown_fields)}. "

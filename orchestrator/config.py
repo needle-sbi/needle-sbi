@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
+from omegaconf import MISSING
+
 from ml.utils.dataclass import SerializableDataclass
 
 
@@ -23,7 +25,7 @@ class SystematicConfig(SerializableDataclass):
     datamodule: Optional[str] = None
     datamodule_override: Optional[Any] = None
     dataset: Optional[str] = None
-    dataset_override: Optional[DatasetConfig] = field(default_factory=DatasetConfig)
+    dataset_override: DatasetConfig = field(default_factory=DatasetConfig)
     model: Optional[str] = None
     model_override: Optional[Any] = None
     trainer: Optional[str] = None
@@ -110,13 +112,13 @@ class EstimatorConfig(SerializableDataclass):
     ['PRI_n_jets']
     """
 
-    datamodule: str = ""
+    datamodule: str = MISSING
     datamodule_override: Optional[Any] = None
-    dataset: str = ""
-    dataset_override: Optional[DatasetConfig] = field(default_factory=DatasetConfig)
-    model: str = ""
+    dataset: str = MISSING
+    dataset_override: DatasetConfig = field(default_factory=DatasetConfig)
+    model: str = MISSING
     model_override: Optional[Any] = None
-    trainer: str = ""
+    trainer: str = MISSING
     trainer_override: Optional[Any] = None
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
     requires: Optional[List[str]] = None

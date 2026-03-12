@@ -24,3 +24,4 @@ estimators:
       ensembles:
         num_ensembles: 1
         aggregation_method: "max"
+      folds: 1

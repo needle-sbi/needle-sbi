@@ -3,10 +3,10 @@ from typing import cast
 
 import hydra
 import law
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from orchestrator.config import MainConfig
-from orchestrator.registry import resolve_defaults
+from orchestrator.config_utils import initialize_hydra_config
 
 
 class HydraMixin:
@@ -48,23 +48,20 @@ class HydraMixin:
 
     @property
     def config(self) -> MainConfig:
+        """Load the config from the `HydraMixin.config_file` and convert to an instance of MainConfig.
+
+        Returns:
+            MainConfig
+        """
         if hasattr(self, "_config"):
             return self._config
 
         config_file = Path(str(self.config_file)).resolve()
-        config_dir = str(config_file.parent)
-        config_name = str(config_file.stem)
-
-        with hydra.initialize_config_dir(
-            config_dir=str(config_dir),
-            version_base=None,
-        ):
-            cfg_dict = hydra.compose(config_name=config_name)
-            cfg_defaults: DictConfig = OmegaConf.structured(MainConfig)
-            cfg_merged: DictConfig = OmegaConf.merge(cfg_defaults, cfg_dict)  # type: ignore
-            cfg_resolved = resolve_defaults(cfg_merged)
-            self._config = cast(MainConfig, cfg_resolved)
-            return self._config
+        self._config = initialize_hydra_config(
+            config_dir=str(config_file.parent),
+            config_name=str(config_file.stem),
+        )
+        return self._config
 
     @config.setter
     def config(self, new_config: MainConfig):

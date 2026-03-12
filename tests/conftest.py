@@ -1,12 +1,13 @@
 import os
-from typing import Callable, List, cast
+from functools import partial
+from pathlib import Path
+from typing import Callable, List, Protocol
 
-import hydra
 import pytest
 from dask.distributed import Client, LocalCluster
-from omegaconf import OmegaConf
 
 from orchestrator.config import MainConfig
+from orchestrator.config_utils import initialize_hydra_config
 
 
 @pytest.fixture
@@ -60,29 +61,30 @@ def delphes_sample_parquet(check_cli_path) -> str:
     return check_cli_path("DELPHES_DATA_PARQUET", "parquet")
 
 
+class MainConfigFactory(Protocol):
+    def __call__(self, overrides: list[str] | None = None) -> MainConfig:
+        ...
+
+
 @pytest.fixture()
-def config_factory() -> Callable[[None], MainConfig]:
+def config_factory() -> MainConfigFactory:
     """Create configs from the .yaml file together with the defaults from the corresponding
     dataclass.
 
     Returns:
-        Callable[[None], MainConfig]: Factory to create new configs. Use the hydra `overrides`
+        MainConfigFactory: Factory to create new configs. Use the hydra `overrides`
             argument to replace a value from the .yaml with a new value.
     """
-
-    def _factory(overrides: List[str] | None = None):
-        with hydra.initialize(config_path="hydra_test_conf"):
-            cfg_dict = hydra.compose(config_name="config", overrides=overrides)
-            cfg_defaults = OmegaConf.structured(MainConfig)
-            cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
-            return cast(MainConfig, cfg)
-
-    return _factory
+    return partial(
+        initialize_hydra_config,
+        config_dir=str(Path("tests/hydra_test_conf").absolute()),
+        config_name="config",
+    )
 
 
 @pytest.fixture(scope="function")
-def config(config_factory) -> MainConfig:
-    return config_factory(overrides=None)
+def config(config_factory: MainConfigFactory) -> MainConfig:
+    return config_factory()
 
 
 @pytest.fixture(scope="session")
