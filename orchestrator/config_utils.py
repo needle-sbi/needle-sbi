@@ -1,11 +1,13 @@
 import graphlib
+from pathlib import Path
 from typing import List, Literal, Mapping, cast
 
 import hydra
-from hydra.core.config_store import ConfigStore
+from hydra.core.global_hydra import GlobalHydra
+from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
 
-from orchestrator.config import DatasetConfig, MainConfig
+from orchestrator.config import MainConfig
 
 
 def validate_graph(self: "MainConfig") -> None:
@@ -43,20 +45,6 @@ def validate_graph(self: "MainConfig") -> None:
     return None
 
 
-def update_manual_overrides(
-    cfg: DictConfig,
-    overrides: List[str] | None,
-) -> DictConfig:
-    if not overrides:
-        return cfg
-
-    for override in overrides:
-        key, value = override.split("=", 1)
-        OmegaConf.update(cfg, key, value, merge=True)
-
-    return cfg
-
-
 def initialize_hydra_config(config_dir: str, config_name: str, overrides: List[str] | None = None) -> MainConfig:
     with hydra.initialize_config_dir(
         config_dir=config_dir,
@@ -64,10 +52,9 @@ def initialize_hydra_config(config_dir: str, config_name: str, overrides: List[s
     ):
         cfg_as_dict: DictConfig = OmegaConf.merge(
             OmegaConf.structured(MainConfig),
-            hydra.compose(config_name=config_name),
+            hydra.compose(config_name=config_name, overrides=overrides),
         )  # type: ignore
-        cfg_as_dict = resolve_defaults(cfg_as_dict)
-        cfg_as_dict = update_manual_overrides(cfg_as_dict, overrides=overrides)
+        cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
         cfg: MainConfig = cast(MainConfig, cfg_as_dict)
         validate_graph(cfg)
         return cfg
@@ -75,6 +62,7 @@ def initialize_hydra_config(config_dir: str, config_name: str, overrides: List[s
 
 def resolve_defaults(
     cfg: DictConfig,
+    cfg_dir: Path,
     node: Literal["estimators", "systematics"] = "estimators",
 ) -> DictConfig:
     """Resolve the default fields in the hydra config.
@@ -109,8 +97,16 @@ def resolve_defaults(
     }
 
     def _load_group(group: str, name: str) -> DictConfig:
-        cfg = hydra.compose(overrides=[f"+defaults=[{group}={name}]"])
-        return cfg[group]
+        try:
+            return hydra.compose(overrides=[f"{group}={name}"])[group]
+        except ConfigCompositionException as e:
+            msg = f"Cannot resolve config group '{group}={name}'."
+
+            if cfg_dir and (cfg_dir / group).exists():
+                options = [p.stem for p in (cfg_dir / group).glob("*.yaml")]
+                msg += f" Available options: {', '.join(options)}"
+
+            raise ValueError(msg) from e
 
     estimators: DictConfig = cfg.get(node, {})
 
