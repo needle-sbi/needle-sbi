@@ -44,7 +44,23 @@ def validate_graph(self: "MainConfig") -> None:
     return None
 
 
-def initialize_hydra_config(config_dir: str, config_name: str, overrides: List[str] | None = None) -> MainConfig:
+def initialize_hydra_config(
+    config_dir: str,
+    config_name: str,
+    overrides: List[str] | None = None,
+) -> MainConfig:
+    """Initialize the hydra config from the corresponding directory
+
+    Args:
+        config_dir (str): Absolute path to the config directory
+        config_name (str): Name of the config file (.e.g 'config')
+        overrides (List[str] | None, optional): Hydra overrides. Defaults to None. May not include any
+            of the groups listed in `resolve_config`.
+
+    Returns:
+        MainConfig: Partially resolved instance of MainConfig. The fields for SystematicConfig
+            must be merged manually with the entries in EstimatorConfig.
+    """
     with hydra.initialize_config_dir(
         config_dir=config_dir,
         version_base=None,
