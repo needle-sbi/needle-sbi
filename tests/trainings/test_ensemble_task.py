@@ -22,12 +22,9 @@ def test_kfold_training(
     fair_universe_sample: str,
 ):
     estimator_name = list(config_factory().estimators.keys())[0]
-    config = config_factory(
-        overrides=[
-            f"estimators.{estimator_name}.expands.folds=2",
-            f"estimators.{estimator_name}.dataset_override.paths={fair_universe_sample}",
-        ]
-    )
+    config = config_factory()
+    config.estimators[estimator_name].dataset_override.paths = fair_universe_sample
+    config._resolved = True
     config_tmp_file = tmp_path / "config.yaml"
     omegaconf.OmegaConf.save(config, config_tmp_file, resolve=True)
 

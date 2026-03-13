@@ -127,3 +127,4 @@ class EstimatorConfig(SerializableDataclass):
 @dataclass
 class MainConfig(SerializableDataclass):
     estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
+    _resolved: bool = False

@@ -3,6 +3,8 @@ estimators:
     model: mock_transformer
     datamodule: padded
     dataset: fair_universe
+    dataset_override:
+      labels_columns: ["PRI_lep_eta"]
     trainer: default
     expands:
       systematics:

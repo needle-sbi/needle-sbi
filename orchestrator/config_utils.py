@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List, Literal, Mapping, cast
 
 import hydra
-from hydra.core.global_hydra import GlobalHydra
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
 
@@ -98,15 +97,18 @@ def resolve_defaults(
 
     def _load_group(group: str, name: str) -> DictConfig:
         try:
-            return hydra.compose(overrides=[f"{group}={name}"])[group]
+            return hydra.compose(overrides=[f"+{group}={name}"])[group]
         except ConfigCompositionException as e:
             msg = f"Cannot resolve config group '{group}={name}'."
 
-            if cfg_dir and (cfg_dir / group).exists():
+            if cfg_dir and (cfg_dir / (group + ".yaml")).exists():
                 options = [p.stem for p in (cfg_dir / group).glob("*.yaml")]
                 msg += f" Available options: {', '.join(options)}"
 
             raise ValueError(msg) from e
+
+    if cfg.get("_resolved"):
+        return cfg
 
     estimators: DictConfig = cfg.get(node, {})
 
