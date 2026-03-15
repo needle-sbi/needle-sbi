@@ -24,19 +24,6 @@ build_singularity_images:
       - $SIF_DEV_NAME
       - $SIF_BASE_NAME
 
-# future
-test_coverage:
-  stage: test
-  tags:
-    - shell
-  script:
-    - uv sync
-    - uv run pytest --cov --cov-report=term
-  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+)%/'
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "dev"'
-    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "dev"'
-
 test_singularity_images:
   stage: test
   tags:

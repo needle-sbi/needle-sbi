@@ -9,18 +9,17 @@ import hydra
 import law
 import lightning
 import luigi
-from lightning.pytorch.loggers import MLFlowLogger, TensorBoardLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
+from law_tasks.training_base import TrainingBase
 from orchestrator.config import EstimatorConfig, SystematicConfig
-from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
 
 
-class FoldTask(law.Task, HydraMixin):
+class FoldTask(law.Task, TrainingBase, HydraMixin):
     rel_results_path = law.Parameter(
         description="Directory where the fold training results will be saved.",
         default="runs",
@@ -44,12 +43,6 @@ class FoldTask(law.Task, HydraMixin):
         default=0,
         significant=True,
     )  # type: ignore
-
-    def output(self):
-        return {
-            "logs": law.LocalDirectoryTarget(f"{self.abs_results_path}/fold_{self.fold_index}/tensorboard_logs"),
-            "outputs": law.LocalFileTarget(f"{self.abs_results_path}/fold_{self.fold_index}/training_output.json"),
-        }
 
     @property
     def abs_results_path(self) -> Path:
@@ -88,9 +81,6 @@ class FoldTask(law.Task, HydraMixin):
         ]
 
     def run(self):
-        mlflow_logger = MLFlowLogger(save_dir=self.output()["logs"].path, experiment_name="mlflow")
-        tensorboard_logger = TensorBoardLogger(save_dir=self.output()["logs"].path, name="tensorboard")
-
         model_config = self.systematic_config.model_override
         datamodule_config = self.systematic_config.datamodule_override
         dataset_config = self.systematic_config.dataset_override
@@ -108,14 +98,8 @@ class FoldTask(law.Task, HydraMixin):
         )
         trainer: lightning.Trainer = hydra.utils.instantiate(
             trainer_config,
-            logger=[mlflow_logger, tensorboard_logger],
+            logger=self.lightning_logger,
         )
         trainer.fit(model=model, datamodule=data_module)
-
-        results = FoldResults(
-            best_validation_loss=float(trainer.callback_metrics["val_loss"]),
-            n_folds=self.estimator_config.expands.folds,
-            fold_index=self.fold_index,  # type: ignore
-        )
+        trainer.save_checkpoint(Path(str(self.output()["ckpt"])))
         self.output()["outputs"].touch()
-        results.to_json(self.output()["outputs"].path)

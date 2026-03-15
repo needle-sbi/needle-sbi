@@ -7,7 +7,6 @@ estimators:
     expands:
       systematics:
         up_qcd:
-          dataset: fair_universe_local
           dataset_override:
             labels_columns: ['PRI_n_jets']
       ensembles:
