@@ -1,4 +1,4 @@
-paths: /ceph/kschmidt/needle/fair_universe/input_data/train/data/data.parquet
+paths: /home/sjiggins/Documents/Work_Directory_DESY/NEEDLE/NEEDLE-software/data/CombData-part0.parquet
 features_columns: ['PRI_lep_pt']
 labels_columns: ['PRI_n_jets']
 max_number_events: 1000

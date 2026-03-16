@@ -62,10 +62,23 @@ class EnsembleTask(law.Task, HydraMixin):
         return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/ensemble_results.json")}
 
     def run(self):
-        ensemble_results = EnsembleResults()
+        # List of outputs
+        fold_outputs = self.input()
 
-        for fold_outputs in self.input():
-            fold_result = FoldResults.from_json(fold_outputs["outputs"].path)
-            ensemble_results.folds.append(fold_result)
+        fold_results = []
+        for fold_idx, fold_output in enumerate(fold_outputs):
+            fold_result = FoldResults.from_json(fold_output["outputs"].path)
+            fold_results.append(fold_result)                              
 
-        ensemble_results.to_json(self.output()["outputs"].path)
+        ensemble_results = EnsembleResults(
+            fold_results = fold_results
+            )
+        self.output()["outputs"].dump(ensemble_results)
+
+
+        #ensemble_results = EnsembleResults()
+        #for fold_outputs in self.input():
+        #    fold_result = FoldResults.from_json(fold_outputs["outputs"].path)
+        #    ensemble_results.folds.append(fold_result)
+
+        #ensemble_results.to_json(self.output()["outputs"].path)
