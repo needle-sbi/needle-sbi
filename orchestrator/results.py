@@ -2,7 +2,7 @@
 Dataclass for the results of a specific type of training
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict 
 
 from ml.utils.dataclass import SerializableDataclass
 from enum import Enum
@@ -23,10 +23,32 @@ class FoldResults(SerializableDataclass):
     fold_index: int
     n_folds: int
 
+    #def __post_init__(self):
+    #    """Ensure folds are FoldResults instances"""
+    #    self.folds = [
+    #        FoldResults(**f) if isinstance(f, dict) else f
+    #        for f in self.folds
+    #    ]
+
 
 @dataclass
 class EnsembleResults(SerializableDataclass):
     folds: list[FoldResults] = field(default_factory=list)
+
+    @classmethod
+    def from_json(cls, path: str):
+        """Override to properly deserialize nested FoldResults"""
+        with open(path, 'r') as f:
+            data = json.load(f)
+        
+        # Convert dict folds to FoldResults objects
+        if 'folds' in data:
+            data['folds'] = [
+                FoldResults(**fold_dict) if isinstance(fold_dict, dict) else fold_dict
+                for fold_dict in data['folds']
+            ]
+        
+        return cls(**data)
 
 
 @dataclass

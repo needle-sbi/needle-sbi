@@ -4,6 +4,7 @@ from .estimator import EstimatorTask
 from .ensemble import EnsembleTask
 from .systematic import SystematicTask
 from .fold import FoldTask
+from .snapshot import SnapshotTask
 
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "EnsembleTask",
     "SystematicTask",
     "FoldTask",
+    "SnapshotTask",
 ]

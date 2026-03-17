@@ -12,11 +12,13 @@ from omegaconf import OmegaConf
 from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import (
+    EnsembleResults,
     AggregationEdge,
     AggregationMethod,
     DAGSnapshot,
     ModelNodeMetadata,
 )
+
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("snapshot")
@@ -39,7 +41,7 @@ class SnapshotTask(law.Task, HydraMixin):
         return MainTask.req(
             self,
             config_file=self.config_file,
-            rel_results_path=self.rel_results_path,
+            #rel_results_path=self.rel_results_path,
         )
 
     def output(self):
@@ -58,17 +60,17 @@ class SnapshotTask(law.Task, HydraMixin):
         edges: List[AggregationEdge] = []
 
         # Get configuration for aggregation methods from Hydra config
-        agg_config = getattr(self.config, "aggregation", {})
-        fold_agg_method = agg_config.get("fold_method", "mean")
-        ensemble_agg_method = agg_config.get("ensemble_method", "mean")
-        systematic_agg_method = agg_config.get("systematic_method", "mean")
-        estimator_agg_method = agg_config.get("estimator_method", "mean")
+        agg_config = self.config.aggregation
+        fold_agg_method = agg_config.fold_method
+        ensemble_agg_method = agg_config.ensemble_method
+        systematic_agg_method = agg_config.systematic_method
+        estimator_agg_method = agg_config.estimator_method
 
         # Get optional weights
-        fold_weights = agg_config.get("fold_weights")
-        ensemble_weights = agg_config.get("ensemble_weights")
-        systematic_weights = agg_config.get("systematic_weights")
-        estimator_weights = agg_config.get("estimator_weights")
+        #fold_weights = agg_config.get("fold_weights")
+        #ensemble_weights = agg_config.get("ensemble_weights")
+        #systematic_weights = agg_config.get("systematic_weights")
+        #estimator_weights = agg_config.get("estimator_weights")
 
         main_task = self.requires()
         
@@ -95,7 +97,8 @@ class SnapshotTask(law.Task, HydraMixin):
                     logger.info(f"    Processing ensemble: {ensemble_idx}")
                     
                     ensemble_output = ensemble_task.output()
-                    ensemble_results = ensemble_output["outputs"].load()
+                    # Load EnsembleResults using SerializableDataclass method
+                    ensemble_results = EnsembleResults.from_json(ensemble_output["outputs"].path)
 
                     all_fold_nodes = []
 
@@ -114,7 +117,8 @@ class SnapshotTask(law.Task, HydraMixin):
                         checkpoint_path = self._find_checkpoint(fold_output)
                         
                         # Extract metrics from ensemble results
-                        fold_result = ensemble_results.fold_results[fold_idx]
+                        print(f"==== {fold_idx} =====")
+                        fold_result = ensemble_results.folds[fold_idx]
                         
                         nodes[node_id] = ModelNodeMetadata(
                             checkpoint_path=checkpoint_path,
@@ -125,7 +129,7 @@ class SnapshotTask(law.Task, HydraMixin):
                             systematic_name=systematic_name,
                             metrics={
                                 "val_loss": fold_result.best_validation_loss,
-                                "train_loss": fold_result.final_train_loss,
+                                #"train_loss": fold_result.final_train_loss,
                             },
                         )
                         all_fold_nodes.append(node_id)
@@ -196,17 +200,9 @@ class SnapshotTask(law.Task, HydraMixin):
 
     def _find_checkpoint(self, fold_output) -> str:
         """Find the best or last checkpoint for a fold task"""
-        checkpoint_dir = Path(fold_output["ckpt"].path).parent
-        
-        # Look for checkpoints in standard locations
-        for ckpt_name in ["best.ckpt", "last.ckpt"]:
-            potential_path = checkpoint_dir / ckpt_name
-            if potential_path.exists():
-                return str(potential_path)
-        
-        # Fallback: use the ckpt output directly
+        # fold_output["ckpt"] is the LocalFileTarget for model.ckpt
         ckpt_path = fold_output["ckpt"].path
         if Path(ckpt_path).exists():
             return ckpt_path
             
-        raise FileNotFoundError(f"No checkpoint found in {checkpoint_dir}")
+        raise FileNotFoundError(f"No checkpoint found at {ckpt_path}")
