@@ -117,7 +117,6 @@ class SnapshotTask(law.Task, HydraMixin):
                         checkpoint_path = self._find_checkpoint(fold_output)
                         
                         # Extract metrics from ensemble results
-                        print(f"==== {fold_idx} =====")
                         fold_result = ensemble_results.folds[fold_idx]
                         
                         nodes[node_id] = ModelNodeMetadata(

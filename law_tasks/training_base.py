@@ -27,7 +27,6 @@ class TrainingBase:
             os.makedirs(self.abs_results_path, exist_ok=True)
 
         base = law.LocalDirectoryTarget(self.abs_results_path)
-        #print(f"++++++ {base} ++++++")
 
         return {
             "dir": base,
@@ -40,7 +39,6 @@ class TrainingBase:
 
     @property
     def lightning_logger(self) -> Logger:
-        #print(f"======== {self.output()} ======")
         return MLFlowLogger(
             experiment_name=self.output()["dir"],
             save_dir=self.output()["logs"],
