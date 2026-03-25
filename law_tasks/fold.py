@@ -2,7 +2,6 @@
 Task for a single fold of the training.
 """
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List
@@ -135,7 +134,6 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             mlflow.pytorch.log_model(
                 pytorch_model=model,
                 name="model",
-                registered_model_name=f"{self.estimator}_{self.systematic}_fold{self.fold_index}",
             )
             mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
 

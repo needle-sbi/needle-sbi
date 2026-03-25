@@ -1,7 +1,7 @@
 estimators:
   model_A:
     model: mock_transformer
-    datamodule: padded
+    datamodule: pandas
     dataset: fair_universe
     trainer: default
 

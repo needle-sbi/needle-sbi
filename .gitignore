@@ -3,7 +3,7 @@ __pycache__
 *.pyc
 index
 .vscode
-runs
+runs*
 *.sif
 *.prof
 mlruns*
