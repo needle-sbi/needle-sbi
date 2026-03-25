@@ -1,4 +1,6 @@
+import logging
 import os
+import warnings
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Dict
@@ -9,6 +11,27 @@ from lightning.pytorch.loggers import Logger, MLFlowLogger
 from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
+
+
+class TipFilter(logging.Filter):
+    """Suppress advertisement for litmodels checkpointing. Will eventually be fixed by the Lightning
+    team.
+
+    Ref: https://github.com/Lightning-AI/pytorch-lightning/issues/21294
+    """
+
+    def filter(self, record):
+        return "💡 Tip" not in record.getMessage()
+
+
+logging.getLogger("lightning.pytorch.utilities.rank_zero").addFilter(TipFilter())
+logging.getLogger("lightning.pytorch.trainer.connectors.accelerator_connector").setLevel(logging.ERROR)
+logging.getLogger("lightning.pytorch.trainer.connectors.signal_connector").setLevel(logging.ERROR)
+logging.getLogger("lightning.pytorch.loggers.mlflow").setLevel(logging.ERROR)
+logging.getLogger("mlflow.utils.environment").setLevel(logging.ERROR)
+logging.getLogger("mlflow.models.model").setLevel(logging.ERROR)
+logging.getLogger("mlflow").setLevel(logging.WARNING)
+warnings.filterwarnings("once", message="The '*' does not have many workers*")
 
 
 class TrainingBase:
@@ -27,7 +50,6 @@ class TrainingBase:
             os.makedirs(self.abs_results_path, exist_ok=True)
 
         base = law.LocalDirectoryTarget(self.abs_results_path)
-        #print(f"++++++ {base} ++++++")
 
         return {
             "dir": base,
@@ -40,7 +62,6 @@ class TrainingBase:
 
     @property
     def lightning_logger(self) -> Logger:
-        #print(f"======== {self.output()} ======")
         return MLFlowLogger(
             experiment_name=self.output()["dir"],
             save_dir=self.output()["logs"],
