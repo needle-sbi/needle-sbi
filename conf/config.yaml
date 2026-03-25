@@ -5,14 +5,10 @@ estimators:
     dataset: fair_universe
     trainer: default
     expands:
-      systematics:
-        up_qcd:
-          dataset_override:
-            labels_columns: ['PRI_n_jets']
       ensembles:
         num_ensembles: 2
-        aggregation_method: "mean"
       folds: 2
+  
   model_B:
     model: mock_transformer
     datamodule: padded
@@ -22,5 +18,16 @@ estimators:
     expands:
       ensembles:
         num_ensembles: 1
-        aggregation_method: "max"
       folds: 1
+
+aggregation:
+  fold_method: "mean"  # Options: best, mean, weighted_mean
+  ensemble_method: "mean"
+  systematic_method: "mean"
+  estimator_method: "sum"
+  
+  # Optional: weights for weighted_mean aggregation (must match number of items at each level)
+  fold_weights: null
+  ensemble_weights: null
+  systematic_weights: null
+  estimator_weights: null
