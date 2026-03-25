@@ -56,17 +56,9 @@ class TrainingBase:
             "ckpt": base.child("model.ckpt", type="f"),
             "model_config": base.child("model_config.yaml", type="f"),
             "metrics": base.child("metrics.json", type="f"),
-            "logs": base.child("logs.json"),
+            "logs": base.child("logs.json", type="f"),
             "metadata": base.child("metadata.json", type="f"),
         }
-
-    @property
-    def lightning_logger(self) -> Logger:
-        return MLFlowLogger(
-            experiment_name=self.output()["dir"],
-            save_dir=self.output()["logs"],
-            log_model=True,
-        )
 
     @abstractmethod
     def run(self) -> None:

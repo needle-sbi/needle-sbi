@@ -5,7 +5,7 @@ Task for a single fold of the training.
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import hydra
 import law
@@ -13,7 +13,7 @@ import lightning
 import luigi
 import mlflow
 import torch
-from lightning.pytorch.loggers import Logger, MLFlowLogger
+from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
@@ -25,10 +25,9 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("fold")
 
 
-class FoldTask(law.Task, TrainingBase, HydraMixin):
+class FoldTask(HydraMixin, law.Task, TrainingBase):
     results_path = law.Parameter(
         description="Directory where the fold training results will be saved.",
-        default="runs",
         significant=False,
     )
     estimator: str = law.Parameter(
@@ -50,9 +49,9 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
         significant=True,
     )  # type: ignore
 
-    # @property
-    # def abs_results_path(self) -> Path:
-    #    return os.path.abspath(self.rel_results_path)  # type: ignore
+    @property
+    def abs_results_path(self) -> Path:
+        return os.path.abspath(self.results_path)  # type: ignore
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -71,14 +70,14 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
             self.estimator_config,
         )  # type: ignore
 
-    def requires(self):
+    def requires(self) -> List[Any]:
         if not self.estimator_config.requires:
             return []
 
         from law_tasks import EstimatorTask
 
         return [
-            EstimatorTask.req(
+            EstimatorTask(
                 self,
                 config_file=self.config_file,
                 estimator=dependency,
@@ -88,33 +87,26 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
 
     def output(self) -> Dict[str, Any]:
         """Define all output targets for this task"""
-        # base_path = f"{self.abs_results_path}/{self.estimator}_{self.systematic}_ens{self.ensemble}_fold{self.fold_index}"
-        fold_dir = os.path.join(
-            str(self.abs_results_path),
-            self.estimator,
-            self.systematic,
-            f"ensemble_{self.ensemble}",
-            f"fold_{self.fold_index}",
-        )
-
-        base = law.LocalDirectoryTarget(fold_dir)
+        base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "dir": base,
             "ckpt": base.child("model.ckpt", type="f"),
             "model_config": base.child("model_config.yaml", type="f"),
-            "metrics": base.child("metrics.json", type="f"),
+            "metrics": base.child("metrics", type="d"),
             "outputs": base.child("fold_results.json", type="f"),  # Add this!
         }
 
-    # @property
-    # def lightning_logger(self) -> Logger:
-    #    return MLFlowLogger(
-    #        experiment_name=self.output()["dir"],
-    #        save_dir=self.output()["metrics"],
-    #        log_model=True,
-    #    )
+    @property
+    def mlflow_logger(self) -> MLFlowLogger:
+        return MLFlowLogger(
+            experiment_name=f"est={self.estimator}_syst={self.systematic}_ens={self.ensemble}_fold={self.fold_index}",
+            save_dir=os.path.join(self.output()["metrics"].path, "mlflow"),
+            log_model=False,
+        )
 
     def run(self):
+        torch.set_float32_matmul_precision("high")
+
         model_config = self.systematic_config.model_override
         datamodule_config = self.systematic_config.datamodule_override
         dataset_config = self.systematic_config.dataset_override
@@ -130,67 +122,33 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
             fold_index=self.fold_index,
             n_folds=self.estimator_config.expands.folds,
         )
-
-        # Create logger directly with correct paths
-        mlflow_dir = Path(self.output()["dir"].path) / "mlflow"
-        mlflow_dir.mkdir(parents=True, exist_ok=True)
-        mlflow_logger = MLFlowLogger(
-            experiment_name=f"{self.estimator}_{self.systematic}_ens{self.ensemble}_fold{self.fold_index}",
-            save_dir=str(mlflow_dir),  # str(self.output()["dir"].path),  # Use dir, not logs
-            log_model=False,
-        )
-        # Now train
-        torch.set_float32_matmul_precision("high")
         trainer: lightning.Trainer = hydra.utils.instantiate(
             trainer_config,
-            logger=mlflow_logger,
+            logger=self.mlflow_logger,
         )
         trainer.fit(model=model, datamodule=data_module)
 
-        # Save checkpoint to the output target
         checkpoint_path = Path(self.output()["ckpt"].path)
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         trainer.save_checkpoint(checkpoint_path)
-        logger.info(f"Saved checkpoint to {checkpoint_path}")
 
-        # Manually log the model to MLflow with a clean artifact path
-        with mlflow.start_run(run_id=mlflow_logger.run_id):
+        with mlflow.start_run(run_id=self.mlflow_logger.run_id):
             mlflow.pytorch.log_model(
                 pytorch_model=model,
-                name="model",  # Clean path without special characters
+                name="model",
                 registered_model_name=f"{self.estimator}_{self.systematic}_fold{self.fold_index}",
             )
-            # Also log the checkpoint file
             mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
 
-        # Save model config
-        model_config_path = Path(self.output()["model_config"].path)
-        with open(model_config_path, "w") as f:
+        with open(Path(self.output()["model_config"].path), "w") as f:
             OmegaConf.save(model_config, f)
 
-        # Extract metrics from trainer
         metrics = {
             "best_val_loss": float(trainer.callback_metrics.get("val_loss", 0.0)),
-            "final_train_loss": float(trainer.callback_metrics.get("train_loss", 0.0)),
         }
 
-        # Save metrics
-        metrics_path = Path(self.output()["metrics"].path)
-        with open(metrics_path, "w") as f:
-            json.dump(metrics, f, indent=2)
-
-        # Create FoldResults object
         fold_results = FoldResults(
             best_validation_loss=metrics["best_val_loss"],
             fold_index=self.fold_index,
             n_folds=self.estimator_config.expands.folds,
-            # final_train_loss=metrics["final_train_loss"],
         )
-
-        # Save fold results using the SerializableDataclass method
         fold_results.to_json(self.output()["outputs"].path)
-
-        # Save fold results (this is what EnsembleTask will read)
-        # self.output()["outputs"].dump(fold_results)
-
-        logger.info(f"Fold {self.fold_index} completed successfully")

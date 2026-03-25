@@ -17,10 +17,9 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("ensemble")
 
 
-class EnsembleTask(law.Task, HydraMixin):
-    rel_results_path: str = law.Parameter(
+class EnsembleTask(HydraMixin, law.Task):
+    results_path: str = law.Parameter(
         description="Directory where the ensemble training results will be saved.",
-        default="runs",
         significant=False,
     )  # type: ignore
     estimator: str = law.Parameter(
@@ -39,7 +38,7 @@ class EnsembleTask(law.Task, HydraMixin):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        return os.path.abspath(self.results_path)  # type: ignore
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -47,45 +46,25 @@ class EnsembleTask(law.Task, HydraMixin):
 
     def requires(self):
         return [
-            FoldTask.req(
+            FoldTask(
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=self.ensemble,
                 fold_index=fold_index,
+                results_path=os.path.join(self.abs_results_path, f"fold__{fold_index}"),
             )
             for fold_index in range(self.estimator_config.expands.folds)
         ]
 
     def output(self) -> Dict[str, Any]:
-        ensemble_dir = os.path.join(
-            str(self.abs_results_path),
-            self.estimator,
-            self.systematic,
-            f"ensemble_{self.ensemble}",
-        )
-        os.makedirs(ensemble_dir, exist_ok=True)
-        return {"outputs": law.LocalFileTarget(str(ensemble_dir + "/ensemble_results.json"))}
+        base = law.LocalDirectoryTarget(self.abs_results_path)
+        return {
+            "outputs": base.child("ensemble_results.json", type="f"),
+        }
 
-    def run(self):
-        # List of fold outputs that are ensemble inputs by constructions
-        fold_outputs = self.input()
-
-        # Store the individual fold results
-        fold_results = []
-        for fold_idx, fold_output in enumerate(fold_outputs):
-            # Load FoldResults from each fold's output - i.e. ensemble inputs
-            fold_result = FoldResults.from_json(fold_output["outputs"].path)
-            fold_results.append(fold_result)
-
-        logger.info(f"Loaded {len(fold_results)} fold results for ensemble {self.ensemble}")
-
-        # Create EnsembleResults with the folds list populated
-        ensemble_results = EnsembleResults(
-            folds=fold_results,
-        )
-        # Save the SerializableDataclass method
-        ensemble_results.to_json(self.output()["outputs"].path)
-        logger.info(f"Saved ensemble results to {self.output()['outputs'].path}")
-        # EnsembleResults().to_json(self.output()["outputs"].path)
+    def run(self) -> None:
+        """Gather results from child FoldTask and merge them into own result container"""
+        fold_results = [FoldResults.from_json(fold_output["outputs"].path) for fold_output in self.input()]
+        EnsembleResults(folds=fold_results).to_json(self.output()["outputs"].path)

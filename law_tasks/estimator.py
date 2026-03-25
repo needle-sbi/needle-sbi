@@ -13,10 +13,9 @@ from preprocessor.utils.logging import ColorFormatter
 logger = ColorFormatter.get_logger("estimator")
 
 
-class EstimatorTask(law.Task, HydraMixin):
-    rel_results_path: str = law.Parameter(
+class EstimatorTask(HydraMixin, law.Task):
+    results_path: str = law.Parameter(
         description="Directory where the estimator results will be saved.",
-        default="runs/estimator",
         significant=False,
     )  # type: ignore
     estimator: str = law.Parameter(
@@ -26,7 +25,7 @@ class EstimatorTask(law.Task, HydraMixin):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        return os.path.abspath(self.results_path)  # type: ignore
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -34,24 +33,25 @@ class EstimatorTask(law.Task, HydraMixin):
 
     def requires(self) -> List[SystematicTask]:
         return [
-            SystematicTask.req(
+            SystematicTask(
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
                 systematic=systematic_key,
+                results_path=os.path.join(self.abs_results_path, f"syst__{systematic_key}"),
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
 
     def output(self) -> Dict[str, Any]:
-        os.makedirs(self.abs_results_path, exist_ok=True)
-        return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/estimator_outputs.json")}
+        base = law.LocalDirectoryTarget(self.abs_results_path)
+        return {
+            "outputs": base.child("estimator_result.json", type="f"),
+        }
 
     def run(self):
-        systematic_results = EstimatorResults()
-
-        for fold_outputs in self.input():
-            fold_result = SystematicResults.from_json(fold_outputs["outputs"].path)
-            systematic_results.systematics.append(fold_result)
-
-        systematic_results.to_json(self.output()["outputs"].path)
+        """Gather results from all SystematicTasks and merge them into own container"""
+        systematic_results = [
+            SystematicResults.from_json(systematic_result["outputs"].path) for systematic_result in self.input()
+        ]
+        EstimatorResults(systematics=systematic_results).to_json(self.output()["outputs"].path)

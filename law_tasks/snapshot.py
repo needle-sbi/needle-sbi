@@ -12,36 +12,35 @@ from omegaconf import OmegaConf
 from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import (
-    EnsembleResults,
     AggregationEdge,
     AggregationMethod,
     DAGSnapshot,
+    EnsembleResults,
     ModelNodeMetadata,
 )
-
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("snapshot")
 
 
-class SnapshotTask(law.Task, HydraMixin):
+class SnapshotTask(HydraMixin, law.Task):
     """
     Creates a complete snapshot of the trained ensemble DAG.
     This snapshot can be used for evaluation without re-running training.
     """
 
-    rel_results_path = law.Parameter(
+    results_path: str = law.Parameter(
         description="Directory where results are stored",
         default="runs",
         significant=False,
-    )
+    )  # type: ignore
 
     def requires(self):
         """Require MainTask to ensure all training is completed"""
-        return MainTask.req(
+        return MainTask(
             self,
             config_file=self.config_file,
-            #rel_results_path=self.rel_results_path,
+            results_path=self.results_path,
         )
 
     def output(self):
@@ -49,7 +48,7 @@ class SnapshotTask(law.Task, HydraMixin):
 
     @property
     def abs_results_path(self) -> Path:
-        return Path(os.path.abspath(self.rel_results_path))
+        return Path(os.path.abspath(self.results_path))
 
     def run(self):
         """
@@ -67,13 +66,13 @@ class SnapshotTask(law.Task, HydraMixin):
         estimator_agg_method = agg_config.estimator_method
 
         # Get optional weights
-        #fold_weights = agg_config.get("fold_weights")
-        #ensemble_weights = agg_config.get("ensemble_weights")
-        #systematic_weights = agg_config.get("systematic_weights")
-        #estimator_weights = agg_config.get("estimator_weights")
+        # fold_weights = agg_config.get("fold_weights")
+        # ensemble_weights = agg_config.get("ensemble_weights")
+        # systematic_weights = agg_config.get("systematic_weights")
+        # estimator_weights = agg_config.get("estimator_weights")
 
         main_task = self.requires()
-        
+
         # Track all node IDs at each level for aggregation
         all_estimator_nodes = []
 
@@ -81,21 +80,21 @@ class SnapshotTask(law.Task, HydraMixin):
         for estimator_task in main_task.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"Processing estimator: {estimator_name}")
-            
+
             all_systematic_nodes = []
 
             # Traverse SystematicTasks
             for systematic_task in estimator_task.requires():
                 systematic_name = systematic_task.systematic
                 logger.info(f"  Processing systematic: {systematic_name}")
-                
+
                 all_ensemble_nodes = []
 
                 # Traverse EnsembleTasks
                 for ensemble_task in systematic_task.requires():
                     ensemble_idx = ensemble_task.ensemble
                     logger.info(f"    Processing ensemble: {ensemble_idx}")
-                    
+
                     ensemble_output = ensemble_task.output()
                     # Load EnsembleResults using SerializableDataclass method
                     ensemble_results = EnsembleResults.from_json(ensemble_output["outputs"].path)
@@ -110,16 +109,15 @@ class SnapshotTask(law.Task, HydraMixin):
                             f"ensemble_{ensemble_idx}_"
                             f"fold_{fold_idx}"
                         )
-                        
+
                         fold_output = fold_task.output()
-                        
+
                         # Find checkpoint path
                         checkpoint_path = self._find_checkpoint(fold_output)
-                        
+
                         # Extract metrics from ensemble results
-                        print(f"==== {fold_idx} =====")
                         fold_result = ensemble_results.folds[fold_idx]
-                        
+
                         nodes[node_id] = ModelNodeMetadata(
                             checkpoint_path=checkpoint_path,
                             task_type="fold",
@@ -129,16 +127,14 @@ class SnapshotTask(law.Task, HydraMixin):
                             systematic_name=systematic_name,
                             metrics={
                                 "val_loss": fold_result.best_validation_loss,
-                                #"train_loss": fold_result.final_train_loss,
+                                # "train_loss": fold_result.final_train_loss,
                             },
                         )
                         all_fold_nodes.append(node_id)
 
                     # Aggregate folds → ensemble
                     ensemble_node_id = (
-                        f"estimator_{estimator_name}_"
-                        f"systematic_{systematic_name}_"
-                        f"ensemble_{ensemble_idx}"
+                        f"estimator_{estimator_name}_" f"systematic_{systematic_name}_" f"ensemble_{ensemble_idx}"
                     )
                     edges.append(
                         AggregationEdge(
@@ -151,9 +147,7 @@ class SnapshotTask(law.Task, HydraMixin):
                     all_ensemble_nodes.append(ensemble_node_id)
 
                 # Aggregate ensembles → systematic
-                systematic_node_id = (
-                    f"estimator_{estimator_name}_" f"systematic_{systematic_name}"
-                )
+                systematic_node_id = f"estimator_{estimator_name}_" f"systematic_{systematic_name}"
                 edges.append(
                     AggregationEdge(
                         method=AggregationMethod(ensemble_agg_method),
@@ -204,5 +198,5 @@ class SnapshotTask(law.Task, HydraMixin):
         ckpt_path = fold_output["ckpt"].path
         if Path(ckpt_path).exists():
             return ckpt_path
-            
+
         raise FileNotFoundError(f"No checkpoint found at {ckpt_path}")

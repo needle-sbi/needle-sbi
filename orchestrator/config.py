@@ -123,18 +123,21 @@ class EstimatorConfig(SerializableDataclass):
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
     requires: Optional[List[str]] = None
 
+
 @dataclass
 class AggregationConfig(SerializableDataclass):
     """Configuration for model aggregation at each DAG level"""
+
     fold_method: str = "mean"
     ensemble_method: str = "mean"
     systematic_method: str = "mean"
     estimator_method: str = "sum"
-    
+
     fold_weights: Optional[List[float]] = None
     ensemble_weights: Optional[List[float]] = None
     systematic_weights: Optional[List[float]] = None
     estimator_weights: Optional[List[float]] = None
+
 
 @dataclass
 class MainConfig(SerializableDataclass):

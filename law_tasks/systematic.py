@@ -16,10 +16,9 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("systematic")
 
 
-class SystematicTask(law.Task, HydraMixin):
-    rel_results_path = law.Parameter(
+class SystematicTask(HydraMixin, law.Task):
+    results_path = law.Parameter(
         description="Directory where the systematic results will be saved.",
-        default="runs/systematic",  # TODO
         significant=False,
     )
     estimator: str = law.Parameter(
@@ -33,7 +32,7 @@ class SystematicTask(law.Task, HydraMixin):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        return os.path.abspath(self.results_path)  # type: ignore
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -48,25 +47,25 @@ class SystematicTask(law.Task, HydraMixin):
         num_ensembles = max(1, num_ensembles)
 
         return [
-            EnsembleTask.req(
+            EnsembleTask(
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,
+                results_path=os.path.join(self.abs_results_path, f"ensem__{ensemble_index}"),
             )
             for ensemble_index in range(num_ensembles)
         ]
 
     def output(self) -> Dict[str, Any]:
-        os.makedirs(self.abs_results_path, exist_ok=True)
-        return {"outputs": law.LocalDirectoryTarget(f"{self.abs_results_path}/systematic_results.json")}
+        base = law.LocalDirectoryTarget(self.abs_results_path)
+        return {
+            "outputs": base.child("systematic_results.json", type="f"),
+        }
 
     def run(self):
-        systematic_results = SystematicResults()
-
-        for ensemble_output in self.input():
-            ensemble_result = EnsembleResults.from_json(ensemble_output["outputs"].path)
-            systematic_results.ensembles.append(ensemble_result)
-
-        systematic_results.to_json(self.output()["outputs"].path)
+        ensemble_results = [
+            EnsembleResults.from_json(ensemble_result["outputs"].path) for ensemble_result in self.input()
+        ]
+        SystematicResults(ensemble_results).to_json(self.output()["outputs"].path)

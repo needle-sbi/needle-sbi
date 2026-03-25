@@ -4,28 +4,13 @@ estimators:
     datamodule: padded
     dataset: fair_universe
     trainer: default
-    expands:
-      ensembles:
-        num_ensembles: 2
-      folds: 2
-  
-  model_B:
-    model: mock_transformer
-    datamodule: padded
-    dataset: fair_universe
-    trainer: default
-    requires: ["model_A"]
-    expands:
-      ensembles:
-        num_ensembles: 1
-      folds: 1
 
 aggregation:
   fold_method: "mean"  # Options: best, mean, weighted_mean
   ensemble_method: "mean"
   systematic_method: "mean"
   estimator_method: "sum"
-  
+
   # Optional: weights for weighted_mean aggregation (must match number of items at each level)
   fold_weights: null
   ensemble_weights: null
