@@ -1,4 +1,4 @@
-paths: /home/sjiggins/Documents/Work_Directory_DESY/NEEDLE/NEEDLE-software/data/CombData-part0.parquet
+paths: ${oc.env:FAIR_UNIVERSE_DATA}
 features_columns: ['PRI_lep_pt']
 labels_columns: ['PRI_n_jets']
 max_number_events: 1000
