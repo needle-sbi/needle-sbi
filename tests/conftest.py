@@ -39,7 +39,7 @@ def check_cli_path() -> Callable[[str], str]:
         if not path:
             pytest.skip(
                 f"Environment variable '{env_path}' not set. Should point to {extension} files: "
-                f"'export {env_path}=<path/to/files.{extension}'"
+                f"'export {env_path}=/path/to/files.{extension}'"
             )
         return path
 

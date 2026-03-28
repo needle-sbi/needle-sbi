@@ -131,10 +131,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         trainer.save_checkpoint(checkpoint_path)
 
         with mlflow.start_run(run_id=self.mlflow_logger.run_id):
-            mlflow.pytorch.log_model(
-                pytorch_model=model,
-                name="model",
-            )
+            mlflow.pytorch.log_model(pytorch_model=model, name="model")
             mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
 
         with open(Path(self.output()["model_config"].path), "w") as f:
