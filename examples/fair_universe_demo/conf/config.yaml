@@ -1,0 +1,4 @@
+estimators:
+  normalizing_flow:
+    model: cnf
+    datamodule: fair_universe

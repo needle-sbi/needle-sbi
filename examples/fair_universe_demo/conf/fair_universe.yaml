@@ -1,0 +1,2 @@
+_target: examples.fair_universe_demo.models.datamodule.FairUniverseDatamodule
+root_dir: "/work/kschmidt/NEEDLE/HEP-Challenge"

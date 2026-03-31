@@ -130,13 +130,19 @@ def resolve_defaults(
 
     for _, est_cfg in estimators.items():
         for field, group in DEFAULT_GROUPS.items():
-            group_member = est_cfg.get(field)
+            group_member: str = est_cfg.get(field)
 
             if group_member is None:
                 continue
 
+            group_member_cfg = (cfg_dir / (group_member + ".yaml"))
+
+            if group_member_cfg.exists():
+                group_cfg = OmegaConf.load(group_member_cfg)   # Case: .yaml file at top-level
+            else: 
+                group_cfg = _load_group(group, group_member)   # Case: .yaml file inside folder with group name
+
             override_key = f"{field}_override"
-            group_cfg = _load_group(group, group_member)
             base_cfg = est_cfg.get(override_key)
 
             if base_cfg:

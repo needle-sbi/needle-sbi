@@ -1,35 +1,38 @@
-"""
-Original author: I. Elsharkawy
-Based on https://github.com/ibrahimEls/CNFParameterEstimation
-Adapted by K. Schmidt
-"""
-
-import io
-import json
-import logging
-import os
-from zipfile import ZipFile
-
 import numpy as np
-import pandas as pd
-import pyarrow as pa
 import pyarrow.parquet as pq
+import pandas as pd
+import json
+import os
 import requests
+from zipfile import ZipFile
+import logging
+import io
+from pydantic import Field
+from typing import Annotated
 
-# Get the logging level from an environment variable, default to INFO
-log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),  # Fallback to INFO if the level is invalid
-    format="%(asctime)s - %(name)-20s - %(levelname) -8s - %(message)s",
-)
+def get_logger():
+    """Create a new logger with the log level set by the environment variable `LOG_LEVEL`
+    otherwise 'INFO'.
 
-logger = logging.getLogger(__name__)
+    Returns:
+        Logger
+    """
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
-test_set_settings = None
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s - %(name)-20s - %(levelname) -8s - %(message)s",
+    )
+    return logging.getLogger(__name__)
 
+
+logger = get_logger()
 ZENODO_URL = "https://zenodo.org/records/15131565/files/FAIR_Universe_HiggsML_data.zip?download=1"
+THIS_FILE_DIR = os.path.dirname(os.path.realpath(__file__))
+THIS_FILE_PARENT_DIR = os.path.dirname(THIS_FILE_DIR)
 
 
 class Data:
@@ -53,7 +56,7 @@ class Data:
         * get_syst_train_set(): Returns the train dataset with systematic variations.
     """
 
-    def __init__(self, input_dir, test_size=0.3):
+    def __init__(self, input_dir: str, test_size: Percentage = 0.3):
         """
         Constructs a Data object.
 
@@ -145,6 +148,7 @@ class Data:
         # Balancing the weights
 
     def __load_data(self, selected_indices):
+
         current_row = 0
         sampled_df = pd.DataFrame()
         for row_group_index in range(self.parquet_file.num_row_groups):
@@ -177,6 +181,7 @@ class Data:
         return sampled_df
 
     def load_test_set(self):
+
         selected_test_indices = np.array(range(self.test_size))
 
         # Load the data
@@ -191,9 +196,10 @@ class Data:
         }
 
         for key in test_set.keys():
+
             test_set[key] = test_df[test_df["detailed_labels"] == key]
-            test_set[key].pop("detailed_labels")
-            test_set[key].pop("labels")
+            test_set[key]["Label"] = test_set[key]["detailed_labels"]
+            # test_set[key].pop("labels")
 
         self.__test_set = test_set
 
@@ -250,16 +256,11 @@ class Data:
             tes=tes,
             jes=jes,
             soft_met=soft_met,
-            seed=42,
             ttbar_scale=ttbar_scale,
             diboson_scale=diboson_scale,
             bkg_scale=bkg_scale,
             dopostprocess=dopostprocess,
         )
-
-
-current_path = os.path.dirname(os.path.realpath(__file__))
-parent_path = os.path.dirname(current_path)
 
 
 def Neurips2024_public_dataset():

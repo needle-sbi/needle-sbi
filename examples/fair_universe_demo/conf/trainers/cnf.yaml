@@ -1,0 +1,19 @@
+_target_: lightning.Trainer
+max_epochs: 500
+log_every_n_steps: 10
+accelerator: gpu
+devices: 1
+strategy: auto
+precision: 32
+callbacks:
+  - early_stopping:
+      _target_: lightning.pytorch.callbacks.EarlyStopping
+      monitor: "val_loss"
+      min_delta: 0.0
+      patience: 100
+      mode: "min"
+  - model_checkpoint:
+      _target: lightning.pytorch.callbacks.ModelCheckpoint
+      monitor: "val_loss"
+      mode: "min"
+      save_top_k: 3

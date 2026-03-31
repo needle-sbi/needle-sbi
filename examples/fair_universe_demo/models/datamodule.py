@@ -3,9 +3,7 @@ Original author: I. Elsharkawy
 Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
-
-from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Literal
 
 import numpy as np
 import torch
@@ -21,12 +19,14 @@ class FairUniverseDatamodule(LightningDataModule):
     def __init__(
         self,
         train_on_signal: bool,
+        num_jets: Literal[0, 1, 2],
         root_dir: str,
-        batch_size: int,
-        train_test_split: Percentage,
+        batch_size: int = 1000,
+        train_test_split: Percentage = 0.8,
     ) -> None:
         super().__init__()
         self.train_on_signal = train_on_signal  # called 's' in the original code
+        self.num_jets = num_jets
         self.root_dir = root_dir
         self.batch_size = batch_size
         self.train_test_split = train_test_split
@@ -41,7 +41,6 @@ class FairUniverseDatamodule(LightningDataModule):
             seed=78,
             root_dir=self.root_dir,
         )
-
         S_tensor = torch.tensor(j2_data[j2_detlabel == 1], dtype=torch.float32)
         BG_tensor = torch.tensor(j2_data[j2_detlabel == 0], dtype=torch.float32)
 

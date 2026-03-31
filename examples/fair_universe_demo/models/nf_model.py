@@ -5,13 +5,13 @@ Adapted by K. Schmidt
 """
 
 import os
-from pathlib import Path
+from tqdm import tqdm
 from typing import Tuple
 
 import lightning as L
 import torch
 
-from fair_universe_demo.nf_layers import NormalizingQuadFlow
+from examples.fair_universe_demo.models.nf_layers import NormalizingQuadFlow
 
 
 class ConditionalNormalizingFlowModule(L.LightningModule):
@@ -116,7 +116,7 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
-def load_nf_models(models_dir: Path | str, device: str):
+def load_nf_models(models_dir: str, device: str):
     """
     Load NormalizingFlowModel models from a directory structure.
 
@@ -131,36 +131,32 @@ def load_nf_models(models_dir: Path | str, device: str):
         A list of loaded models in order (first the 1_jet models, then the 2_jet models).
     """
     models = []
-    ckpt_path_names = []
-    # Load models for 1 jet
-    one_jet_dir = os.path.join(models_dir, "1_jet")
 
+    one_jet_dir = os.path.join(models_dir, "1_jet")
     if not os.path.isdir(one_jet_dir):
         raise FileNotFoundError(f"Directory not found: {one_jet_dir}")
 
-    # Sorting ensures consistent order if file names are compatible.
-    for ckpt_file in sorted(os.listdir(one_jet_dir)):
-        if ckpt_file.endswith(".ckpt"):
-            ckpt_path = os.path.join(one_jet_dir, ckpt_file)
-            model = ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path)
-            model.to(device).eval().to(torch.float32)
-            models.append(model)
-            ckpt_path_names.append(ckpt_path)
-
-    # Load models for 2 jets
     two_jet_dir = os.path.join(models_dir, "2_jet")
-
     if not os.path.isdir(two_jet_dir):
         raise FileNotFoundError(f"Directory not found: {two_jet_dir}")
+    
+    checkpoints = [
+        os.path.join(one_jet_dir, f)
+        for f in sorted(os.listdir(one_jet_dir))
+        if f.endswith(".ckpt")
+    ] + [
+        os.path.join(two_jet_dir, f)
+        for f in sorted(os.listdir(two_jet_dir))
+        if f.endswith(".ckpt")
+    ]
 
-    for ckpt_file in sorted(os.listdir(two_jet_dir)):
-        if ckpt_file.endswith(".ckpt"):
-            ckpt_path = os.path.join(two_jet_dir, ckpt_file)
-            model = ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path)
-            model.to(device).eval().to(torch.float32)
-            models.append(model)
-            ckpt_path_names.append(ckpt_path)
-
-    print("Loaded models from: ")
-    print(ckpt_path_names)
+    for ckpt_path in tqdm(checkpoints):
+        model = (
+            ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path)
+            .to(device)
+            .eval()
+            .to(torch.float32)
+        )
+        models.append(model)
+    
     return models
