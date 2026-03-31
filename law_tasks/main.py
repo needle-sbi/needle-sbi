@@ -27,7 +27,6 @@ class MainTask(HydraMixin, law.WrapperTask):
     def requires(self) -> List[EstimatorTask]:
         return [
             EstimatorTask(
-                self,
                 config_file=self.config_file,
                 estimator=estimator_key,
                 results_path=os.path.join(self.abs_results_path, f"est__{estimator_key}"),

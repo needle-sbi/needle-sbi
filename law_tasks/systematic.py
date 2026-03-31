@@ -48,8 +48,7 @@ class SystematicTask(HydraMixin, law.Task):
 
         return [
             EnsembleTask(
-                self,
-                config_file=self.config_file,
+                config_file=str(self.config_file),
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,

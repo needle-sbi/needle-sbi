@@ -38,9 +38,8 @@ class SnapshotTask(HydraMixin, law.Task):
     def requires(self):
         """Require MainTask to ensure all training is completed"""
         return MainTask(
-            self,
             config_file=self.config_file,
-            results_path=self.results_path,
+            results_path=self.abs_results_path,
         )
 
     def output(self):

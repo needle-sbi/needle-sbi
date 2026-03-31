@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 import law
-from lightning.pytorch.loggers import Logger, MLFlowLogger
 
 from preprocessor.utils.logging import ColorFormatter
 
@@ -35,7 +34,7 @@ warnings.filterwarnings("once", message="The '*' does not have many workers*")
 
 
 class TrainingBase:
-    rel_results_path = law.Parameter(
+    results_path = law.Parameter(
         description="Directory where the training results will be saved.",
         default="runs",
         significant=False,
@@ -43,7 +42,7 @@ class TrainingBase:
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        return os.path.abspath(self.results_path)  # type: ignore
 
     def output(self) -> Dict[str, Any]:
         if not os.path.isdir(self.abs_results_path):

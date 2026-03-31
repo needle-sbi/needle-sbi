@@ -1,17 +1,17 @@
-"""
-Original author: I. Elsharkawy
-Based on https://github.com/ibrahimEls/CNFParameterEstimation
-Adapted by K. Schmidt
-"""
-
+import logging
 import os
+import sys
+from typing import List
 
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from utils.datasets import Data
-from utils.systematics import get_bootstrapped_dataset, systematics
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
+USE_PUBLIC_DATASET: bool = False
 
 
 def filterbyjet(jet_num, data_vis):
@@ -43,7 +43,7 @@ def filterbyjet(jet_num, data_vis):
         # Filter rows with exactly 1 jet
         filtered_data = data_vis["data"][data_vis["data"]["PRI_n_jets"] == jet_num]
         filtered_det_labels = data_vis["detailed_labels"][data_vis["data"]["PRI_n_jets"] == jet_num]
-        print(filtered_det_labels.shape)
+        logger.debug(f"{filtered_det_labels.shape}")
         _ = data_vis["labels"][data_vis["data"]["PRI_n_jets"] == jet_num]  # Unused variable
         filtered_weights = data_vis["weights"][data_vis["data"]["PRI_n_jets"] == jet_num]
 
@@ -78,13 +78,13 @@ def filterbyjet(jet_num, data_vis):
 
 
 def createJetData(
-    jet_num,
-    useTestData,
-    set_mu=3,
-    seed=0,
-    n_param=[1, 1, 1, 1, 1, 0],
+    jet_num: int | str,
+    useTestData: bool,
+    root_dir: str,
+    set_mu: int = 3,
+    seed: int = 0,
+    n_param: List[int] = [1, 1, 1, 1, 1, 0],
     useRand=False,
-    root_dir: str = "",
 ):
     """
     Create jet data with optional systematic variations and data processing.
@@ -103,21 +103,22 @@ def createJetData(
     input_dir = os.path.join(root_dir, "input_data")
     program_dir = os.path.join(root_dir, "ingestion_program")
     score_dir = os.path.join(root_dir, "scoring_program")
-    # Append directories so that modules from these paths can be imported
-    import sys
 
     sys.path.append(program_dir)
     sys.path.append(score_dir)
 
-    use_public_dataset = True
-    if use_public_dataset:
+    # Import the required functions from the ingestion program
+    from datasets import Data  # Data class for non-public dataset
+    from systematics import get_bootstrapped_dataset, systematics
+
+    if USE_PUBLIC_DATASET:
         from datasets import Neurips2024_public_dataset as public_dataset
 
         data = public_dataset()
     else:
         data = Data(input_dir)
 
-    print("Loading Data")
+    logger.info("Loading Data")
     # Load train and test sets
     data.load_train_set()
     data.load_test_set()
@@ -125,11 +126,11 @@ def createJetData(
     # Optionally apply random systematic shifts
     if useRand:
         random_state = np.random.RandomState(seed)
-        print("applying systmatics")
+        logger.info("Applying systematics")
         n_param[-3] = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
         n_param[-2] = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
         n_param[-1] = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
-        print(n_param)
+        logger.debug(f"Number of parameters: {n_param}")
 
     # Get the test set (assumed to be defined in a global 'data' object)
     test_set = data.get_test_set()
@@ -146,9 +147,7 @@ def createJetData(
 
     # Prepare weights and detailed labels
     weights = np.ones(pseudo_exp_data.shape[0])
-    detailed_labels = (
-        ["ztautau", "diboson", "ttbar", "htautau"],
-    )  # FIX because the original dataset might not have the "Label" columns
+    detailed_labels = pseudo_exp_data["Label"]
     pseudo_exp_data.drop(columns="Label", inplace=True)
     labels = detailed_labels[detailed_labels == "htautau"]
 
@@ -167,7 +166,7 @@ def createJetData(
 
     # If jet_num is not "all", filter by jet number
     if jet_num != "all":
-        (filtered_data, filtered_det_labels, filtered_weights, feature_names) = filterbyjet(jet_num, data_vis)
+        filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(jet_num, data_vis)
         temp_labels = filtered_det_labels.values == "htautau"
         temp_labels = torch.tensor([int(val) for val in temp_labels])
     else:
@@ -188,7 +187,6 @@ def createJetData(
         # Get the training set and limit the number of events
         data_vis_train = data.get_train_set()
         MAX_NUM_EVENTS = 5000000
-
         for key in data_vis_train.keys():
             if key != "settings":
                 try:
@@ -200,7 +198,12 @@ def createJetData(
 
         # Apply systematics to the training data
         data_vis = systematics(
-            data_set=data_vis_train,
+            data_set={
+                "data": data_vis_train,
+                "weights": data_vis_train["weights"],
+                "detailed_labels": data_vis_train["detailed_labels"],
+                "labels": data_vis_train["labels"],
+            },
             tes=n_param[3],
             jes=n_param[4],
             soft_met=n_param[5],
@@ -251,6 +254,193 @@ def createJetData(
     return filtered_data, filtered_det_labels, filtered_weights, feature_names
 
 
+def createMultiJetMultiNuanData(
+    jet_num,
+    useTestData,
+    set_mu=3,
+    seed=0,
+    n_param=[1, 1, 1, 1, 1, 0],
+    root_dir="/Users/ibrahim/HEP-Challenge/",
+):
+    """
+    Create multi-jet multi-nuisance data by processing multiple sub-datasets.
+
+    Parameters:
+        jet_num (int): The jet number to filter.
+        useTestData (bool): Whether to use test data.
+        set_mu (int, optional): Mu parameter for bootstrapping. Defaults to 3.
+        seed (int, optional): Random seed. Defaults to 0.
+        n_param (list, optional): List of systematic parameters. Defaults to [1,1,1,1,1,0].
+
+    Returns:
+        tuple: Processed data tensor, label tensor, weights, and feature names.
+    """
+    input_dir = os.path.join(root_dir, "input_data")
+    program_dir = os.path.join(root_dir, "ingestion_program")
+    score_dir = os.path.join(root_dir, "scoring_program")
+    # Append directories so that modules from these paths can be imported
+    import sys
+
+    sys.path.append(program_dir)
+    sys.path.append(score_dir)
+
+    # Import the required functions from the ingestion program
+    from datasets import Data  # Data class for non-public dataset
+    from systematics import systematics
+
+    if USE_PUBLIC_DATASET:
+        from datasets import Neurips2024_public_dataset as public_dataset
+
+        data = public_dataset()
+    else:
+        data = Data(input_dir)
+
+    # Load train and test sets
+    data.load_train_set()
+    data.load_test_set()
+
+    from systematics import get_bootstrapped_dataset
+
+    random_state = np.random.RandomState(seed)
+    test_set = data.get_test_set()
+
+    # Create a pseudo-experimental dataset using bootstrapping
+    pseudo_exp_data = get_bootstrapped_dataset(
+        test_set,
+        mu=set_mu,
+        ttbar_scale=n_param[0],
+        diboson_scale=n_param[1],
+        bkg_scale=n_param[2],
+        seed=seed,
+    )
+
+    weights = np.ones(pseudo_exp_data.shape[0])
+    detailed_labels = pseudo_exp_data["Label"]
+    pseudo_exp_data.drop(columns="Label", inplace=True)
+    labels = detailed_labels[detailed_labels == "htautau"]
+
+    print("det lab")
+    print(detailed_labels)
+
+    # Apply systematics to the pseudo-experimental data
+    data_vis = systematics(
+        data_set={
+            "data": pseudo_exp_data,
+            "weights": weights,
+            "detailed_labels": detailed_labels,
+            "labels": labels,
+        },
+        tes=n_param[3],
+        jes=n_param[4],
+        soft_met=n_param[5],
+    )
+
+    filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(jet_num, data_vis)
+    temp_labels = filtered_det_labels.values == "htautau"
+    temp_labels = torch.tensor([int(val) for val in temp_labels])
+
+    if not useTestData:
+        # Compute background ratios relative to non-signal events
+        ratio_ztt = len(filtered_data[filtered_det_labels == "ztautau"]) / len(
+            filtered_data[filtered_det_labels != "htautau"]
+        )
+        ratio_ttbar = len(filtered_data[filtered_det_labels == "ttbar"]) / len(
+            filtered_data[filtered_det_labels != "htautau"]
+        )
+        ratio_diboson = len(filtered_data[filtered_det_labels == "diboson"]) / len(
+            filtered_data[filtered_det_labels != "htautau"]
+        )
+
+        data_vis_train = data.get_train_set()
+        sub_dataset = []
+        sub_labels = []
+        MAX_SUB_EVENTS = 10000  # Subset size per iteration
+
+        data_vis = {
+            "data": data_vis_train,
+            "weights": data_vis_train["weights"],
+            "detailed_labels": data_vis_train["detailed_labels"],
+            "labels": data_vis_train["labels"],
+        }
+
+        num_subdatasets: int = 499
+
+        for i in tqdm(range(num_subdatasets), total=num_subdatasets):
+            # Create a copy for the sub-dataset
+            data_vis_sub = data_vis.copy()
+
+            for key in data_vis.keys():
+                if key != "settings":
+                    try:
+                        temp_df = data_vis_sub[key]
+                        temp_df = temp_df.iloc[MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)].reset_index(drop=True)
+                        data_vis_sub[key] = temp_df
+                    except Exception:
+                        data_vis_sub[key] = data_vis_sub[key][MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)]
+
+            if data_vis_sub["data"].empty:
+                # Case where len(data_vis_sub["data"]) < MAX_SUB_EVENTS (e.g. dataset smaller then subset)
+                break
+
+            # Apply random systematic shifts for this subset
+            tes_val = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+            jes_val = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+            soft_met_val = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
+
+            data_vis_sub_sys = systematics(
+                data_set=data_vis_sub,
+                tes=tes_val,
+                jes=jes_val,
+                soft_met=soft_met_val,
+                dopostprocess=False,
+            )
+
+            filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(jet_num, data_vis_sub_sys)
+
+            count_ztt = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ztt)
+            count_ttbar = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ttbar)
+            count_diboson = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_diboson)
+
+            temp_labels = []
+            signal_data = filtered_data[filtered_det_labels == "htautau"]
+            temp_labels.extend([1] * len(signal_data))
+            ztt_data = filtered_data[filtered_det_labels == "ztautau"][:count_ztt]
+            temp_labels.extend([0] * len(ztt_data))
+            ttbar_data = filtered_data[filtered_det_labels == "ttbar"][:count_ttbar]
+            temp_labels.extend([0] * len(ttbar_data))
+            diboson_data = filtered_data[filtered_det_labels == "diboson"][:count_diboson]
+            temp_labels.extend([0] * len(diboson_data))
+
+            filtered_data = pd.concat((signal_data, ztt_data, ttbar_data, diboson_data), ignore_index=True)
+            filtered_data = torch.tensor(filtered_data.values)
+            filtered_det_labels = torch.tensor(temp_labels)
+
+            mask = torch.any(filtered_data == -25, dim=1)
+            filtered_data = filtered_data[~mask]
+            filtered_det_labels = filtered_det_labels[~mask]
+
+            # Determine columns for logarithm transform based on jet type
+            if jet_num == 1:
+                log_columns = [0, 3, 6, 9, 10, 13, 14, 16, 17]
+            elif jet_num == 0:
+                log_columns = [0, 3, 6, 9, 10, 12, 13]
+            else:
+                log_columns = [0, 3, 6, 9, 12, 13, 24, 17, 19, 22, 23]
+
+            for col_idx in range(filtered_data.shape[1]):
+                if col_idx in log_columns:
+                    filtered_data[:, col_idx] = torch.log(filtered_data[:, col_idx])
+
+            sub_dataset.append(filtered_data)
+            sub_labels.append(filtered_det_labels)
+
+        # Concatenate all sub-datasets
+        filtered_data = torch.cat(sub_dataset)
+        filtered_det_labels = torch.cat(sub_labels)
+
+    return filtered_data, filtered_det_labels, filtered_weights, feature_names
+
+
 class Dataset1j2j(Dataset):
     """
     Custom Dataset to hold paired 1-jet and 2-jet data samples.
@@ -281,7 +471,7 @@ class Dataset1j2j(Dataset):
         return self.samples[idx]
 
 
-def return1j2j(alljet_data, models, cut=False, nevents=10):
+def return1j2j(alljet_data, models, cut=False, nevents=10, device: str = "cpu"):
     """
     Process the input data for 1-jet and 2-jet events, apply feature transforms,
     and append normalizing flow (NF) features computed from the given models.
@@ -294,11 +484,11 @@ def return1j2j(alljet_data, models, cut=False, nevents=10):
         tuple: Data tensors and label tensors for 2-jet and 1-jet events.
     """
     # Process 2-jet events
-    filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(2, alljet_data)
+    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(2, alljet_data)
     temp_labels = filtered_det_labels.values == "htautau"
     temp_labels = torch.tensor([int(val) for val in temp_labels])
     data_2j = torch.tensor(filtered_data.values)
-    label_2j = torch.tensor(temp_labels)
+    label_2j = temp_labels.clone().detach()
 
     mask = torch.any(data_2j == -25, dim=1)
     data_2j = data_2j[~mask]
@@ -311,11 +501,11 @@ def return1j2j(alljet_data, models, cut=False, nevents=10):
             data_2j[:, col_idx] = torch.log(data_2j[:, col_idx])
 
     # Process 1-jet events
-    filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(1, alljet_data)
+    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(1, alljet_data)
     temp_labels = filtered_det_labels.values == "htautau"
     temp_labels = torch.tensor([int(val) for val in temp_labels])
     data_1j = torch.tensor(filtered_data.values)
-    label_1j = torch.tensor(temp_labels)
+    label_1j = temp_labels.clone().detach()
 
     mask = torch.any(data_1j == -25, dim=1)
     data_1j = data_1j[~mask]
@@ -333,17 +523,22 @@ def return1j2j(alljet_data, models, cut=False, nevents=10):
         label_2j = label_2j[:nevents]
         label_1j = label_1j[:nevents]
 
+    data_1j = data_1j.to(device)
+    data_2j = data_2j.to(device)
+    label_1j = label_1j.to(device)
+    label_2j = label_2j.to(device)
+
     # Compute NF features from the provided models
     with torch.no_grad():
-        NF_feat_s1j = torch.sigmoid(models[3](data_1j)).cpu().unsqueeze(1)
-        NF_feat_b1j = torch.sigmoid(models[0](data_1j)).cpu().unsqueeze(1)
-        NF_feat_s1j_3 = torch.sigmoid(models[2](data_1j)).cpu().unsqueeze(1)
-        NF_feat_b1j_3 = torch.sigmoid(models[1](data_1j)).cpu().unsqueeze(1)
+        NF_feat_s1j = torch.sigmoid(models[3](data_1j)).to(device).unsqueeze(1)
+        NF_feat_b1j = torch.sigmoid(models[0](data_1j)).to(device).unsqueeze(1)
+        NF_feat_s1j_3 = torch.sigmoid(models[2](data_1j)).to(device).unsqueeze(1)
+        NF_feat_b1j_3 = torch.sigmoid(models[1](data_1j)).to(device).unsqueeze(1)
 
-        NF_feat_s2j = torch.sigmoid(models[7](data_2j)).cpu().unsqueeze(1)
-        NF_feat_b2j = torch.sigmoid(models[4](data_2j)).cpu().unsqueeze(1)
-        NF_feat_s2j_3 = torch.sigmoid(models[6](data_2j)).cpu().unsqueeze(1)
-        NF_feat_b2j_3 = torch.sigmoid(models[5](data_2j)).cpu().unsqueeze(1)
+        NF_feat_s2j = torch.sigmoid(models[7](data_2j)).to(device).unsqueeze(1)
+        NF_feat_b2j = torch.sigmoid(models[4](data_2j)).to(device).unsqueeze(1)
+        NF_feat_s2j_3 = torch.sigmoid(models[6](data_2j)).to(device).unsqueeze(1)
+        NF_feat_b2j_3 = torch.sigmoid(models[5](data_2j)).to(device).unsqueeze(1)
 
         # Append the NF features to the original data
         data_2j = torch.cat([data_2j, NF_feat_s2j, NF_feat_s2j_3, NF_feat_b2j, NF_feat_b2j_3], dim=1)

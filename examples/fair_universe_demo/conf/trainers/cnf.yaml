@@ -6,14 +6,12 @@ devices: 1
 strategy: auto
 precision: 32
 callbacks:
-  - early_stopping:
-      _target_: lightning.pytorch.callbacks.EarlyStopping
-      monitor: "val_loss"
-      min_delta: 0.0
-      patience: 100
-      mode: "min"
-  - model_checkpoint:
-      _target: lightning.pytorch.callbacks.ModelCheckpoint
-      monitor: "val_loss"
-      mode: "min"
-      save_top_k: 3
+  - _target_: lightning.pytorch.callbacks.EarlyStopping
+    monitor: "val_loss"
+    min_delta: 0.0
+    patience: 100
+    mode: "min"
+  - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    monitor: "val_loss"
+    mode: "min"
+    save_top_k: 3

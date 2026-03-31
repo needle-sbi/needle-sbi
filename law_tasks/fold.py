@@ -18,6 +18,7 @@ from omegaconf import OmegaConf
 from law_tasks.mixins import HydraMixin
 from law_tasks.training_base import TrainingBase
 from orchestrator.config import EstimatorConfig, SystematicConfig
+from orchestrator.config_utils import hydra_check_if_arg_supported
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
@@ -25,10 +26,10 @@ logger = ColorFormatter.get_logger("fold")
 
 
 class FoldTask(HydraMixin, law.Task, TrainingBase):
-    results_path = law.Parameter(
+    results_path: str = law.Parameter(
         description="Directory where the fold training results will be saved.",
         significant=False,
-    )
+    )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
         significant=True,
@@ -77,8 +78,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
 
         return [
             EstimatorTask(
-                self,
-                config_file=self.config_file,
+                config_file=str(self.config_file),
                 estimator=dependency,
             )
             for dependency in self.estimator_config.requires
@@ -111,22 +111,46 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         dataset_config = self.systematic_config.dataset_override
         trainer_config = self.systematic_config.trainer_override
 
-        model: lightning.LightningModule = hydra.utils.instantiate(
-            model_config,
-            dataset_config=dataset_config,
-        )
-        data_module: lightning.LightningDataModule = hydra.utils.instantiate(
-            datamodule_config,
-            dataset_config=dataset_config,
-            fold_index=self.fold_index,
-            n_folds=self.estimator_config.expands.folds,
-        )
+        # 1. Load model
+        if hydra_check_if_arg_supported(model_config, "dataset_config"):
+            model: lightning.LightningModule = hydra.utils.instantiate(model_config, dataset_config)
+        else:
+            model = hydra.utils.instantiate(model_config)
+
+        # 2. Load datamodule
+        folds_api_arguments = ["fold_index", "n_folds"]
+        data_module_supports_folds: bool = all(
+            hydra_check_if_arg_supported(datamodule_config, p) for p in folds_api_arguments
+        )  # TODO could be also solved with appropriate Protocol
+
+        if not data_module_supports_folds:
+            raise TypeError(
+                "The datamodule does not support the API for cross-fold validation. "
+                f"Your datamodule must accept the arguments: {folds_api_arguments} (type=int)"
+            )
+
+        if hydra_check_if_arg_supported(datamodule_config, "dataset_config"):
+            data_module: lightning.LightningDataModule = hydra.utils.instantiate(
+                datamodule_config,
+                dataset_config=dataset_config,
+                fold_index=self.fold_index,
+                n_folds=self.estimator_config.expands.folds,
+            )
+        else:
+            data_module = hydra.utils.instantiate(
+                datamodule_config,
+                fold_index=self.fold_index,
+                n_folds=self.estimator_config.expands.folds,
+            )
+
+        # 3. Load trainer
         trainer: lightning.Trainer = hydra.utils.instantiate(
             trainer_config,
             logger=self.mlflow_logger,
         )
         trainer.fit(model=model, datamodule=data_module)
 
+        # 4. Record metrics
         checkpoint_path = Path(self.output()["ckpt"].path)
         trainer.save_checkpoint(checkpoint_path)
 

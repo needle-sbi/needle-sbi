@@ -1,4 +1,69 @@
 estimators:
-  normalizing_flow:
+  nf_signal_1jet:
     model: cnf
-    datamodule: fair_universe
+    model_override:
+      num_jets: 1
+    datamodule: datamodule_fair_universe
+    datamodule_override:
+      num_jets: 1
+      train_on_signal: true
+    trainer: cnf
+    expands:
+      systematics:
+        c_0.5:
+          model_override:
+            c: 0.5
+        c_2:
+          model_override:
+            c: 2.0
+  nf_signal_2jet:
+    model: cnf
+    model_override:
+      num_jets: 2
+    datamodule: datamodule_fair_universe
+    datamodule_override:
+      num_jets: 2
+      train_on_signal: true
+    trainer: cnf
+    expands:
+      systematics:
+        c_0.5:
+          model_override:
+            c: 0.5
+        c_2.0:
+          model_override:
+            c: 2.0
+  nf_background_1jet:
+    model: cnf
+    model_override:
+      num_jets: 1
+    datamodule: datamodule_fair_universe
+    datamodule_override:
+      num_jets: 1
+      train_on_signal: false
+    trainer: cnf
+    expands:
+      systematics:
+        c_0.5:
+          model_override:
+            c: 0.5
+        c_2:
+          model_override:
+            c: 2.0
+  nf_background_2jet:
+    model: cnf
+    model_override:
+      num_jets: 2
+    datamodule: datamodule_fair_universe
+    datamodule_override:
+      num_jets: 2
+      train_on_signal: false
+    trainer: cnf
+    expands:
+      systematics:
+        c_0.5:
+          model_override:
+            c: 0.5
+        c_2.0:
+          model_override:
+            c: 2.0

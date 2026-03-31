@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from omegaconf import MISSING
+from omegaconf import MISSING, DictConfig
 
 from ml.utils.dataclass import SerializableDataclass
 
@@ -25,7 +25,7 @@ class SystematicConfig(SerializableDataclass):
     datamodule: Optional[str] = None
     datamodule_override: Optional[Any] = None
     dataset: Optional[str] = None
-    dataset_override: DatasetConfig = field(default_factory=DatasetConfig)
+    dataset_override: Optional[DatasetConfig] = None
     model: Optional[str] = None
     model_override: Optional[Any] = None
     trainer: Optional[str] = None
@@ -43,9 +43,6 @@ class ExpansionConfig(SerializableDataclass):
     ensembles: EnsembleConfig = field(default_factory=EnsembleConfig)
     systematics: dict[str, SystematicConfig] = field(default_factory=dict)
     folds: int = 1
-
-    def __post_init__(self):
-        self.systematics.setdefault("nominal", SystematicConfig())
 
 
 @dataclass
@@ -114,8 +111,8 @@ class EstimatorConfig(SerializableDataclass):
 
     datamodule: str = MISSING
     datamodule_override: Optional[Any] = None
-    dataset: str = MISSING
-    dataset_override: DatasetConfig = field(default_factory=DatasetConfig)
+    dataset: Optional[str] = None
+    dataset_override: Optional[DatasetConfig] = field(default_factory=DatasetConfig)
     model: str = MISSING
     model_override: Optional[Any] = None
     trainer: str = MISSING

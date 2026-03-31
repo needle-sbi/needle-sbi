@@ -47,7 +47,6 @@ class EnsembleTask(HydraMixin, law.Task):
     def requires(self):
         return [
             FoldTask(
-                self,
                 config_file=self.config_file,
                 estimator=self.estimator,
                 systematic=self.systematic,

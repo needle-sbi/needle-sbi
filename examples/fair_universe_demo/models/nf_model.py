@@ -5,19 +5,19 @@ Adapted by K. Schmidt
 """
 
 import os
-from tqdm import tqdm
-from typing import Tuple
+from typing import Literal, Tuple
 
 import lightning as L
 import torch
+from tqdm import tqdm
 
-from examples.fair_universe_demo.models.nf_layers import NormalizingQuadFlow
+from ..models.nf_layers import NormalizingQuadFlow
 
 
 class ConditionalNormalizingFlowModule(L.LightningModule):
     def __init__(
         self,
-        input_dim: int = 2,
+        num_jets: Literal[0, 1, 2],
         num_layers: int = 10,
         lr: float = 1e-3,
         x_mean: float = 1,
@@ -36,8 +36,12 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         self.train_losses = []
         self.val_losses = []
         self.clamp_val = clamp_val
-        self.input_dim = input_dim
-        self.flow = NormalizingQuadFlow(input_dim, num_layers)
+        self.num_jets = num_jets
+        self.input_dim = {
+            1: 20,  # Case: 1 jet
+            2: 27,  # Case: 2 jets
+        }[self.num_jets]
+        self.flow = NormalizingQuadFlow(self.input_dim, num_layers)
 
     def forward(self, x: torch.Tensor, eval: bool = True) -> torch.Tensor:
         if eval:
@@ -139,24 +143,13 @@ def load_nf_models(models_dir: str, device: str):
     two_jet_dir = os.path.join(models_dir, "2_jet")
     if not os.path.isdir(two_jet_dir):
         raise FileNotFoundError(f"Directory not found: {two_jet_dir}")
-    
-    checkpoints = [
-        os.path.join(one_jet_dir, f)
-        for f in sorted(os.listdir(one_jet_dir))
-        if f.endswith(".ckpt")
-    ] + [
-        os.path.join(two_jet_dir, f)
-        for f in sorted(os.listdir(two_jet_dir))
-        if f.endswith(".ckpt")
+
+    checkpoints = [os.path.join(one_jet_dir, f) for f in sorted(os.listdir(one_jet_dir)) if f.endswith(".ckpt")] + [
+        os.path.join(two_jet_dir, f) for f in sorted(os.listdir(two_jet_dir)) if f.endswith(".ckpt")
     ]
 
     for ckpt_path in tqdm(checkpoints):
-        model = (
-            ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path)
-            .to(device)
-            .eval()
-            .to(torch.float32)
-        )
+        model = ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path).to(device).eval().to(torch.float32)
         models.append(model)
-    
+
     return models

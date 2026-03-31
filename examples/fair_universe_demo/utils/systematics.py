@@ -14,7 +14,8 @@ import copy
 
 import numpy as np
 import pandas as pd
-from derived_quantities import DER_data
+
+from .derived_quantities import DER_data
 
 # ==================================================================================
 #  V4 Class and physic computations

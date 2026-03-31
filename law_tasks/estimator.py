@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import law
+from omegaconf import open_dict
 
 from law_tasks.mixins import HydraMixin
 from law_tasks.systematic import SystematicTask
-from orchestrator.config import EstimatorConfig
+from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.results import EstimatorResults, SystematicResults
 from preprocessor.utils.logging import ColorFormatter
 
@@ -29,13 +30,18 @@ class EstimatorTask(HydraMixin, law.Task):
 
     @property
     def estimator_config(self) -> EstimatorConfig:
-        return self.config.estimators[self.estimator]
+        est = self.config.estimators[self.estimator]
+
+        with open_dict(est):  # type: ignore
+            if not est.expands.systematics:
+                est.expands.systematics["nominal"] = SystematicConfig()
+
+        return est
 
     def requires(self) -> List[SystematicTask]:
         return [
             SystematicTask(
-                self,
-                config_file=self.config_file,
+                config_file=str(self.config_file),
                 estimator=self.estimator,
                 systematic=systematic_key,
                 results_path=os.path.join(self.abs_results_path, f"syst__{systematic_key}"),

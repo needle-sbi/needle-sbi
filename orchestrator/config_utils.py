@@ -1,4 +1,5 @@
 import graphlib
+import inspect
 from pathlib import Path
 from typing import List, Literal, Mapping, cast
 
@@ -7,6 +8,9 @@ from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
 
 from orchestrator.config import MainConfig
+from preprocessor.utils import ColorFormatter
+
+logger = ColorFormatter.get_logger(__file__)
 
 
 def validate_graph(self: "MainConfig") -> None:
@@ -135,19 +139,54 @@ def resolve_defaults(
             if group_member is None:
                 continue
 
-            group_member_cfg = (cfg_dir / (group_member + ".yaml"))
+            group_member_cfg = cfg_dir / (group_member + ".yaml")
 
             if group_member_cfg.exists():
-                group_cfg = OmegaConf.load(group_member_cfg)   # Case: .yaml file at top-level
-            else: 
-                group_cfg = _load_group(group, group_member)   # Case: .yaml file inside folder with group name
+                group_cfg = OmegaConf.load(group_member_cfg)  # Case: .yaml file at top-level
+            else:
+                group_cfg = _load_group(group, group_member)  # Case: .yaml file inside folder with group name
 
             override_key = f"{field}_override"
             base_cfg = est_cfg.get(override_key)
 
             if base_cfg:
-                est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
+                if override_key == "dataset_override":
+                    est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
+                else:
+                    base_dict = OmegaConf.to_container(base_cfg, resolve=False)
+                    group_dict = OmegaConf.to_container(group_cfg, resolve=False)
+                    est_cfg[override_key] = OmegaConf.create({**base_dict, **group_dict})  # type: ignore
             else:
                 est_cfg[override_key] = group_cfg
 
     return cfg
+
+
+def hydra_check_if_arg_supported(
+    cfg: DictConfig | None,
+    arg_name: str,
+) -> bool:
+    """Check if an argument is valid for the given class
+
+    Args:
+        cfg (DictConfig): OmegaConf DictConfig corresponding to the class being instantiated using
+            hydra
+        arg_name (str): The argument to check. Can be positional or keyword
+
+    Returns:
+        bool: Whether the parameter is valid for this class or if the config is None
+    """
+    if cfg is None:
+        # Treat this case separately as this can cause a lot of headache
+        caller = inspect.stack()[1]
+        logger.debug("Config object is None")
+        logger.debug(f"Called from {caller.filename}:{caller.filename} in {caller.function}")
+        logger.debug(f"  {caller.code_context[0].strip()}")  # type: ignore
+        return False
+
+    cls = hydra.utils.get_class(cfg._target_)
+    sig = inspect.signature(cls.__init__).parameters
+
+    return (arg_name in sig) or any(  # check positional parameter
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
+    )  # check keyword arguments
