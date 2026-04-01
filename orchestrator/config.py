@@ -41,7 +41,7 @@ class EnsembleConfig(SerializableDataclass):
 @dataclass
 class ExpansionConfig(SerializableDataclass):
     ensembles: EnsembleConfig = field(default_factory=EnsembleConfig)
-    systematics: dict[str, SystematicConfig] = field(default_factory=dict)
+    systematics: dict[str, SystematicConfig] = field(default_factory=lambda: {"nominal": SystematicConfig()})
     folds: int = 1
 
 
