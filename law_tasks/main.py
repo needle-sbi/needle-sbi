@@ -22,6 +22,9 @@ class MainTask(HydraMixin, law.WrapperTask):
 
     @property
     def abs_results_path(self) -> Path:
+        if self.config.results_path:
+            self.results_path = self.config.results_path
+
         return os.path.abspath(self.results_path)  # type: ignore
 
     def requires(self) -> List[EstimatorTask]:

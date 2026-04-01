@@ -76,3 +76,5 @@ estimators:
     model: classifier
     datamodule: classifier
     trainer: classifier
+
+results_path: runs/fair_universe_demo_test

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from omegaconf import MISSING, DictConfig
+from omegaconf import MISSING
 
 from ml.utils.dataclass import SerializableDataclass
 
@@ -140,5 +140,5 @@ class AggregationConfig(SerializableDataclass):
 class MainConfig(SerializableDataclass):
     estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
     aggregation: AggregationConfig = field(default_factory=AggregationConfig)
-    result_path: Optional[str] = None
+    results_path: Optional[str] = None
     _resolved: bool = False
