@@ -29,7 +29,7 @@ logger = ColorFormatter.get_logger("fold")
 
 class FoldTask(HydraMixin, law.Task, TrainingBase):
     results_path: str = law.Parameter(
-        description="Directory where the fold training results will be saved.",
+        description="Root directory where results are saved.",
         significant=False,
     )  # type: ignore
     estimator: str = law.Parameter(
@@ -53,7 +53,15 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.results_path)  # type: ignore
+        return Path(
+            os.path.join(
+                os.path.abspath(self.results_path),
+                f"est__{self.estimator}",
+                f"syst__{self.systematic}",
+                f"ensem__{self.ensemble}",
+                f"fold__{self.ensemble}",
+            )
+        )
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -102,7 +110,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             EstimatorTask(
                 config_file=str(self.config_file),
                 estimator=dependency,
-                results_path=os.path.join(self.abs_results_path, f"est__{dependency}"),
+                results_path=self.results_path,
             )
             for dependency in self.estimator_config.requires
         ]

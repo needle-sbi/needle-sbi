@@ -15,7 +15,7 @@ class MainTask(HydraMixin, law.WrapperTask):
     """
 
     results_path: str = law.Parameter(
-        description="Directory where the training results will be saved.",
+        description="Root directory where results are saved.",
         default="runs",
         significant=False,
     )  # type: ignore
@@ -29,7 +29,7 @@ class MainTask(HydraMixin, law.WrapperTask):
             EstimatorTask(
                 config_file=self.config_file,
                 estimator=estimator_key,
-                results_path=os.path.join(self.abs_results_path, f"est__{estimator_key}"),
+                results_path=self.abs_results_path,
             )
             for estimator_key in self.config.estimators.keys()
         ]

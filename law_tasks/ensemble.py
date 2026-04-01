@@ -1,6 +1,7 @@
 """
 Task for a single ensemble training, includes multiple folds.
 """
+
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -19,7 +20,7 @@ logger = ColorFormatter.get_logger("ensemble")
 
 class EnsembleTask(HydraMixin, law.Task):
     results_path: str = law.Parameter(
-        description="Directory where the ensemble training results will be saved.",
+        description="Root directory where results are saved.",
         significant=False,
     )  # type: ignore
     estimator: str = law.Parameter(
@@ -38,7 +39,14 @@ class EnsembleTask(HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.results_path)  # type: ignore
+        return Path(
+            os.path.join(
+                os.path.abspath(self.results_path),
+                f"est__{self.estimator}",
+                f"syst__{self.systematic}",
+                f"ensem__{self.ensemble}",
+            )
+        )
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -52,7 +60,7 @@ class EnsembleTask(HydraMixin, law.Task):
                 systematic=self.systematic,
                 ensemble=self.ensemble,
                 fold_index=fold_index,
-                results_path=os.path.join(self.abs_results_path, f"fold__{fold_index}"),
+                results_path=self.results_path,
             )
             for fold_index in range(self.estimator_config.expands.folds)
         ]

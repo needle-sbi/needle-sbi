@@ -1,6 +1,7 @@
 """
 Task for a single systematic uncertainty
 """
+
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -17,10 +18,10 @@ logger = ColorFormatter.get_logger("systematic")
 
 
 class SystematicTask(HydraMixin, law.Task):
-    results_path = law.Parameter(
-        description="Directory where the systematic results will be saved.",
+    results_path: str = law.Parameter(
+        description="Root directory where results are saved.",
         significant=False,
-    )
+    )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
         significant=True,
@@ -32,7 +33,9 @@ class SystematicTask(HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.results_path)  # type: ignore
+        return Path(
+            os.path.join(os.path.abspath(self.results_path), f"est__{self.estimator}", f"syst__{self.systematic}")
+        )
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -52,7 +55,7 @@ class SystematicTask(HydraMixin, law.Task):
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,
-                results_path=os.path.join(self.abs_results_path, f"ensem__{ensemble_index}"),
+                results_path=self.results_path,
             )
             for ensemble_index in range(num_ensembles)
         ]

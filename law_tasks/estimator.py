@@ -18,7 +18,7 @@ logger = ColorFormatter.get_logger("estimator")
 
 class EstimatorTask(HydraMixin, law.Task):
     results_path: str = law.Parameter(
-        description="Directory where the estimator results will be saved.",
+        description="Root directory where results are saved.",
         significant=False,
     )  # type: ignore
     estimator: str = law.Parameter(
@@ -28,7 +28,7 @@ class EstimatorTask(HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.results_path)  # type: ignore
+        return Path(os.path.join(os.path.abspath(self.results_path), f"est__{self.estimator}"))
 
     @property
     def estimator_config(self) -> EstimatorConfig:
@@ -65,7 +65,7 @@ class EstimatorTask(HydraMixin, law.Task):
                 config_file=str(self.config_file),
                 estimator=self.estimator,
                 systematic=systematic_key,
-                results_path=os.path.join(self.abs_results_path, f"syst__{systematic_key}"),  # TODO path not same
+                results_path=self.results_path,
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
