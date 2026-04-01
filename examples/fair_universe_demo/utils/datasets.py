@@ -1,14 +1,21 @@
-import numpy as np
-import pyarrow.parquet as pq
-import pandas as pd
-import json
-import os
-import requests
-from zipfile import ZipFile
-import logging
+"""
+Original authors: FAIR Universe HiggsML Challenge
+Based on https://github.com/FAIR-Universe/HEP-Challenge
+Adapted by K. Schmidt
+"""
+
 import io
-from pydantic import Field
+import json
+import logging
+import os
 from typing import Annotated
+from zipfile import ZipFile
+
+import numpy as np
+import pandas as pd
+import pyarrow.parquet as pq
+import requests
+from pydantic import Field
 
 Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
@@ -148,7 +155,6 @@ class Data:
         # Balancing the weights
 
     def __load_data(self, selected_indices):
-
         current_row = 0
         sampled_df = pd.DataFrame()
         for row_group_index in range(self.parquet_file.num_row_groups):
@@ -181,7 +187,6 @@ class Data:
         return sampled_df
 
     def load_test_set(self):
-
         selected_test_indices = np.array(range(self.test_size))
 
         # Load the data
@@ -196,7 +201,6 @@ class Data:
         }
 
         for key in test_set.keys():
-
             test_set[key] = test_df[test_df["detailed_labels"] == key]
             test_set[key]["Label"] = test_set[key]["detailed_labels"]
             # test_set[key].pop("labels")

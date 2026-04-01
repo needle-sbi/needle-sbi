@@ -1,0 +1,2 @@
+_target_: examples.fair_universe_demo.models.nf_datamodule.NormalizingFlowDatamodule
+root_dir: "/work/kschmidt/NEEDLE/FAIR_UNIVERSE_DEMO/HEP-Challenge"

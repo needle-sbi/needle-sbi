@@ -17,7 +17,7 @@ from ..utils.selection import createJetData
 Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
-class FairUniverseDatamodule(LightningDataModule):
+class NormalizingFlowDatamodule(LightningDataModule):
     def __init__(
         self,
         train_on_signal: bool,

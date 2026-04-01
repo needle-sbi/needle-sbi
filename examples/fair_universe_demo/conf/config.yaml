@@ -3,7 +3,7 @@ estimators:
     model: cnf
     model_override:
       num_jets: 1
-    datamodule: datamodule_fair_universe
+    datamodule: cnf
     datamodule_override:
       num_jets: 1
       train_on_signal: true
@@ -20,7 +20,7 @@ estimators:
     model: cnf
     model_override:
       num_jets: 2
-    datamodule: datamodule_fair_universe
+    datamodule: cnf
     datamodule_override:
       num_jets: 2
       train_on_signal: true
@@ -37,7 +37,7 @@ estimators:
     model: cnf
     model_override:
       num_jets: 1
-    datamodule: datamodule_fair_universe
+    datamodule: cnf
     datamodule_override:
       num_jets: 1
       train_on_signal: false
@@ -54,7 +54,7 @@ estimators:
     model: cnf
     model_override:
       num_jets: 2
-    datamodule: datamodule_fair_universe
+    datamodule: cnf
     datamodule_override:
       num_jets: 2
       train_on_signal: false

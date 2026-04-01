@@ -1,7 +1,7 @@
 import graphlib
 import inspect
 from pathlib import Path
-from typing import List, Literal, Mapping, cast
+from typing import Any, List, Literal, Mapping, cast
 
 import hydra
 from hydra.errors import ConfigCompositionException
@@ -190,3 +190,33 @@ def hydra_check_if_arg_supported(
     return (arg_name in sig) or any(  # check positional parameter
         p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
     )  # check keyword arguments
+
+
+def hydra_instantiate(
+    cfg: DictConfig | None,
+    **kwargs,
+) -> Any:
+    """Instantiate a class with hydra using the maximum subset of allowed arguments.
+
+    A target class might not support all the arguments that are provided by the NEEDLE framework,
+    so this function instantiates the class with all valid arguments and skips the others.
+
+    Args:
+        cfg (DictConfig | None): The values coming from the config. Must contain the `_target_` key
+            in order to be compatible with hydra.
+        **kwargs: The values coming from the framework
+
+    Returns:
+        Any: An instance of the target class
+    """
+    supported_kwargs = {k: v for k, v in kwargs.items() if hydra_check_if_arg_supported(cfg, k)}
+    unsupported_kwargs = set(kwargs) - set(supported_kwargs)
+
+    if unsupported_kwargs:
+        cls_name = hydra.utils.get_class(cfg._target_).__name__  # type: ignore
+        logger.warning(
+            f"Class {cls_name} does not support the following arguments: "
+            f"{unsupported_kwargs}, which were skipped at instantiation."
+        )
+
+    return hydra.utils.instantiate(cfg, **supported_kwargs)

@@ -1,6 +1,8 @@
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 import law
 from omegaconf import open_dict
@@ -38,6 +40,25 @@ class EstimatorTask(HydraMixin, law.Task):
 
         return est
 
+    def record_model_paths(self) -> None:
+        model_paths_dict: Dict[str, str] = {}
+
+        for systematic_task in self.requires():
+            for ensemble_task in systematic_task.requires():
+                for fold_task in ensemble_task.requires():
+                    key = urlencode(
+                        {
+                            "syst": systematic_task.systematic,
+                            "ensem": ensemble_task.ensemble,
+                            "fold": fold_task.fold_index,
+                        }
+                    )
+                    path = fold_task.output()["ckpt"].path
+                    model_paths_dict[key] = path
+
+        with open(self.output()["input_models"].path, "w") as f:
+            json.dump(model_paths_dict, f)
+
     def requires(self) -> List[SystematicTask]:
         return [
             SystematicTask(
@@ -53,11 +74,13 @@ class EstimatorTask(HydraMixin, law.Task):
         base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "outputs": base.child("estimator_result.json", type="f"),
+            "input_models": base.child("input_models.json", type="f"),
         }
 
-    def run(self):
+    def run(self) -> None:
         """Gather results from all SystematicTasks and merge them into own container"""
         systematic_results = [
             SystematicResults.from_json(systematic_result["outputs"].path) for systematic_result in self.input()
         ]
         EstimatorResults(systematics=systematic_results).to_json(self.output()["outputs"].path)
+        self.record_model_paths()

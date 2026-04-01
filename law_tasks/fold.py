@@ -2,9 +2,11 @@
 Task for a single fold of the training.
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 import hydra
 import law
@@ -18,7 +20,7 @@ from omegaconf import OmegaConf
 from law_tasks.mixins import HydraMixin
 from law_tasks.training_base import TrainingBase
 from orchestrator.config import EstimatorConfig, SystematicConfig
-from orchestrator.config_utils import hydra_check_if_arg_supported
+from orchestrator.config_utils import hydra_check_if_arg_supported, hydra_instantiate
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
@@ -70,6 +72,26 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             self.estimator_config,
         )  # type: ignore
 
+    def input_model_paths(self) -> Dict[str, str]:
+        model_paths_dict: Dict[str, str] = {}
+
+        for estimator_task in self.requires():
+            for systematic_task in estimator_task.requires():
+                for ensemble_task in systematic_task.requires():
+                    for fold_task in ensemble_task.requires():
+                        key = urlencode(
+                            {
+                                "est": estimator_task.estimator,
+                                "syst": systematic_task.systematic,
+                                "ensem": ensemble_task.ensemble,
+                                "fold": fold_task.fold_index,
+                            }
+                        )
+                        path = fold_task.output()["ckpt"].path
+                        model_paths_dict[key] = path
+
+        return model_paths_dict
+
     def requires(self) -> List[Any]:
         if not self.estimator_config.requires:
             return []
@@ -93,6 +115,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             "model_config": base.child("model_config.yaml", type="f"),
             "metrics": base.child("metrics", type="d"),
             "outputs": base.child("fold_results.json", type="f"),  # Add this!
+            "input_models": base.child("input_models.json", type="f"),
         }
 
     @property
@@ -112,10 +135,11 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         trainer_config = self.systematic_config.trainer_override
 
         # 1. Load model
-        if hydra_check_if_arg_supported(model_config, "dataset_config"):
-            model: lightning.LightningModule = hydra.utils.instantiate(model_config, dataset_config)
-        else:
-            model = hydra.utils.instantiate(model_config)
+        model: lightning.LightningModule = hydra_instantiate(
+            model_config,
+            dataset_config=dataset_config,
+            input_models=self.input_model_paths(),
+        )
 
         # 2. Load datamodule
         folds_api_arguments = ["fold_index", "n_folds"]
@@ -129,19 +153,12 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
                 f"Your datamodule must accept the arguments: {folds_api_arguments} (type=int)"
             )
 
-        if hydra_check_if_arg_supported(datamodule_config, "dataset_config"):
-            data_module: lightning.LightningDataModule = hydra.utils.instantiate(
-                datamodule_config,
-                dataset_config=dataset_config,
-                fold_index=self.fold_index,
-                n_folds=self.estimator_config.expands.folds,
-            )
-        else:
-            data_module = hydra.utils.instantiate(
-                datamodule_config,
-                fold_index=self.fold_index,
-                n_folds=self.estimator_config.expands.folds,
-            )
+        data_module: lightning.LightningDataModule = hydra_instantiate(
+            datamodule_config,
+            dataset_config=dataset_config,
+            fold_index=self.fold_index,
+            n_folds=self.estimator_config.expands.folds,
+        )
 
         # 3. Load trainer
         trainer: lightning.Trainer = hydra.utils.instantiate(
@@ -171,3 +188,6 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             n_folds=self.estimator_config.expands.folds,
         )
         fold_results.to_json(self.output()["outputs"].path)
+
+        with open(self.output()["input_models"].path, "w") as f:
+            json.dump(self.input_model_paths(), f)
