@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from typing import List
 
 import numpy as np
@@ -8,6 +7,9 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from .datasets import Data  # Data class for non-public dataset
+from .systematics import get_bootstrapped_dataset, systematics
 
 logger = logging.getLogger(__name__)
 
@@ -101,15 +103,6 @@ def createJetData(
         tuple: Processed data tensor, label tensor, weights, and feature names.
     """
     input_dir = os.path.join(root_dir, "input_data")
-    program_dir = os.path.join(root_dir, "ingestion_program")
-    score_dir = os.path.join(root_dir, "scoring_program")
-
-    sys.path.append(program_dir)
-    sys.path.append(score_dir)
-
-    # Import the required functions from the ingestion program
-    from datasets import Data  # Data class for non-public dataset
-    from systematics import get_bootstrapped_dataset, systematics
 
     if USE_PUBLIC_DATASET:
         from datasets import Neurips2024_public_dataset as public_dataset

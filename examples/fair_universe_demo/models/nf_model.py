@@ -17,11 +17,11 @@ from ..models.nf_layers import NormalizingQuadFlow
 class ConditionalNormalizingFlowModule(L.LightningModule):
     def __init__(
         self,
-        num_jets: Literal[0, 1, 2],
+        num_jets: Literal[1, 2],
         num_layers: int = 10,
         lr: float = 1e-3,
-        x_mean: float = 1,
-        x_std: float = 0,
+        x_mean: float = 0.0,
+        x_std: float = 1.0,
         c: float = 1,
         clamp_val: float = -10,
     ) -> None:
