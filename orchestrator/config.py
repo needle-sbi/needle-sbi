@@ -140,4 +140,5 @@ class AggregationConfig(SerializableDataclass):
 class MainConfig(SerializableDataclass):
     estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
     aggregation: AggregationConfig = field(default_factory=AggregationConfig)
+    result_path: Optional[str] = None
     _resolved: bool = False

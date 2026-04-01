@@ -102,6 +102,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             EstimatorTask(
                 config_file=str(self.config_file),
                 estimator=dependency,
+                results_path=os.path.join(self.abs_results_path, f"est__{dependency}"),
             )
             for dependency in self.estimator_config.requires
         ]
@@ -156,6 +157,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         data_module: lightning.LightningDataModule = hydra_instantiate(
             datamodule_config,
             dataset_config=dataset_config,
+            input_models=self.input_model_paths(),
             fold_index=self.fold_index,
             n_folds=self.estimator_config.expands.folds,
         )

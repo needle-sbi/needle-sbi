@@ -67,3 +67,12 @@ estimators:
         c_2.0:
           model_override:
             c: 2.0
+  classifier:
+    requires:
+      - nf_background_1jet
+      - nf_background_2jet
+      - nf_signal_1jet
+      - nf_signal_2jet
+    model: classifier
+    datamodule: classifier
+    trainer: classifier

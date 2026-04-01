@@ -65,7 +65,7 @@ class EstimatorTask(HydraMixin, law.Task):
                 config_file=str(self.config_file),
                 estimator=self.estimator,
                 systematic=systematic_key,
-                results_path=os.path.join(self.abs_results_path, f"syst__{systematic_key}"),
+                results_path=os.path.join(self.abs_results_path, f"syst__{systematic_key}"),  # TODO path not same
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
