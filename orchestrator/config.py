@@ -51,7 +51,7 @@ class EstimatorConfig(SerializableDataclass):
 
     Important:
         The field to be used afterwards in the code is `*_override`, as this is the resolved field,
-        the name is just a str and would have to be populated manually afterwards.
+        the name is just a str and needs to be populated manually afterwards.
 
     Each field can be defined in two ways:
 
@@ -61,52 +61,6 @@ class EstimatorConfig(SerializableDataclass):
 
     2. By override (DictConfig / dataclass): Usual `dataset_override=DatasetConfig(...)`.
         If provided, the resolver will use this directly and not overwrite it.
-
-    Example usage:
-
-    >>> from omegaconf import OmegaConf
-    >>> from ml.utils.dataclass import SerializableDataclass
-    >>> from your_project.configs import DatasetConfig, NodeBaseConfig
-
-    # Case 1: Using string reference (to be resolved)
-    >>> cfg1 = NodeBaseConfig(
-    ...     datamodule="padded",
-    ...     datamodule_override=None,
-    ...     dataset="fair_universe",
-    ...     dataset_override=None,
-    ...     model="transformer",
-    ...     model_override=None,
-    ...     trainer="default",
-    ...     trainer_override=None
-    ... )
-    >>> cfg1.dataset  # string reference
-    'fair_universe'
-    >>> cfg1.dataset_override  # initially empty
-    None
-
-    # After calling `resolve_defaults(cfg1, config_dir)`, the override is populated:
-    >>> # orchestrator.registry.resolve_defaults(cfg1, config_dir)
-    >>> cfg1.dataset_override.paths
-    '/path/to/fair_universe_dataset.yaml'
-    >>> cfg1.dataset_override.labels_columns
-    ['PRI_n_jets']
-
-    # Case 2: Using inline override directly
-    >>> override_ds = DatasetConfig(paths='/custom/path', labels_columns=['PRI_n_jets'])
-    >>> cfg2 = NodeBaseConfig(
-    ...     datamodule="padded",
-    ...     datamodule_override=None,
-    ...     dataset_override=override_ds,
-    ...     dataset="",  # string can be empty
-    ...     model_override=None,
-    ...     model="xgboost",
-    ...     trainer_override=None,
-    ...     trainer="default"
-    ... )
-    >>> cfg2.dataset_override.paths
-    '/custom/path'
-    >>> cfg2.dataset_override.labels_columns
-    ['PRI_n_jets']
     """
 
     datamodule: str = MISSING

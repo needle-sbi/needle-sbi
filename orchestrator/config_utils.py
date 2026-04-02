@@ -17,20 +17,17 @@ logger = ColorFormatter.get_logger("orchestrator")
 
 
 def validate_graph(self: "MainConfig") -> None:
-    """Ensure that the graph spelled in the Config is a Directed Acyclic Graph and that all
-    dependencies are resolved.
+    """Validate that estimators form a Directed Acyclic Graph and that dependencies exist.
 
     Args:
-        config (MainConfig): The instance of the MainConfig to test. DictConfig would also work
-            as a type but will raise static typechecker warnings.
+        self (MainConfig): The config instance containing the `estimators` mapping.
+            Each estimator may declare dependencies via `requires`.
 
     Raises:
-        ValueError: If a dependency mentioned with the `requires` keyword is missing. For example
-            if "model_B" depends on a non-existing "model_A"
+        ValueError: When an estimator depends on an undefined estimator name.
 
     Returns:
-        MainConfig: Same instance of MainConfig with no side-effects. This is a pure function that
-            only performs validation.
+        None: This helper performs only validation and has no side effects.
     """
     estimators = set(self.estimators)
 
@@ -56,17 +53,19 @@ def initialize_hydra_config(
     config_name: str,
     overrides: List[str] | None = None,
 ) -> MainConfig:
-    """Initialize the hydra config from the corresponding directory
+    """Initialize Hydra and compose a `MainConfig` from the given config directory.
 
     Args:
-        config_dir (str): Absolute path to the config directory
-        config_name (str): Name of the config file (.e.g 'config')
-        overrides (List[str] | None, optional): Hydra overrides. Defaults to None. May not include any
-            of the groups listed in `resolve_config`.
+        config_dir (str): Absolute path to the Hydra config directory.
+        config_name (str): Base name of the config file to compose (without `.yaml`).
+        overrides (List[str] | None, optional): Hydra override strings. Defaults to None.
 
     Returns:
-        MainConfig: Partially resolved instance of MainConfig. The fields for SystematicConfig
-            must be merged manually with the entries in EstimatorConfig.
+        MainConfig: Partially resolved `MainConfig` instance with defaults applied and the
+            estimator dependency graph validated.
+
+    Raises:
+        ValueError: If default resolution fails or graph validation detects missing dependencies.
     """
     with hydra.initialize_config_dir(
         config_dir=config_dir,
@@ -87,28 +86,24 @@ def resolve_defaults(
     cfg_dir: Path,
     node: Literal["estimators", "systematics"] = "estimators",
 ) -> DictConfig:
-    """Resolve the default fields in the hydra config.
+    """Resolve Hydra defaults for nested estimator or systematic config entries.
 
-    This method mimics the usual hydra behavior of the 'defaults' field, but extends it to nested fields
-    inside the config. Meaning fields like 'dataset' are looked up in the group 'datasets' and the
-    values are added to 'dataset_override'. This in turn is also compatible with overriding a value
-    inside the group by directly assigning 'dataset_override' afterwards.
-
-    Note that further nesting like Systematics that also provide the `*_override` keyword will not
-    have all keywords automatically, but have to be merged with the main field.
-
-    Groups that are registered:
-        - "datasets": Resolves the "dataset" field and populates "dataset_override"
-        - "datamodules": Resolves the "datamodule" field and populates "datamodule_override"
-        - "models": Resolves the "model" field and populates "model_override"
-        - "trainers": Resolves the "trainer" field and populates "trainer_override"
+    This function resolves fields like `dataset`, `datamodule`, `model`, and `trainer`
+    by loading the corresponding group config and populating the matching override field
+    (for example `dataset_override`). It mutates `cfg` in place and returns the same
+    resolved `DictConfig` object.
 
     Args:
-        cfg (DictConfig): The config object to resolve
+        cfg (DictConfig): The config object to resolve.
+        cfg_dir (Path): The path to the config directory containing group configs.
+        node (Literal["estimators", "systematics"], optional): The top-level node to
+            iterate. Defaults to "estimators".
 
     Returns:
-        DictConfig: A config object with the fields resolved to the corresponding group
+        DictConfig: The same `cfg` object with resolved `*_override` entries populated.
 
+    Raises:
+        ValueError: When a referenced group member cannot be resolved.
     """
 
     DEFAULT_GROUPS: Mapping[str, str] = {
@@ -169,15 +164,15 @@ def hydra_check_if_arg_supported(
     cfg: DictConfig | None,
     arg_name: str,
 ) -> bool:
-    """Check if an argument is valid for the given class
+    """Check whether an argument is supported by the target class in `cfg`.
 
     Args:
-        cfg (DictConfig): OmegaConf DictConfig corresponding to the class being instantiated using
-            hydra
-        arg_name (str): The argument to check. Can be positional or keyword
+        cfg (DictConfig | None): OmegaConf config containing `_target_` for the class.
+        arg_name (str): The constructor argument name to validate.
 
     Returns:
-        bool: Whether the parameter is valid for this class or if the config is None
+        bool: True when the class accepts the parameter or supports `**kwargs`.
+            Returns False when `cfg` is None or the argument is not supported.
     """
     if cfg is None:
         # Treat this case separately as this can cause a lot of headache
@@ -199,18 +194,23 @@ def hydra_instantiate(
     cfg: DictConfig,
     **kwargs,
 ) -> Any:
-    """Instantiate a class with hydra using the maximum subset of allowed arguments.
+    """Instantiate the target class using only supported keyword arguments.
 
-    A target class might not support all the arguments that are provided by the NEEDLE framework,
-    so this function instantiates the class with all valid arguments and skips the others.
+    The function filters `kwargs` to the subset accepted by the target class's
+    constructor and skips unsupported parameters, logging a warning for dropped keys.
 
     Args:
-        cfg (DictConfig): The values coming from the config. Must contain the `_target_` key
-            in order to be compatible with hydra.
-        **kwargs: The values coming from the framework
+        cfg (DictConfig): Config containing `_target_` and any supported parameters.
+        **kwargs: Candidate keyword arguments for instantiation.
 
     Returns:
-        Any: An instance of the target class
+        Any: The instantiated object returned by `hydra.utils.instantiate`.
+
+    Raises:
+        ValueError: If `_target_` is missing from `cfg`.
+
+    Example:
+        >>> instance = hydra_instantiate(cfg, device='cuda', logger=logger)
     """
     if not cfg.__getattr__("_target_"):
         raise ValueError(
@@ -239,6 +239,14 @@ def check_for_lightning_import_mismatch(cfg: DictConfig) -> None:
     Mixing `pytorch_lightning` and `lightning.pytorch` base classes causes silent
     failures where e.g. a Trainer refuses to accept a LightningModule because they
     come from different class hierarchies.
+
+    Args:
+        cfg (DictConfig): Config containing `_target_` for the target class.
+
+    Raises:
+        ValueError: If `_target_` is missing or invalid.
+        TypeError: If the target class inherits from `pytorch_lightning` instead of
+            `lightning.pytorch`.
     """
     try:
         cls = hydra.utils.get_class(cfg._target_)
