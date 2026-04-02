@@ -53,6 +53,12 @@ class Dataset1j2j(Dataset):
 
 
 class ClassifierDatamodule(L.LightningDataModule):
+    """Datamodule for classifier training using NF-derived features.
+
+    Loads the parquet dataset, applies NF feature extraction with pretrained
+    normalizing flow models, and constructs train/validation splits.
+    """
+
     def __init__(
         self,
         root_dir: str,
@@ -73,6 +79,18 @@ class ClassifierDatamodule(L.LightningDataModule):
         self.metadata_filename = metadata_filename
 
     def setup(self, stage: Optional[str]) -> None:
+        """Load NF models and prepare classifier training and validation data.
+
+        Args:
+            stage (Optional[str]): Optional stage name, not used.
+
+        Side effects:
+            Sets `self.input_models`, `self.train_dataset`, and `self.val_dataset`.
+
+        Raises:
+            ValueError: When the expected eight NF models are not found.
+            KeyError: When a required model key is missing during feature extraction.
+        """
         self.input_models = self.load_nf_models(self.input_models_dict)
 
         if len(self.input_models) != 8:
@@ -151,11 +169,13 @@ class ClassifierDatamodule(L.LightningDataModule):
 
     @staticmethod
     def load_nf_models(input_models: Dict[str, str]) -> torch.nn.ModuleDict:
-        """
-        Load ConditionalNormalizingFlowModule models from the input_models Dict
+        """Load ConditionalNormalizingFlowModule checkpoints from provided paths.
+
+        Args:
+            input_models (Dict[str, str]): Mapping from model identifiers to checkpoint paths.
 
         Returns:
-            ModuleDict
+            torch.nn.ModuleDict: Loaded NF models keyed by `est&syst` strings.
 
         Important:
             The way this is done here implies that the dict keys are directly tied to the value of the hyperparameter c.

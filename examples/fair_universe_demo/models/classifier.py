@@ -4,7 +4,7 @@ Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
 
-from typing import Literal
+from typing import Literal, Mapping
 
 import lightning as L
 import torch
@@ -13,6 +13,12 @@ from torch import nn
 
 
 class CombinedClassifier(L.LightningModule):
+    """Combined classifier for 1-jet and 2-jet event representations.
+
+    The model uses separate input towers for 1-jet and 2-jet feature tensors,
+    then passes both branches through a shared trunk and separate classification heads.
+    """
+
     def __init__(
         self,
         hidden_dim: int = 128,
@@ -62,11 +68,14 @@ class CombinedClassifier(L.LightningModule):
         self.classifier_1j = nn.Sequential(nn.Linear(latent_dim, latent_dim), nn.GELU(), nn.Linear(latent_dim, 1))
 
     def forward(self, x: torch.Tensor, jet_category: Literal[1, 2]) -> torch.Tensor:
-        """
-        x: [batch_size, N, feature_dim] for the given jet_category
-        jet_category in {1,2} indicates which input head to use
+        """Compute logits for the requested jet category.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape [batch_size, feature_dim].
+            jet_category (Literal[1, 2]): Jet category selector for the input branch.
+
         Returns:
-            class_logits: [batch_size, N, 1]
+            torch.Tensor: Output logits tensor for the selected category.
         """
         if jet_category == 2:
             x = self.input_2j(x)
@@ -84,12 +93,16 @@ class CombinedClassifier(L.LightningModule):
 
         return logits
 
-    def training_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        """
-        Expects batch to be a tuple: (x, jet_category, y)
-          - x: input tensor
-          - jet_category: integer (1 or 2) to choose the proper branch
-          - y: target tensor (same shape as logits)
+    def training_step(self, batch: Mapping[str, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute training loss for one batch and log it.
+
+        Args:
+            batch (Mapping[str, torch.Tensor]): Batch dictionary containing
+                'x_2j', 'x_1j', 'l_2j', and 'l_1j'.
+            batch_idx (int): Batch index (not used).
+
+        Returns:
+            torch.Tensor: Computed training loss.
         """
         x_2j = batch["x_2j"]
         x_1j = batch["x_1j"]
@@ -105,7 +118,17 @@ class CombinedClassifier(L.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: Mapping[str, torch.Tensor], batch_idx: int):
+        """Compute validation loss for one batch and log it.
+
+        Args:
+            batch (Mapping[str, torch.Tensor]): Batch dictionary containing
+                'x_2j', 'x_1j', 'l_2j', and 'l_1j'.
+            batch_idx (int): Batch index (not used).
+
+        Returns:
+            torch.Tensor: Computed validation loss.
+        """
         x_2j = batch["x_2j"]
         x_1j = batch["x_1j"]
         # x_0j  = batch["x_0j"]

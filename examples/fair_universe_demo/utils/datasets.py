@@ -8,7 +8,7 @@ import io
 import json
 import logging
 import os
-from typing import Annotated
+from typing import Annotated, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -48,7 +48,7 @@ class Data:
     """
 
     __train_set: pd.DataFrame
-    __test_set: pd.DataFrame
+    __test_set: Dict[str, pd.DataFrame]
 
     def __init__(
         self,
@@ -106,7 +106,19 @@ class Data:
         logger.info(f"Total rows: {self.total_rows}")
         logger.info(f"Test size: {self.test_size}")
 
-    def load_train_set(self, train_size=None, selected_indices=None):
+    def load_train_set(self, train_size: int = None, selected_indices: List[int] | np.ndarray = None):
+        """Load the training subset from the parquet dataset.
+
+        Args:
+            train_size (int | float | None): Number of rows or fraction of rows to load.
+            selected_indices (list | np.ndarray | None): Specific row indices to include.
+
+        Raises:
+            ValueError: If sample size or selected indices are invalid.
+
+        Side effects:
+            Sets `self.__train_set`.
+        """
         if train_size is not None:
             if isinstance(train_size, int):
                 train_size = min(train_size, self.total_rows - self.test_size)
@@ -145,6 +157,14 @@ class Data:
         # Balancing the weights
 
     def __load_data(self, selected_indices) -> pd.DataFrame:
+        """Load selected rows from the parquet file into a pandas DataFrame.
+
+        Args:
+            selected_indices (np.ndarray): Sorted row indices to read.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the selected rows.
+        """
         current_row = 0
         sampled_df = pd.DataFrame()
 
@@ -176,6 +196,11 @@ class Data:
         return sampled_df
 
     def load_test_set(self):
+        """Load the test dataset from the parquet file.
+
+        Side effects:
+            Sets `self.__test_set` with labeled subsets.
+        """
         selected_test_indices = np.array(range(self.test_size))
 
         # Load the data
@@ -206,27 +231,27 @@ class Data:
         logger.info("Test data loaded successfully")
 
     def get_train_set(self):
-        """
-        Returns the train dataset.
+        """Return the loaded training dataset.
 
         Returns:
-            dict: The train dataset.
+            pd.DataFrame: The training dataset loaded by `load_train_set`.
         """
         train_set = self.__train_set
         return train_set
 
     def get_test_set(self):
-        """
-        Returns the test dataset.
+        """Return the loaded test dataset.
 
         Returns:
-            dict: The test dataset.
+            dict: Dictionary of labeled test subsets.
         """
         return self.__test_set
 
     def delete_train_set(self):
-        """
-        Deletes the train dataset.
+        """Delete the cached training dataset from memory.
+
+        Side effects:
+            Removes `self.__train_set`.
         """
         del self.__train_set
 
@@ -240,6 +265,20 @@ class Data:
         bkg_scale=None,
         dopostprocess=False,
     ):
+        """Return training data with systematic variations applied.
+
+        Args:
+            tes (float): Tau energy scale variation.
+            jes (float): Jet energy scale variation.
+            soft_met (float): Soft MET variation.
+            ttbar_scale (float | None): ttbar background normalization factor.
+            diboson_scale (float | None): Diboson background normalization factor.
+            bkg_scale (float | None): Background normalization factor.
+            dopostprocess (bool): Whether to apply postprocessing.
+
+        Returns:
+            dict: Systematically varied training data.
+        """
         if self.__train_set is None:
             self.load_train_set()
 

@@ -11,17 +11,17 @@ __author__ = "David Rousseau, and Victor Estrade "
 
 
 import copy
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 
 from .derived_quantities import DER_data
 
+
 # ==================================================================================
 #  V4 Class and physic computations
 # ==================================================================================
-
-
 class V4:
     """
     A simple 4-vector class to ease calculation, work easy peasy on numpy vector of 4 vector
@@ -323,7 +323,7 @@ def all_bkg_weight_norm(weights, label, systBkgNorm):
 # ==================================================================================
 def mom4_manipulate(data, systTauEnergyScale, systJetEnergyScale, soft_met, seed=31415):
     """
-    Manipulate primary inputs : the PRI_had_pt PRI_jet_leading_pt PRI_jet_subleading_pt and recompute the others values accordingly.
+    Manipulate primary inputs and recompute dependent quantities.
 
     Args:
         * data (pandas.DataFrame): The dataset to be manipulated
@@ -431,6 +431,14 @@ def mom4_manipulate(data, systTauEnergyScale, systJetEnergyScale, soft_met, seed
 
 
 def make_unweighted_set(data_set):
+    """Return an unweighted subset of the dataset by event class.
+
+    Args:
+        data_set (dict): Dataset containing `data` and `detailedlabel` columns.
+
+    Returns:
+        dict: A dictionary of unweighted pandas DataFrames for each class.
+    """
     keys = ["htautau", "ztautau", "ttbar", "diboson"]
     unweighted_set = {}
     for key in keys:
@@ -498,21 +506,21 @@ def systematics(
     bkg_scale=None,
     dopostprocess=True,
 ):
-    """
-    Apply systematics to the dataset
+    """Apply detector and physics systematics to a dataset.
 
     Args:
-        * data_set (dict)/(df): The dataset to apply systematics to
-        * tes (float): The factor applied to PRI_had_pt
-        * jes (float): The factor applied to all jet pt
-        * soft_met (float): The additional soft MET energy
-        * seed (int): The random seed
-        * ttbar_scale (float): The scaling factor for ttbar background
-        * diboson_scale (float): The scaling factor for diboson background
-        * bkg_scale (float): The scaling factor for other backgrounds
+        data_set (dict | pandas.DataFrame): Input dataset to modify.
+        tes (float): Tau energy scale variation.
+        jes (float): Jet energy scale variation.
+        soft_met (float): Soft MET energy variation.
+        seed (int): RNG seed.
+        ttbar_scale (float | None): ttbar background normalization.
+        diboson_scale (float | None): Diboson background normalization.
+        bkg_scale (float | None): Background normalization for non-signal classes.
+        dopostprocess (bool): Whether to apply postprocessing.
 
     Returns:
-        dict: The dataset with applied systematics
+        dict | pandas.DataFrame: Systematically varied dataset in the same structure as input.
     """
     if isinstance(data_set, pd.DataFrame):
         data_df = data_set.copy()
@@ -658,7 +666,18 @@ def get_systematics_dataset(
     tes=1.0,
     jes=1.0,
     soft_met=0.0,
-):
+) -> Dict[str, Any] | pd.DataFrame:
+    """Apply systematics to a raw data array and return the resulting dataset.
+
+    Args:
+        data (pandas.DataFrame): Raw event dataframe.
+        tes (float): Tau energy scale variation.
+        jes (float): Jet energy scale variation.
+        soft_met (float): Soft MET energy variation.
+
+    Returns:
+        dict: Systematically varied dataset containing the processed data.
+    """
     weights = np.ones(data.shape[0])
 
     data_syst = systematics(
@@ -673,6 +692,15 @@ def get_systematics_dataset(
 
 # Assuming 'data_set' is a DataFrame with a 'weights' column
 def repeat_rows_by_weight(data_set: pd.DataFrame, seed=31415) -> pd.DataFrame:
+    """Repeat rows in a DataFrame based on integer weights.
+
+    Args:
+        data_set (pd.DataFrame): DataFrame containing a `weights` column.
+        seed (int): Random seed for shuffling the repeated rows.
+
+    Returns:
+        pd.DataFrame: DataFrame with repeated rows and shuffled order.
+    """
     # Ensure 'weights' column is integer, as fractional weights don't make sense for row repetition
     data_set["weights"] = data_set["weights"].astype(int)
 

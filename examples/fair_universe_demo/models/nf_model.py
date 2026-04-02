@@ -13,6 +13,12 @@ from .nf_layers import NormalizingQuadFlow
 
 
 class ConditionalNormalizingFlowModule(L.LightningModule):
+    """Conditional normalizing flow module for jet event densities.
+
+    The model learns a distribution over jet features and can score inputs using
+    a flow-based likelihood. It is used for both signal and background jets.
+    """
+
     def __init__(
         self,
         num_jets: Literal[1, 2],
@@ -42,6 +48,15 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         self.flow = NormalizingQuadFlow(self.input_dim, num_layers)
 
     def forward(self, x: torch.Tensor, eval: bool = True) -> torch.Tensor:
+        """Evaluate the normalizing flow on input data.
+
+        Args:
+            x (torch.Tensor): Input tensor with jet features.
+            eval (bool): If True, evaluate without tracking gradients.
+
+        Returns:
+            torch.Tensor: Log probability scores for each sample.
+        """
         if eval:
             with torch.no_grad():
                 x = (x - self.x_mean) / self.x_std
@@ -61,6 +76,15 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         return log_prob
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute the training loss for one batch.
+
+        Args:
+            batch (Tuple[torch.Tensor, torch.Tensor]): Input batch, typically (x, y).
+            batch_idx (int): Batch index.
+
+        Returns:
+            torch.Tensor: Training loss.
+        """
         if len(batch) > 1:
             x, y = batch
             log_prob = self.forward(x, eval=False)
@@ -81,6 +105,15 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         return loss
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Compute the validation loss for one batch.
+
+        Args:
+            batch (Tuple[torch.Tensor, torch.Tensor]): Input batch, typically (x, y).
+            batch_idx (int): Batch index.
+
+        Returns:
+            torch.Tensor: Validation loss.
+        """
         if len(batch) > 1:
             x, y = batch
             log_prob = self.forward(x, eval=False)
@@ -98,11 +131,15 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         self.val_losses.append(loss)
         return loss
 
-    def sample(self, num_samples: int, grad=False) -> torch.Tensor:
-        """
-        Sample from the learned distribution.
-        1. Sample latent variable z from the base distribution.
-        2. Apply the inverse flow to obtain samples in data space.
+    def sample(self, num_samples: int, grad: bool = False) -> torch.Tensor:
+        """Generate samples from the learned distribution.
+
+        Args:
+            num_samples (int): Number of samples to generate.
+            grad (bool): If True, retain gradient information during inverse sampling.
+
+        Returns:
+            torch.Tensor: Samples in data space.
         """
         z = self.prior.sample((num_samples,))
 

@@ -75,10 +75,14 @@ def calcul_int(data):
     return data
 
 
-def f_DER_mass_transverse_met_lep(data):
-    """
-    Calculate the transverse mass between the MET and the lepton
-    Parameters: data (dataframe)
+def f_DER_mass_transverse_met_lep(data: pd.DataFrame) -> pd.DataFrame:
+    """Calculate the transverse mass between MET and the lepton.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with derived momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_mass_transverse_met_lep`.
     """
     data["calcul_int"] = (
         (data.PRI_met + data.PRI_lep_pt) ** 2 - (data.met_x + data.lep_px) ** 2 - (data.met_y + data.lep_py) ** 2
@@ -89,9 +93,13 @@ def f_DER_mass_transverse_met_lep(data):
 
 
 def f_DER_mass_vis(data):
-    """
-    Calculate the invariant mass of the hadron and the lepton
-    Parameters: data (dataframe)
+    """Calculate the invariant mass of the hadron and lepton system.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_mass_vis`.
     """
 
     data["DER_mass_vis"] = sqrt(
@@ -104,9 +112,13 @@ def f_DER_mass_vis(data):
 
 
 def f_DER_pt_h(data):
-    """
-    Calculate the transverse momentum of the hadronic system
-    Parameters: data (dataframe)
+    """Calculate the transverse momentum of the hadronic system.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_pt_h`.
     """
 
     data["DER_pt_h"] = sqrt(
@@ -116,9 +128,13 @@ def f_DER_pt_h(data):
 
 
 def f_DER_deltaeta_jet_jet(data):
-    """
-    Calculate the absolute value of the difference of the pseudorapidity of the two jets
-    Parameters: data (dataframe)
+    """Calculate the pseudorapidity difference between the two jets.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with jet columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_deltaeta_jet_jet`.
     """
 
     data["DER_deltaeta_jet_jet"] = abs(data.PRI_jet_subleading_eta - data.PRI_jet_leading_eta) * (
@@ -132,9 +148,13 @@ from numpy import sqrt
 
 # undefined if PRI_n_jets <= 1:
 def f_DER_mass_jet_jet(data):
-    """
-    Calculate the invariant mass of the two jets
-    Parameters: data (dataframe)
+    """Calculate the invariant mass of the two jets.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with jet momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_mass_jet_jet`.
     """
 
     data["calcul_int"] = (
@@ -152,9 +172,13 @@ def f_DER_mass_jet_jet(data):
 
 
 def f_DER_prodeta_jet_jet(data):
-    """
-    Calculate the product of the pseudorapidities of the two jets
-    Parameters: data (dataframe)
+    """Calculate the product of the pseudorapidities of the two jets.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with jet columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_prodeta_jet_jet`.
     """
 
     data["DER_prodeta_jet_jet"] = data.PRI_jet_leading_eta * data.PRI_jet_subleading_eta * (
@@ -164,8 +188,13 @@ def f_DER_prodeta_jet_jet(data):
 
 
 def f_DER_deltar_had_lep(data):
-    """
-    Calculate the delta R between the hadron and the lepton
+    """Calculate the delta-R between the hadron and the lepton.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with derived momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_deltar_had_lep`.
     """
     data["difference2_eta"] = (data.PRI_lep_eta - data.PRI_had_eta) ** 2
     data["difference2_phi"] = (np.abs(np.mod(data.PRI_lep_phi - data.PRI_had_phi + 3 * np.pi, 2 * np.pi) - np.pi)) ** 2
@@ -177,9 +206,13 @@ def f_DER_deltar_had_lep(data):
 
 
 def f_DER_pt_tot(data):
-    """
-    Calculate the total transverse momentum
-    Parameters: data (dataframe)
+    """Calculate the total transverse momentum of the event.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_pt_tot`.
     """
     data["DER_pt_tot"] = sqrt(
         (data.had_px + data.lep_px + data.met_x + data.jet_leading_px + data.jet_subleading_px) ** 2
@@ -189,9 +222,13 @@ def f_DER_pt_tot(data):
 
 
 def f_DER_sum_pt(data):
-    """
-    Calculate the sum of the transverse momentum of the lepton, the hadron and the jets
-    Parameters: data (dataframe)
+    """Calculate the sum of transverse momentum of the lepton, hadron, and jets.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_sum_pt`.
     """
 
     data["DER_sum_pt"] = data.PRI_had_pt + data.PRI_lep_pt + data.PRI_jet_all_pt
@@ -199,18 +236,26 @@ def f_DER_sum_pt(data):
 
 
 def f_DER_pt_ratio_lep_had(data):
-    """
-    Calculate the ratio of the transverse momentum of the lepton and the hadron
-    Parameters: data (dataframe)
+    """Calculate the transverse momentum ratio of lepton to hadron.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with momentum columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_pt_ratio_lep_had`.
     """
     data["DER_pt_ratio_lep_had"] = data.PRI_lep_pt / data.PRI_had_pt
     return data
 
 
 def f_DER_met_phi_centrality(data):
-    """
-    Calculate the centrality of the MET
-    Parameters: data (dataframe)
+    """Calculate the phi centrality of MET relative to the lepton and hadron.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with angular columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_met_phi_centrality`.
     """
 
     def A(met, lep, had):
@@ -246,9 +291,13 @@ def f_DER_met_phi_centrality(data):
 
 
 def f_DER_lep_eta_centrality(data):
-    """
-    Calculate the centrality of the lepton
-    Parameters: data (dataframe)
+    """Calculate the lepton eta centrality.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe with jet eta columns.
+
+    Returns:
+        pandas.DataFrame: Updated dataframe with `DER_lep_eta_centrality`.
     """
 
     data["difference"] = (data.PRI_jet_leading_eta - data.PRI_jet_subleading_eta) ** 2
@@ -272,9 +321,13 @@ def f_DER_lep_eta_centrality(data):
 
 
 def f_del_DER(data):
-    """
-    Delete all the unnecessary columns that were used to calculate the DER variables
-    Parameters: data (dataframe)
+    """Remove temporary columns used to compute derived quantities.
+
+    Args:
+        data (pandas.DataFrame): Input dataframe containing temporary columns.
+
+    Returns:
+        pandas.DataFrame: Cleaned dataframe after temporary columns are removed.
     """
     del data["had_px"]
     del data["had_py"]
@@ -299,10 +352,16 @@ def f_del_DER(data):
 
 
 def DER_data(data):
-    """
-    data is supposed to be clean (no Weight, no eventId etc...)
-    This function directly modifies the dataframe data so make sure to make a copy if
-    you need to keep data
+    """Compute all derived quantities and clean up temporary features.
+
+    Args:
+        data (pandas.DataFrame): Clean input dataframe without event identifiers.
+
+    Returns:
+        pandas.DataFrame: Dataframe with derived features converted to float32.
+
+    Side effects:
+        Modifies `data` in place by adding and removing columns.
     """
     data = calcul_int(data)
     data = f_DER_mass_transverse_met_lep(data)

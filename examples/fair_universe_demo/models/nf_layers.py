@@ -3,6 +3,8 @@ Original Author: I. Elsharkawy
 Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
+from typing import Tuple
+
 import torch
 
 
@@ -46,6 +48,14 @@ class AffineCouplingLayerGated(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Apply the forward transformation of the gated affine coupling layer.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, input_dim).
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Transformed tensor and log-determinant.
+        """
         # x: (batch_size, input_dim)
         # Preserve the masked coordinates.
         x_masked = x * self.mask
@@ -71,6 +81,14 @@ class AffineCouplingLayerGated(torch.nn.Module):
         return y, log_det
 
     def inverse(self, y):
+        """Apply the inverse transformation of the gated affine coupling layer.
+
+        Args:
+            y (torch.Tensor): Output tensor of shape (batch_size, input_dim).
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Inverted tensor and inverse log-determinant.
+        """
         # y: (batch_size, input_dim)
         # Preserve masked coordinates.
         y_masked = y * self.mask
@@ -114,6 +132,14 @@ class NormalizingFlowGated(torch.nn.Module):
             self.layers.append(AffineCouplingLayerGated(input_dim, mask))
 
     def forward(self, x):
+        """Run input through the sequence of gated affine coupling layers.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Transformed tensor and total log-determinant.
+        """
         log_det_total = 0
         for layer in self.layers:
             x, log_det = layer(x)
@@ -121,6 +147,14 @@ class NormalizingFlowGated(torch.nn.Module):
         return x, log_det_total
 
     def inverse(self, z):
+        """Invert the gated normalizing flow by applying inverse transforms.
+
+        Args:
+            z (torch.Tensor): Input tensor in latent space.
+
+        Returns:
+            torch.Tensor: Reconstructed tensor in original data space.
+        """
         log_det_total = 0
         for layer in reversed(self.layers):
             z, log_det = layer.inverse(z)  # type: ignore
@@ -166,6 +200,14 @@ class QuadraticCouplingLayer(torch.nn.Module):
         )
 
     def forward(self, x):
+        """Apply the forward transformation of the quadratic coupling layer.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, input_dim).
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Transformed tensor and log-determinant.
+        """
         # x: (batch_size, input_dim)
         # Preserve masked coordinates.
         x_masked = x * self.mask
@@ -240,7 +282,15 @@ class NormalizingQuadFlow(torch.nn.Module):
             else:
                 self.layers.append(AffineCouplingLayerGated(input_dim, mask))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Run input through the full quadratic flow.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Transformed tensor and total log-determinant.
+        """
         log_det_total = 0
 
         for layer in self.layers:
@@ -249,7 +299,15 @@ class NormalizingQuadFlow(torch.nn.Module):
 
         return x, log_det_total
 
-    def inverse(self, z):
+    def inverse(self, z: torch.Tensor) -> torch.Tensor:
+        """Invert the full quadratic flow.
+
+        Args:
+            z (torch.Tensor): Latent tensor.
+
+        Returns:
+            torch.Tensor: Reconstructed data tensor.
+        """
         log_det_total = 0
 
         for layer in reversed(self.layers):

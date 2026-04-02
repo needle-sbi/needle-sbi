@@ -104,7 +104,8 @@ def createJetData(
         useRand (bool, optional): Whether to apply random systematic shifts. Defaults to False.
 
     Returns:
-        tuple: Processed data tensor, label tensor, weights, and feature names.
+        tuple[torch.Tensor, torch.Tensor, np.ndarray, list]:
+            Processed data tensor, label tensor, weights, and feature names.
     """
     data = Data(
         input_dir=root_dir,
@@ -265,7 +266,8 @@ def createMultiJetMultiNuanData(
         n_param (list, optional): List of systematic parameters. Defaults to [1,1,1,1,1,0].
 
     Returns:
-        tuple: Processed data tensor, label tensor, weights, and feature names.
+        tuple[torch.Tensor, torch.Tensor, np.ndarray, list]:
+            Processed data tensor, label tensor, weights, and feature names.
     """
     data = Data(
         input_dir=root_dir,
@@ -455,7 +457,8 @@ def return1j2j(alljet_data, models, cut=False, nevents=10, device: str = "cpu"):
         models (list): List of pre-trained models for feature extraction.
 
     Returns:
-        tuple: Data tensors and label tensors for 2-jet and 1-jet events.
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            2-jet data, 1-jet data, 2-jet labels, and 1-jet labels.
     """
     # Process 2-jet events
     filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(2, alljet_data)

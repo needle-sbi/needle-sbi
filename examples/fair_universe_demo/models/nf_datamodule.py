@@ -18,6 +18,12 @@ Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
 class NormalizingFlowDatamodule(LightningDataModule):
+    """Lightning datamodule for training conditional normalizing flows on jet data.
+
+    This datamodule loads jet features from the FAIR Universe dataset, balances signal and
+    background samples, and creates training and validation splits.
+    """
+
     def __init__(
         self,
         train_on_signal: bool,
@@ -38,9 +44,23 @@ class NormalizingFlowDatamodule(LightningDataModule):
         self.n_folds = n_folds
 
     def prepare_data(self) -> None:
-        ...
+        """Placeholder for Lightning prepare_data hook.
+
+        This datamodule does not perform a separate download or preparation step here.
+        """
 
     def setup(self, stage: Optional[str] = None) -> None:
+        """Load jet data, balance signal/background, and split into train/validation sets.
+
+        Args:
+            stage (Optional[str]): Stage name, not used by this datamodule.
+
+        Side effects:
+            Sets `self.train_dataset`, `self.val_dataset`, `self.X_mean`, and `self.X_std`.
+
+        Raises:
+            ValueError: If requested fold_index is out of range or n_folds is invalid.
+        """
         j2_data, j2_detlabel, _, _ = createJetData(  # type: ignore
             jet_num=self.num_jets,
             useTestData=False,
