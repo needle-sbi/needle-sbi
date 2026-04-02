@@ -33,14 +33,36 @@ class EstimatorTask(HydraMixin, law.Task):
     @property
     def estimator_config(self) -> EstimatorConfig:
         est = self.config.estimators[self.estimator]
+        systematics = est.expands.systematics or {}
 
         with open_dict(est):  # type: ignore
-            if not est.expands.systematics:
-                est.expands.systematics["nominal"] = SystematicConfig()
+            """Account for different scenarios when using 'nominal' systematics case.
+
+            The checks to perform are:
+            1. Are there other systematics than just the nominal case?
+            2. Is the nominal case still in the Dict?
+            3. Is the nominal case just the default? -> Remove if others were provided
+
+            Note:
+                A more robust approach would be to completely rework the way the Law Tasks are built, bypassing
+                for example the SystematicsTask is no systematics are provided.
+            """
+            others_than_nominal = {k: v for k, v in systematics.items() if k != "nominal"}
+            nominal_val = systematics.get("nominal") or SystematicConfig()
+            nominal_is_default: bool = nominal_val == SystematicConfig()
+
+            if others_than_nominal and nominal_is_default:
+                systematics = others_than_nominal
+
+            elif not others_than_nominal and nominal_is_default:
+                systematics = {"nominal": nominal_val}
+
+            est.expands.systematics = systematics
 
         return est
 
-    def record_model_paths(self) -> None:
+    @property
+    def input_model_paths(self) -> Dict[str, str]:
         model_paths_dict: Dict[str, str] = {}
 
         for systematic_task in self.requires():
@@ -56,8 +78,7 @@ class EstimatorTask(HydraMixin, law.Task):
                     path = fold_task.output()["ckpt"].path
                     model_paths_dict[key] = path
 
-        with open(self.output()["input_models"].path, "w") as f:
-            json.dump(model_paths_dict, f)
+        return model_paths_dict
 
     def requires(self) -> List[SystematicTask]:
         return [
@@ -83,4 +104,6 @@ class EstimatorTask(HydraMixin, law.Task):
             SystematicResults.from_json(systematic_result["outputs"].path) for systematic_result in self.input()
         ]
         EstimatorResults(systematics=systematic_results).to_json(self.output()["outputs"].path)
-        self.record_model_paths()
+
+        with open(self.output()["input_models"].path, "w") as f:
+            json.dump(self.input_model_paths, f)

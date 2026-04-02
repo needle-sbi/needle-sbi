@@ -80,6 +80,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             self.estimator_config,
         )  # type: ignore
 
+    @property
     def input_model_paths(self) -> Dict[str, str]:
         model_paths_dict: Dict[str, str] = {}
 
@@ -147,7 +148,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         model: lightning.LightningModule = hydra_instantiate(
             model_config,  # type: ignore
             dataset_config=dataset_config,
-            input_models=self.input_model_paths(),
+            input_models=self.input_model_paths,
         )
 
         # 2. Load datamodule
@@ -165,7 +166,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         data_module: lightning.LightningDataModule = hydra_instantiate(
             datamodule_config,  # type: ignore
             dataset_config=dataset_config,
-            input_models=self.input_model_paths(),
+            input_models=self.input_model_paths,
             fold_index=self.fold_index,
             n_folds=self.estimator_config.expands.folds,
         )
@@ -200,4 +201,4 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         fold_results.to_json(self.output()["outputs"].path)
 
         with open(self.output()["input_models"].path, "w") as f:
-            json.dump(self.input_model_paths(), f)
+            json.dump(self.input_model_paths, f)
