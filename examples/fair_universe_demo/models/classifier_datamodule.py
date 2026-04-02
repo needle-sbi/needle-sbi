@@ -93,20 +93,31 @@ class ClassifierDatamodule(L.LightningDataModule):
         # For 2-jet models, indices 4-7 are used.
         with torch.no_grad():
             # Process 1-jet data.
-            NF_feat_s1j = torch.sigmoid(self.input_models["nf_signal_1jet"](j1_data)).cpu().unsqueeze(1)
-            NF_feat_b1j = torch.sigmoid(self.input_models["nf_background_1jet"](j1_data)).cpu().unsqueeze(1)
-            NF_feat_s1j_3 = torch.sigmoid(self.input_models[""](j1_data)).cpu().unsqueeze(1)
-            NF_feat_b1j_3 = torch.sigmoid(self.input_models[3](j1_data)).cpu().unsqueeze(1)
+            try:
+                NF_feat_s1j_0p5 = torch.sigmoid(self.input_models["nf_signal_1jet&c_0p5"](j1_data)).cpu().unsqueeze(1)
+                NF_feat_b1j_0p5 = (
+                    torch.sigmoid(self.input_models["nf_background_1jet&c_0p5"](j1_data)).cpu().unsqueeze(1)
+                )
+                NF_feat_s1j_2p0 = torch.sigmoid(self.input_models["nf_signal_1jet&c_2p0"](j1_data)).cpu().unsqueeze(1)
+                NF_feat_b1j_2p0 = (
+                    torch.sigmoid(self.input_models["nf_background_1jet&c_2p0"](j1_data)).cpu().unsqueeze(1)
+                )
 
-            # Process 2-jet data.
-            NF_feat_s2j = torch.sigmoid(self.input_models[4](j2_data)).cpu().unsqueeze(1)
-            NF_feat_b2j = torch.sigmoid(self.input_models[5](j2_data)).cpu().unsqueeze(1)
-            NF_feat_s2j_3 = torch.sigmoid(self.input_models[6](j2_data)).cpu().unsqueeze(1)
-            NF_feat_b2j_3 = torch.sigmoid(self.input_models[7](j2_data)).cpu().unsqueeze(1)
+                # Process 2-jet data.
+                NF_feat_s2j_0p5 = torch.sigmoid(self.input_models["nf_signal_2jet&c_0p5"](j2_data)).cpu().unsqueeze(1)
+                NF_feat_b2j_0p5 = (
+                    torch.sigmoid(self.input_models["nf_background_2jet&c_0p5"](j2_data)).cpu().unsqueeze(1)
+                )
+                NF_feat_s2j_2p0 = torch.sigmoid(self.input_models["nf_signal_2jet&c_2p0"](j2_data)).cpu().unsqueeze(1)
+                NF_feat_b2j_2p0 = (
+                    torch.sigmoid(self.input_models["nf_background_2jet&c_2p0"](j2_data)).cpu().unsqueeze(1)
+                )
+            except KeyError as e:
+                raise KeyError(f"No key `{e}` found in model Dict. Available keys are {self.input_models.keys()}")
 
             # Append the Normalizing Flow features to the original data.
-            j1_data = torch.cat([j1_data, NF_feat_s1j, NF_feat_s1j_3, NF_feat_b1j, NF_feat_b1j_3], dim=1)
-            j2_data = torch.cat([j2_data, NF_feat_s2j, NF_feat_s2j_3, NF_feat_b2j, NF_feat_b2j_3], dim=1)
+            j1_data = torch.cat([j1_data, NF_feat_s1j_0p5, NF_feat_s1j_2p0, NF_feat_b1j_0p5, NF_feat_b1j_2p0], dim=1)
+            j2_data = torch.cat([j2_data, NF_feat_s2j_0p5, NF_feat_s2j_2p0, NF_feat_b2j_0p5, NF_feat_b2j_2p0], dim=1)
 
     @staticmethod
     def load_nf_models(input_models: Dict[str, str]):
@@ -115,12 +126,20 @@ class ClassifierDatamodule(L.LightningDataModule):
 
         Returns:
             ModuleDict
+
+        Important:
+            The way this is done here implies that the dict keys are directly tied to the value of the hyperparameter c.
+            This should be changed so that arbitrary values of c are valid. However, the ordering is important, so you
+            cannot rely on the list of input models to be properly sorted.
         """
 
         models = torch.nn.ModuleDict()
 
         for name, ckpt_path in tqdm(input_models.items()):
-            key = str(parse_qs(name)["est"])
+            name_dict = parse_qs(name)
+            prefix = name_dict["est"][0]
+            suffix = name_dict["syst"][0].replace(".", "p")
+            key = f"{prefix}&{suffix}"
             model = ConditionalNormalizingFlowModule.load_from_checkpoint(ckpt_path)
             models[key] = model
 

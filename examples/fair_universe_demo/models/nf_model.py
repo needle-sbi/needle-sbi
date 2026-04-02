@@ -4,12 +4,10 @@ Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
 
-import os
 from typing import Literal, Tuple
 
 import lightning as L
 import torch
-from tqdm import tqdm
 
 from .nf_layers import NormalizingQuadFlow
 

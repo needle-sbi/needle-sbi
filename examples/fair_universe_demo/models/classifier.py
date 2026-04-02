@@ -6,13 +6,13 @@ Adapted by K. Schmidt
 
 from typing import Literal
 
-import pytorch_lightning as pl
+import lightning as L
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 
-class CombinedClassifier(pl.LightningModule):
+class CombinedClassifier(L.LightningModule):
     def __init__(
         self,
         hidden_dim: int = 128,
