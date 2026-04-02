@@ -9,7 +9,8 @@ from urllib.parse import parse_qs
 
 import lightning as L
 import torch
-from torch.utils.data import Dataset
+from lightning.pytorch.utilities.types import TRAIN_DATALOADERS
+from torch.utils.data import DataLoader, Dataset, random_split
 from tqdm import tqdm
 
 from ..utils.selection import createMultiJetMultiNuanData
@@ -28,10 +29,10 @@ class Dataset1j2j(Dataset):
 
     def __init__(
         self,
-        data_sys_list_2j: List[torch.Tensor],
-        data_sys_list_1j: List[torch.Tensor],
-        label_list_2j: List[torch.Tensor],
-        label_list_1j: List[torch.Tensor],
+        data_sys_list_2j: torch.Tensor,
+        data_sys_list_1j: torch.Tensor,
+        label_list_2j: torch.Tensor,
+        label_list_1j: torch.Tensor,
     ) -> None:
         self.samples: List[ClassifierSamplesTensorDict] = []
 
@@ -54,17 +55,14 @@ class Dataset1j2j(Dataset):
 
 class ClassifierDatamodule(L.LightningDataModule):
     def __init__(
-        self,
-        root_dir: str,
-        input_models: Dict[str, str],
-        n_folds: int,
-        fold_index: int,
+        self, root_dir: str, input_models: Dict[str, str], n_folds: int, fold_index: int, batch_size: int = 1000
     ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.input_models_dict = input_models
         self.n_folds = n_folds
         self.fold_index = fold_index
+        self.batch_size = batch_size
 
     def setup(self, stage: Optional[str]) -> None:
         self.input_models = self.load_nf_models(self.input_models_dict)
@@ -119,8 +117,28 @@ class ClassifierDatamodule(L.LightningDataModule):
             j1_data = torch.cat([j1_data, NF_feat_s1j_0p5, NF_feat_s1j_2p0, NF_feat_b1j_0p5, NF_feat_b1j_2p0], dim=1)
             j2_data = torch.cat([j2_data, NF_feat_s2j_0p5, NF_feat_s2j_2p0, NF_feat_b2j_0p5, NF_feat_b2j_2p0], dim=1)
 
+        max_shape = min(len(j1_data), len(j2_data))
+        print(f"Number of data points used: {max_shape}")
+        j1_data = j1_data[:max_shape]
+        j2_data = j2_data[:max_shape]
+        j1_detlabel = j1_detlabel[:max_shape]
+        j2_detlabel = j2_detlabel[:max_shape]
+
+        all_jet_dataset = Dataset1j2j(j2_data, j1_data, j2_detlabel, j1_detlabel)
+
+        # Split the dataset into training and validation sets.
+        n_val = int(0.1 * len(all_jet_dataset))
+        n_train = len(all_jet_dataset) - n_val
+        self.train_dataset, self.val_dataset = random_split(all_jet_dataset, [n_train, n_val])
+
+    def train_dataloader(self) -> DataLoader:
+        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+
+    def val_dataloader(self) -> DataLoader:
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+
     @staticmethod
-    def load_nf_models(input_models: Dict[str, str]):
+    def load_nf_models(input_models: Dict[str, str]) -> torch.nn.ModuleDict:
         """
         Load ConditionalNormalizingFlowModule models from the input_models Dict
 
