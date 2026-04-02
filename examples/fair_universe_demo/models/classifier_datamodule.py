@@ -57,10 +57,14 @@ class ClassifierDatamodule(L.LightningDataModule):
         self,
         root_dir: str,
         input_models: Dict[str, str],
+        n_folds: int,
+        fold_index: int,
     ) -> None:
         super().__init__()
         self.root_dir = root_dir
         self.input_models_dict = input_models
+        self.n_folds = n_folds
+        self.fold_index = fold_index
 
     def setup(self, stage: Optional[str]) -> None:
         self.input_models = self.load_nf_models(self.input_models_dict)
@@ -87,7 +91,6 @@ class ClassifierDatamodule(L.LightningDataModule):
 
         # Extract features from the loaded models. For 1-jet models, indices 0-3 are used.
         # For 2-jet models, indices 4-7 are used.
-        raise RuntimeError(f"DEBUG {self.input_models.keys()=}")  # TODO
         with torch.no_grad():
             # Process 1-jet data.
             NF_feat_s1j = torch.sigmoid(self.input_models["nf_signal_1jet"](j1_data)).cpu().unsqueeze(1)
