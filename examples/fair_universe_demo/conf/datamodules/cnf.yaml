@@ -1,2 +1,3 @@
 _target_: examples.fair_universe_demo.models.nf_datamodule.NormalizingFlowDatamodule
-root_dir: "/work/kschmidt/NEEDLE/FAIR_UNIVERSE_DEMO/HEP-Challenge"
+root_dir: "examples/fair_universe_demo/test_data"
+batch_size: 100

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Literal
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from .datasets import Data  # Data class for non-public dataset
+from .datasets import Data
 from .systematics import get_bootstrapped_dataset, systematics
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,8 @@ def filterbyjet(jet_num, data_vis):
         cols_to_drop = [col for col in filtered_data.columns if np.std(filtered_data[col]) == 0]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         feature_names = list(filtered_data.columns)
+    else:
+        raise ValueError(f"Variable `jet_num`={jet_num} is out of bounds (accepted are 0, 1 and 2)")
 
     return filtered_data, filtered_det_labels, filtered_weights, feature_names
 
@@ -83,10 +85,12 @@ def createJetData(
     jet_num: int | str,
     useTestData: bool,
     root_dir: str,
+    parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
+    metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
     set_mu: int = 3,
     seed: int = 0,
     n_param: List[int] = [1, 1, 1, 1, 1, 0],
-    useRand=False,
+    useRand: bool = False,
 ):
     """
     Create jet data with optional systematic variations and data processing.
@@ -102,17 +106,11 @@ def createJetData(
     Returns:
         tuple: Processed data tensor, label tensor, weights, and feature names.
     """
-    input_dir = os.path.join(root_dir, "input_data")
-
-    if USE_PUBLIC_DATASET:
-        from datasets import Neurips2024_public_dataset as public_dataset
-
-        data = public_dataset()
-    else:
-        data = Data(input_dir)
-
-    logger.info("Loading Data")
-    # Load train and test sets
+    data = Data(
+        input_dir=root_dir,
+        parquet_filename=parquet_filename,
+        metadata_filename=metadata_filename,
+    )
     data.load_train_set()
     data.load_test_set()
 
@@ -137,7 +135,6 @@ def createJetData(
         bkg_scale=n_param[2],
         seed=seed,
     )
-
     # Prepare weights and detailed labels
     weights = np.ones(pseudo_exp_data.shape[0])
     detailed_labels = pseudo_exp_data["Label"]
@@ -248,12 +245,14 @@ def createJetData(
 
 
 def createMultiJetMultiNuanData(
-    jet_num,
-    useTestData,
-    set_mu=3,
-    seed=0,
-    n_param=[1, 1, 1, 1, 1, 0],
-    root_dir="/Users/ibrahim/HEP-Challenge/",
+    root_dir: str,
+    jet_num: Literal[0, 1, 2],
+    useTestData: bool,
+    parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
+    metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
+    set_mu: int = 3,
+    seed: int = 0,
+    n_param: List[int] = [1, 1, 1, 1, 1, 0],
 ):
     """
     Create multi-jet multi-nuisance data by processing multiple sub-datasets.
@@ -268,31 +267,13 @@ def createMultiJetMultiNuanData(
     Returns:
         tuple: Processed data tensor, label tensor, weights, and feature names.
     """
-    input_dir = os.path.join(root_dir, "input_data")
-    program_dir = os.path.join(root_dir, "ingestion_program")
-    score_dir = os.path.join(root_dir, "scoring_program")
-    # Append directories so that modules from these paths can be imported
-    import sys
-
-    sys.path.append(program_dir)
-    sys.path.append(score_dir)
-
-    # Import the required functions from the ingestion program
-    from datasets import Data  # Data class for non-public dataset
-    from systematics import systematics
-
-    if USE_PUBLIC_DATASET:
-        from datasets import Neurips2024_public_dataset as public_dataset
-
-        data = public_dataset()
-    else:
-        data = Data(input_dir)
-
-    # Load train and test sets
+    data = Data(
+        input_dir=root_dir,
+        parquet_filename=parquet_filename,
+        metadata_filename=metadata_filename,
+    )
     data.load_train_set()
     data.load_test_set()
-
-    from systematics import get_bootstrapped_dataset
 
     random_state = np.random.RandomState(seed)
     test_set = data.get_test_set()

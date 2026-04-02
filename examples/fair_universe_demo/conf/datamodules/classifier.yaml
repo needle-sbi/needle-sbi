@@ -1,2 +1,2 @@
 _target_: examples.fair_universe_demo.models.classifier_datamodule.ClassifierDatamodule
-root_dir: "/work/kschmidt/NEEDLE/FAIR_UNIVERSE_DEMO/HEP-Challenge"
+root_dir: "examples/fair_universe_demo/test_data"

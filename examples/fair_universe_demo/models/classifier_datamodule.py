@@ -9,7 +9,6 @@ from urllib.parse import parse_qs
 
 import lightning as L
 import torch
-from lightning.pytorch.utilities.types import TRAIN_DATALOADERS
 from torch.utils.data import DataLoader, Dataset, random_split
 from tqdm import tqdm
 
@@ -55,7 +54,14 @@ class Dataset1j2j(Dataset):
 
 class ClassifierDatamodule(L.LightningDataModule):
     def __init__(
-        self, root_dir: str, input_models: Dict[str, str], n_folds: int, fold_index: int, batch_size: int = 1000
+        self,
+        root_dir: str,
+        input_models: Dict[str, str],
+        n_folds: int = -1,
+        fold_index: int = -1,
+        parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
+        metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
+        batch_size: int = 1000,
     ) -> None:
         super().__init__()
         self.root_dir = root_dir
@@ -63,6 +69,8 @@ class ClassifierDatamodule(L.LightningDataModule):
         self.n_folds = n_folds
         self.fold_index = fold_index
         self.batch_size = batch_size
+        self.parquet_filename = parquet_filename
+        self.metadata_filename = metadata_filename
 
     def setup(self, stage: Optional[str]) -> None:
         self.input_models = self.load_nf_models(self.input_models_dict)
@@ -71,16 +79,20 @@ class ClassifierDatamodule(L.LightningDataModule):
             raise ValueError(f"Expected to load exactly eight models but found {len(self.input_models)}")
 
         j2_data, j2_detlabel, _, _ = createMultiJetMultiNuanData(
-            2,
-            False,
+            jet_num=2,
+            useTestData=False,
             seed=0,
             root_dir=self.root_dir,
+            parquet_filename=self.parquet_filename,
+            metadata_filename=self.metadata_filename,
         )
         j1_data, j1_detlabel, _, _ = createMultiJetMultiNuanData(
-            1,
-            False,
+            jet_num=1,
+            useTestData=False,
             seed=0,
             root_dir=self.root_dir,
+            parquet_filename=self.parquet_filename,
+            metadata_filename=self.metadata_filename,
         )
         j2_data = j2_data.cpu()
         j2_detlabel = j2_detlabel.cpu()

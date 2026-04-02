@@ -672,7 +672,7 @@ def get_systematics_dataset(
 
 
 # Assuming 'data_set' is a DataFrame with a 'weights' column
-def repeat_rows_by_weight(data_set, seed=31415):
+def repeat_rows_by_weight(data_set: pd.DataFrame, seed=31415) -> pd.DataFrame:
     # Ensure 'weights' column is integer, as fractional weights don't make sense for row repetition
     data_set["weights"] = data_set["weights"].astype(int)
 
