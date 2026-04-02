@@ -10,7 +10,7 @@ from omegaconf import DictConfig, OmegaConf
 from orchestrator.config import MainConfig
 from preprocessor.utils import ColorFormatter
 
-logger = ColorFormatter.get_logger(__file__)
+logger = ColorFormatter.get_logger("orchestrator")
 
 
 def validate_graph(self: "MainConfig") -> None:
@@ -193,7 +193,7 @@ def hydra_check_if_arg_supported(
 
 
 def hydra_instantiate(
-    cfg: DictConfig | None,
+    cfg: DictConfig,
     **kwargs,
 ) -> Any:
     """Instantiate a class with hydra using the maximum subset of allowed arguments.
@@ -202,13 +202,19 @@ def hydra_instantiate(
     so this function instantiates the class with all valid arguments and skips the others.
 
     Args:
-        cfg (DictConfig | None): The values coming from the config. Must contain the `_target_` key
+        cfg (DictConfig): The values coming from the config. Must contain the `_target_` key
             in order to be compatible with hydra.
         **kwargs: The values coming from the framework
 
     Returns:
         Any: An instance of the target class
     """
+    if not cfg.__getattr__("_target_"):
+        raise ValueError(
+            "Module config must include the key `_target_` that points to the location of your module. "
+            "See the hydra docs https://hydra.cc/docs/advanced/instantiate_objects/overview/"
+        )
+
     supported_kwargs = {k: v for k, v in kwargs.items() if hydra_check_if_arg_supported(cfg, k)}
     unsupported_kwargs = set(kwargs) - set(supported_kwargs)
 

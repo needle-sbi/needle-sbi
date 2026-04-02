@@ -15,7 +15,7 @@ import luigi
 import mlflow
 import torch
 from lightning.pytorch.loggers import MLFlowLogger
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 from law_tasks.mixins import HydraMixin
 from law_tasks.training_base import TrainingBase
@@ -145,7 +145,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
 
         # 1. Load model
         model: lightning.LightningModule = hydra_instantiate(
-            model_config,
+            model_config,  # type: ignore
             dataset_config=dataset_config,
             input_models=self.input_model_paths(),
         )
@@ -163,7 +163,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
             )
 
         data_module: lightning.LightningDataModule = hydra_instantiate(
-            datamodule_config,
+            datamodule_config,  # type: ignore
             dataset_config=dataset_config,
             input_models=self.input_model_paths(),
             fold_index=self.fold_index,
