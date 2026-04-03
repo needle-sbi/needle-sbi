@@ -15,7 +15,7 @@ import luigi
 import mlflow
 import torch
 from lightning.pytorch.loggers import MLFlowLogger
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
 from law_tasks.training_base import TrainingBase
