@@ -186,7 +186,7 @@ class ClassifierDatamodule(L.LightningDataModule):
 
         models = torch.nn.ModuleDict()
 
-        for name, ckpt_path in tqdm(input_models.items()):
+        for name, ckpt_path in tqdm(input_models.items(), desc="Loading NF models"):
             name_dict = parse_qs(name)
             prefix = name_dict["est"][0]
             suffix = name_dict["syst"][0].replace(".", "p")
