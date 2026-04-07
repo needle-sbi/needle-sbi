@@ -76,6 +76,12 @@ class EstimatorConfig(SerializableDataclass):
 
 
 @dataclass
+class DownstreamTaskConfig(SerializableDataclass):
+    requires: Optional[List[str]] = None
+    args: Optional[dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
 class AggregationConfig(SerializableDataclass):
     """Configuration for model aggregation at each DAG level"""
 
@@ -93,6 +99,7 @@ class AggregationConfig(SerializableDataclass):
 @dataclass
 class MainConfig(SerializableDataclass):
     estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
+    downstream_tasks: Optional[dict[str, DownstreamTaskConfig]] = field(default_factory=dict)
     aggregation: AggregationConfig = field(default_factory=AggregationConfig)
     results_path: Optional[str] = None
     custom_settings: Any = None

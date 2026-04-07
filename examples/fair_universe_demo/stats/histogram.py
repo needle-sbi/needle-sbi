@@ -4,10 +4,11 @@ Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
 
-import argparse
 import json
+import os
 from logging import Logger
-from typing import Any, Dict, NamedTuple, Tuple
+from pathlib import Path
+from typing import Any, Dict, Tuple
 from urllib.parse import parse_qs
 
 import luigi
@@ -22,7 +23,7 @@ from ..utils.selection import createJetData, return1j2j
 logger = Logger("histogram")
 
 
-class CreateHistogramTask(luigi.Task):
+class HistogramTask(luigi.Task):
     """Luigi task for generating classifier score histograms from FAIR Universe snapshot data.
 
     This task loads a saved snapshot that contains trained normalizing flow models and a classifier
@@ -32,7 +33,7 @@ class CreateHistogramTask(luigi.Task):
 
     Args:
         snapshot_path: Path to the snapshot JSON file containing model checkpoint locations.
-        json_save_path: Path prefix to the output histogram JSON file.
+        json_save_path: Path to the output histogram JSON file.
         root_dir: Root directory containing the FAIR Universe data for data generation.
     """
 
@@ -40,9 +41,17 @@ class CreateHistogramTask(luigi.Task):
     json_save_path: str = luigi.Parameter(description="Path to the output histogram file (.json)")  # type: ignore
     root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.json_save_path.endswith(".json") and not os.path.exists(Path(self.json_save_path).parent):
+            raise FileNotFoundError(
+                f"Argument `json_save_path`='{self.json_save_path}' must point to a valid .json file"
+            )
+
     def output(self) -> luigi.LocalTarget:  # type: ignore
         """Return the Luigi target for the generated histogram file."""
-        return luigi.LocalTarget("hist.json")
+        return luigi.LocalTarget(self.json_save_path)
 
     @staticmethod
     def parse_snapshot(filepath: str) -> Tuple[Dict[str, str], Dict[str, str]]:
@@ -101,10 +110,7 @@ class CreateHistogramTask(luigi.Task):
         nf_ckpts, classifier_ckpt = self.parse_snapshot(self.snapshot_path)
         nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device=device)
         classifier = (
-            CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
-            .to(device)
-            .eval()
-            .to(torch.float32)
+            CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"]).to(device).eval().to(torch.float32)
         )
 
         # Define the parameter arrays for jet energy scale (jes_arr) and testing scale (tes_arr).
@@ -146,18 +152,16 @@ class CreateHistogramTask(luigi.Task):
                 total_label = np.concatenate([label_2j.numpy(), label_1j.numpy()])
 
                 # Compute histograms for signal (label==1) and background (label==0) separately.
-                S_hist_class, _ = np.histogram(
-                    total_score[total_label == 1], bins=bins, density=True
-                )
-                BG_hist_class, _ = np.histogram(
-                    total_score[total_label == 0], bins=bins, density=True
-                )
+                S_hist_class, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
+                BG_hist_class, _ = np.histogram(total_score[total_label == 0], bins=bins, density=True)
 
                 hist_dict_class[(i, j)] = [S_hist_class, BG_hist_class]
 
         serializable_dict = {
-            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()}
-            for key, val in hist_dict_class.items()
+            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()} for key, val in hist_dict_class.items()
         }
-        with open(self.json_save_path + "hist.json", "w") as f:
+        with open(self.json_save_path, "w") as f:
             json.dump(serializable_dict, f)
+
+    def run(self) -> None:
+        self.create_histogram()

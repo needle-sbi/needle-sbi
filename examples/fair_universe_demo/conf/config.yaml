@@ -1,5 +1,7 @@
 custom_settings:
-  use_test_data: true
+  use_test_data: false
+  root_dir: ${if:${custom_settings.use_test_data}, "examples/fair_universe_demo/test_data", "${oc.env:FAIR_UNIVERSE_DATA}"}
+
 results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_full"}
 
 estimators:
@@ -80,3 +82,10 @@ estimators:
     model: classifier
     datamodule: classifier
     trainer: classifier
+
+downstream_tasks:
+  histogram:
+    args:
+      _target_: examples.fair_universe_demo.stats.histogram.HistogramTask
+      root_dir: ${custom_settings.root_dir}
+      json_save_path: "${results_path}/hist2.json"

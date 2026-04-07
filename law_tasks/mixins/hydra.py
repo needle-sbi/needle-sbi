@@ -1,9 +1,13 @@
+from functools import cache
 from pathlib import Path
 
 import law
 
 from orchestrator.config import MainConfig
 from orchestrator.config_utils import initialize_hydra_config
+from preprocessor.utils.logging import ColorFormatter
+
+logger = ColorFormatter.get_logger("hydra")
 
 
 class HydraMixin:
@@ -50,6 +54,7 @@ class HydraMixin:
         Returns:
             MainConfig
         """
+
         if hasattr(self, "_config"):
             return self._config
 
@@ -63,3 +68,7 @@ class HydraMixin:
     @config.setter
     def config(self, new_config: MainConfig):
         self._config = new_config
+
+    @cache
+    def print_config_path_once(self) -> None:
+        logger.info(f"Using config from path: {self.config_file}")

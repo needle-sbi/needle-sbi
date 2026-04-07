@@ -1,3 +1,4 @@
+from .downstream import DownstreamTask
 from .ensemble import EnsembleTask
 from .estimator import EstimatorTask
 from .fold import FoldTask
@@ -12,4 +13,5 @@ __all__ = [
     "SystematicTask",
     "FoldTask",
     "SnapshotTask",
+    "DownstreamTask",
 ]
