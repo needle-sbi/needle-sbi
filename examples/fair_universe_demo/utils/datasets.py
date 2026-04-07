@@ -73,7 +73,9 @@ class Data:
             logger.warning("Metadata file not found. Proceeding without metadata.")
             self.metadata = {}
         except json.JSONDecodeError:
-            logger.warning("Metadata file is not a valid JSON. Proceeding without metadata.")
+            logger.warning(
+                "Metadata file is not a valid JSON. Proceeding without metadata."
+            )
             self.metadata = {}
         except Exception as e:
             logger.warning(f"An error occurred while reading the metadata file: {e}")
@@ -87,7 +89,8 @@ class Data:
         else:
             # If total_rows is not in metadata, calculate it from the row groups
             self.total_rows = sum(
-                self.parquet_file.metadata.row_group(i).num_rows for i in range(self.parquet_file.num_row_groups)
+                self.parquet_file.metadata.row_group(i).num_rows
+                for i in range(self.parquet_file.num_row_groups)
             )
 
         if test_size is not None:
@@ -103,10 +106,9 @@ class Data:
 
         self.test_size = test_size
 
-        logger.info(f"Total rows: {self.total_rows}")
-        logger.info(f"Test size: {self.test_size}")
-
-    def load_train_set(self, train_size: int = None, selected_indices: List[int] | np.ndarray = None):
+    def load_train_set(
+        self, train_size: int = None, selected_indices: List[int] | np.ndarray = None
+    ):
         """Load the training subset from the parquet dataset.
 
         Args:
@@ -145,13 +147,11 @@ class Data:
             raise ValueError("Sample size exceeds the number of available rows")
 
         if selected_indices is None:
-            selected_indices = np.random.choice((self.total_rows - self.test_size), size=train_size, replace=False)
+            selected_indices = np.random.choice(
+                (self.total_rows - self.test_size), size=train_size, replace=False
+            )
 
         selected_train_indices = np.sort(selected_indices) + self.test_size
-
-        logger.info(f"Train size: {len(selected_train_indices)}")
-
-        # Step 2: Load the data
         self.__train_set = self.__load_data(selected_train_indices)
 
         # Balancing the weights
@@ -168,28 +168,29 @@ class Data:
         current_row = 0
         sampled_df = pd.DataFrame()
 
+        chunks = []
         for row_group_index in range(self.parquet_file.num_row_groups):
             row_group = self.parquet_file.read_row_group(row_group_index).to_pandas()
             row_group_size = len(row_group)
-
-            # Determine indices within the current row group that fall in the selected range
             within_group_indices = (
-                selected_indices[(selected_indices >= current_row) & (selected_indices < current_row + row_group_size)]
+                selected_indices[
+                    (selected_indices >= current_row)
+                    & (selected_indices < current_row + row_group_size)
+                ]
                 - current_row
             )
-            sampled_df = pd.concat([sampled_df, row_group.iloc[within_group_indices]], ignore_index=True)
+            if len(within_group_indices) > 0:
+                chunks.append(row_group.iloc[within_group_indices])
             current_row += row_group_size
 
-        buffer = io.StringIO()
-        sampled_df.info(buf=buffer, memory_usage="deep", verbose=False)
-        info_str = "\n" + buffer.getvalue()
-        logger.debug(info_str)
-        logger.info("Data loaded successfully")
+        sampled_df = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
 
         if "sum_weights" in self.metadata:
             sum_weights = self.metadata["sum_weights"]
             if sum_weights > 0:
-                sampled_df["weights"] = (sum_weights * sampled_df["weights"]) / sum(sampled_df["weights"])
+                sampled_df["weights"] = (sum_weights * sampled_df["weights"]) / sum(
+                    sampled_df["weights"]
+                )
             else:
                 logger.warning("Sum of weights is zero. No balancing applied.")
 
@@ -202,33 +203,22 @@ class Data:
             Sets `self.__test_set` with labeled subsets.
         """
         selected_test_indices = np.array(range(self.test_size))
-
-        # Load the data
         test_df = self.__load_data(selected_test_indices)
 
-        # read test setting
-        test_set = {
-            "ztautau": pd.DataFrame(),
-            "diboson": pd.DataFrame(),
-            "ttbar": pd.DataFrame(),
-            "htautau": pd.DataFrame(),
-        }
+        keys = ["ztautau", "diboson", "ttbar", "htautau"]
+        test_set = {}
 
-        for key in test_set.keys():
-            test_set[key] = test_df[test_df["detailed_labels"] == key]
-            test_set[key]["Label"] = test_set[key]["detailed_labels"]
-            # test_set[key].pop("labels")
+        for key, group in test_df[test_df["detailed_labels"].isin(keys)].groupby(
+            "detailed_labels"
+        ):
+            df = group.copy()
+            df.loc[:, "Label"] = df["detailed_labels"]
+            test_set[key] = df
+
+        for key in keys:
+            test_set.setdefault(key, pd.DataFrame())
 
         self.__test_set = test_set
-
-        for key in self.__test_set.keys():
-            buffer = io.StringIO()
-            self.__test_set[key].info(buf=buffer, memory_usage="deep", verbose=False)
-            info_str = str(key) + ":\n" + buffer.getvalue()
-
-            logger.debug(info_str)
-
-        logger.info("Test data loaded successfully")
 
     def get_train_set(self):
         """Return the loaded training dataset.
