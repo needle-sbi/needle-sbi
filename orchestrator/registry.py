@@ -7,9 +7,8 @@ appropriate config group (``models``, ``datamodules``, ``trainers``).
 """
 
 from dataclasses import fields
-from typing import Any, Literal, Mapping
+from typing import Any
 
-import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import DictConfig, OmegaConf
 
@@ -80,7 +79,7 @@ def _validate_against_schema(
     raw = _to_dict(config)
     allowed_fields = {f.name for f in fields(schema_cls)}
     unknown_fields = set(raw) - allowed_fields
-    print(f"DEBUG {raw=}")
+
     if unknown_fields:
         raise ValueError(
             f"Unknown config field(s) for {schema_cls.__name__}: {sorted(unknown_fields)}. "

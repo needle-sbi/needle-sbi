@@ -141,7 +141,7 @@ class Data:
         else:
             train_size = self.total_rows - self.test_size
 
-        if train_size > self.total_rows - self.test_size:
+        if train_size > self.total_rows - self.test_size:  # type: ignore
             raise ValueError("Sample size exceeds the number of available rows")
 
         if selected_indices is None:
