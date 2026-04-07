@@ -1,2 +1,2 @@
 _target_: examples.fair_universe_demo.models.classifier_datamodule.ClassifierDatamodule
-root_dir: "examples/fair_universe_demo/test_data"
+root_dir: ${if:${custom_settings.use_test_data}, "examples/fair_universe_demo/test_data", "${oc.env:FAIR_UNIVERSE_DATA}"}

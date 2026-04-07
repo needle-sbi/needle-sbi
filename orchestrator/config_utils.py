@@ -14,6 +14,7 @@ from orchestrator.config import MainConfig
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
+OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
 
 
 def validate_graph(self: "MainConfig") -> None:
@@ -76,6 +77,7 @@ def initialize_hydra_config(
             hydra.compose(config_name=config_name, overrides=overrides),
         )  # type: ignore
         cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
+        OmegaConf.resolve(cfg_as_dict)
         cfg: MainConfig = cast(MainConfig, cfg_as_dict)
         validate_graph(cfg)
         return cfg

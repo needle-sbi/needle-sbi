@@ -1,3 +1,7 @@
+custom_settings:
+  use_test_data: true
+results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_full"}
+
 estimators:
   nf_signal_1jet:
     model: cnf
@@ -76,5 +80,3 @@ estimators:
     model: classifier
     datamodule: classifier
     trainer: classifier
-
-results_path: runs/fair_universe_demo_test

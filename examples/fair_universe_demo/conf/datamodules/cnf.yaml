@@ -1,3 +1,3 @@
 _target_: examples.fair_universe_demo.models.nf_datamodule.NormalizingFlowDatamodule
-root_dir: "examples/fair_universe_demo/test_data"
-batch_size: 100
+root_dir: ${if:${custom_settings.use_test_data}, "examples/fair_universe_demo/test_data", "${oc.env:FAIR_UNIVERSE_DATA}"}
+batch_size: 1024
