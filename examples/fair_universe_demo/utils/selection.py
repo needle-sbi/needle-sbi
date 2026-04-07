@@ -112,7 +112,7 @@ def createJetData(
     root_dir: str,
     parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
     metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
-    set_mu: int = 3,
+    set_mu: float = 3,
     seed: int = 0,
     n_param: List[int] = [1, 1, 1, 1, 1, 0],
     useRand: bool = False,
@@ -123,7 +123,7 @@ def createJetData(
     Parameters:
         jet_num (int or str): Jet number to filter (or "all" to return full dataset).
         useTestData (bool): Whether to use test data.
-        set_mu (int, optional): Mu parameter for bootstrapping. Defaults to 3.
+        set_mu (float, optional): Mu parameter for bootstrapping. Defaults to 3.
         seed (int, optional): Random seed. Defaults to 0.
         n_param (list, optional): List of systematic parameters. Defaults to [1,1,1,1,1,0].
         useRand (bool, optional): Whether to apply random systematic shifts. Defaults to False.
