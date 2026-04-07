@@ -5,6 +5,7 @@ Creates a snapshot of the trained ensemble DAG for evaluation.
 import os
 from pathlib import Path
 from typing import Dict, List
+from urllib.parse import urlencode
 
 import law
 from omegaconf import OmegaConf
@@ -43,7 +44,7 @@ class SnapshotTask(HydraMixin, law.Task):
         )
 
     def output(self):
-        return law.LocalFileTarget(f"{self.abs_results_path}/dag_snapshot.json")
+        return {"dag_snapshot": law.LocalFileTarget(f"{self.abs_results_path}/dag_snapshot.json")}
 
     @property
     def abs_results_path(self) -> Path:
@@ -75,24 +76,26 @@ class SnapshotTask(HydraMixin, law.Task):
         # Track all node IDs at each level for aggregation
         all_estimator_nodes = []
 
+        logger.info("Processing...")
+
         # Traverse EstimatorTasks
         for estimator_task in main_task.requires():
             estimator_name = estimator_task.estimator
-            logger.info(f"Processing estimator: {estimator_name}")
+            logger.info(f"|  Estimator:    {estimator_name}")
 
             all_systematic_nodes = []
 
             # Traverse SystematicTasks
             for systematic_task in estimator_task.requires():
                 systematic_name = systematic_task.systematic
-                logger.info(f"  Processing systematic: {systematic_name}")
+                logger.info(f"|    Systematic: {systematic_name}")
 
                 all_ensemble_nodes = []
 
                 # Traverse EnsembleTasks
                 for ensemble_task in systematic_task.requires():
                     ensemble_idx = ensemble_task.ensemble
-                    logger.info(f"    Processing ensemble: {ensemble_idx}")
+                    logger.info(f"|      Ensemble: {ensemble_idx}")
 
                     ensemble_output = ensemble_task.output()
                     # Load EnsembleResults using SerializableDataclass method
@@ -102,11 +105,13 @@ class SnapshotTask(HydraMixin, law.Task):
 
                     # Traverse FoldTasks (leaf nodes)
                     for fold_idx, fold_task in enumerate(ensemble_task.requires()):
-                        node_id = (
-                            f"estimator_{estimator_name}_"
-                            f"systematic_{systematic_name}_"
-                            f"ensemble_{ensemble_idx}_"
-                            f"fold_{fold_idx}"
+                        node_id = urlencode(
+                            {
+                                "est": estimator_name,
+                                "syst": systematic_name,
+                                "ensem": ensemble_idx,
+                                "fold": fold_idx,
+                            }
                         )
 
                         fold_output = fold_task.output()
@@ -132,9 +137,14 @@ class SnapshotTask(HydraMixin, law.Task):
                         all_fold_nodes.append(node_id)
 
                     # Aggregate folds → ensemble
-                    ensemble_node_id = (
-                        f"estimator_{estimator_name}_" f"systematic_{systematic_name}_" f"ensemble_{ensemble_idx}"
+                    ensemble_node_id = urlencode(
+                        {
+                            "est": estimator_name,
+                            "syst": systematic_name,
+                            "ensem": ensemble_idx,
+                        }
                     )
+
                     edges.append(
                         AggregationEdge(
                             method=AggregationMethod(fold_agg_method),
@@ -146,7 +156,12 @@ class SnapshotTask(HydraMixin, law.Task):
                     all_ensemble_nodes.append(ensemble_node_id)
 
                 # Aggregate ensembles → systematic
-                systematic_node_id = f"estimator_{estimator_name}_" f"systematic_{systematic_name}"
+                systematic_node_id = urlencode(
+                    {
+                        "est": estimator_name,
+                        "syst": systematic_name,
+                    }
+                )
                 edges.append(
                     AggregationEdge(
                         method=AggregationMethod(ensemble_agg_method),
@@ -158,7 +173,7 @@ class SnapshotTask(HydraMixin, law.Task):
                 all_systematic_nodes.append(systematic_node_id)
 
             # Aggregate systematics → estimator
-            estimator_node_id = f"estimator_{estimator_name}"
+            estimator_node_id = urlencode({"est": estimator_name})
             edges.append(
                 AggregationEdge(
                     method=AggregationMethod(systematic_agg_method),
@@ -187,9 +202,8 @@ class SnapshotTask(HydraMixin, law.Task):
             root_node="root",
         )
 
-        self.output().touch()
-        snapshot.to_json(self.output().path)
-        logger.info(f"DAG snapshot saved to {self.output().path}")
+        snapshot.to_json(self.output()["dag_snapshot"].path)  # type: ignore
+        logger.info(f"DAG snapshot saved to {self.output()['dag_snapshot'].path}")
 
     def _find_checkpoint(self, fold_output) -> str:
         """Find the best or last checkpoint for a fold task"""
