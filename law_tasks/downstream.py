@@ -15,14 +15,14 @@ from orchestrator.config_utils import hydra_instantiate
 class DownstreamTask(HydraMixin, law.Task):
     """Task which wraps an external Task that should run after the main training was performed."""
 
+    downstream: str = law.Parameter(
+        description="Name of the downstream Task to run",
+        significant=True,
+    )  # type: ignore
     results_path: str = law.Parameter(
         description="Directory where results are stored",
         default="runs",
         significant=False,
-    )  # type: ignore
-    downstream: str = law.Parameter(
-        description="Name of the downstream Task to run",
-        significant=True,
     )  # type: ignore
 
     @property
@@ -38,7 +38,10 @@ class DownstreamTask(HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
-        return Path(os.path.abspath(self.results_path))
+        if self.config.results_path:
+            self.results_path = self.config.results_path
+
+        return os.path.abspath(self.results_path)  # type: ignore
 
     def requires(self) -> Dict[str, SnapshotTask | law.Task]:
         req: Dict[str, law.Task] = {}
@@ -66,5 +69,11 @@ class DownstreamTask(HydraMixin, law.Task):
             OmegaConf.structured(self.downstream_config.args),
             snapshot_path=self.snapshot_path,
         )
+        if downstream_task.requires() != []:
+            raise NotImplementedError(
+                "Using the luigi `requires` method in downstream Tasks (tasks that are run after the"
+                "ML training) is currently not supported. Instead, encode the dependency between your"
+                "downstream Tasks using the `requires` keyword in the config.yaml."
+            )
         downstream_task.run()
         self.output().touch()

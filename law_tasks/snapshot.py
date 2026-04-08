@@ -48,7 +48,10 @@ class SnapshotTask(HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
-        return Path(os.path.abspath(self.results_path))
+        if self.config.results_path:
+            self.results_path = self.config.results_path
+
+        return os.path.abspath(self.results_path)  # type: ignore
 
     def run(self):
         """
