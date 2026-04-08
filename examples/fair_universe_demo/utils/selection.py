@@ -1,5 +1,5 @@
 import logging
-from typing import List, Literal
+from typing import Dict, List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
@@ -116,7 +116,7 @@ def createJetData(
     seed: int = 0,
     n_param: List[int] = [1, 1, 1, 1, 1, 0],
     useRand: bool = False,
-):
+) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]:
     """
     Create jet data with optional systematic variations and data processing.
 
@@ -143,7 +143,6 @@ def createJetData(
     # Optionally apply random systematic shifts
     if useRand:
         random_state = np.random.RandomState(seed)
-        logger.info("Applying systematics")
         n_param[-3] = np.clip(
             random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
         )
@@ -220,7 +219,7 @@ def createJetData(
                     subset = data_vis_train[key]
                     subset = subset.iloc[:MAX_NUM_EVENTS].reset_index(drop=True)
                     data_vis_train[key] = subset
-                except:
+                except KeyError:
                     data_vis_train[key] = data_vis_train[key][:MAX_NUM_EVENTS]
 
         # Apply systematics to the training data
@@ -526,19 +525,38 @@ class Dataset1j2j(Dataset):
 
 
 def return1j2j(
-    alljet_data, models: torch.nn.ModuleDict, cut=False, nevents=10, device: str = "cpu"
+    alljet_data: Dict[str, torch.Tensor] | pd.DataFrame,
+    models: torch.nn.ModuleDict,
+    cut: bool = False,
+    nevents: int = 10,
+    device: str = "cpu",
 ):
     """
     Process the input data for 1-jet and 2-jet events, apply feature transforms,
     and append normalizing flow (NF) features computed from the given models.
 
     Parameters:
-        alljet_data (dict): Dictionary containing the combined jet data.
-        models (list): List of pre-trained models for feature extraction.
+        alljet_data (Dict[str, torch.Tensor]): Dictionary containing the combined jet data.
+        models (torch.nn.ModuleDict): Dictionary of pre-trained models for NF feature extraction.
+            Expected keys are:
+             - nf_signal_1jet&c_0p5
+             - nf_background_1jet&c_0p5
+             - nf_signal_1jet&c_2p0
+             - nf_background_1jet&c_2p0
+             - nf_signal_2jet&c_0p5
+             - nf_background_2jet&c_0p5
+             - nf_signal_2jet&c_2p0
+             - nf_background_2jet&c_2p0.
+        cut (bool, optional): Whether to limit the number of events. Defaults to False.
+        nevents (int, optional): Number of events to use when cut is True. Defaults to 10.
+        device (str, optional): Device to move tensors to. Defaults to "cpu".
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            2-jet data, 1-jet data, 2-jet labels, and 1-jet labels.
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+            - 2-jet data with NF features appended.
+            - 1-jet data with NF features appended.
+            - 2-jet labels (binary: 1 for htautau, 0 otherwise).
+            - 1-jet labels (binary: 1 for htautau, 0 otherwise).
     """
     # Process 2-jet events
     filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(
@@ -588,50 +606,34 @@ def return1j2j(
     data_2j = data_2j.to(device)
     label_1j = label_1j.to(device)
     label_2j = label_2j.to(device)
+    models.to(device)
 
-    # Compute NF features from the provided models
     with torch.no_grad():
         try:
-            NF_s1j_0p5 = (
-                torch.sigmoid(models["nf_signal_1jet&c_0p5"](data_1j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_b1j_0p5 = (
-                torch.sigmoid(models["nf_background_1jet&c_0p5"](data_1j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_s1j_2p0 = (
-                torch.sigmoid(models["nf_signal_1jet&c_2p0"](data_1j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_b1j_2p0 = (
-                torch.sigmoid(models["nf_background_1jet&c_2p0"](data_1j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_s2j_0p5 = (
-                torch.sigmoid(models["nf_signal_2jet&c_0p5"](data_2j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_b2j_0p5 = (
-                torch.sigmoid(models["nf_background_2jet&c_0p5"](data_2j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_s2j_2p0 = (
-                torch.sigmoid(models["nf_signal_2jet&c_2p0"](data_2j))
-                .to(device)
-                .unsqueeze(1)
-            )
-            NF_b2j_2p0 = (
-                torch.sigmoid(models["nf_background_2jet&c_2p0"](data_2j))
-                .to(device)
-                .unsqueeze(1)
-            )
+            NF_s1j_0p5 = torch.sigmoid(
+                models["nf_signal_1jet&c_0p5"](data_1j)
+            ).unsqueeze(1)
+            NF_b1j_0p5 = torch.sigmoid(
+                models["nf_background_1jet&c_0p5"](data_1j)
+            ).unsqueeze(1)
+            NF_s1j_2p0 = torch.sigmoid(
+                models["nf_signal_1jet&c_2p0"](data_1j)
+            ).unsqueeze(1)
+            NF_b1j_2p0 = torch.sigmoid(
+                models["nf_background_1jet&c_2p0"](data_1j)
+            ).unsqueeze(1)
+            NF_s2j_0p5 = torch.sigmoid(
+                models["nf_signal_2jet&c_0p5"](data_2j)
+            ).unsqueeze(1)
+            NF_b2j_0p5 = torch.sigmoid(
+                models["nf_background_2jet&c_0p5"](data_2j)
+            ).unsqueeze(1)
+            NF_s2j_2p0 = torch.sigmoid(
+                models["nf_signal_2jet&c_2p0"](data_2j)
+            ).unsqueeze(1)
+            NF_b2j_2p0 = torch.sigmoid(
+                models["nf_background_2jet&c_2p0"](data_2j)
+            ).unsqueeze(1)
         except KeyError as e:
             raise KeyError(
                 f"No key `{e}` found in model Dict. Available keys are {models.keys()}"
