@@ -6,6 +6,7 @@ Adapted by K. Schmidt
 
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from logging import Logger
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -44,7 +45,9 @@ class HistogramTask(luigi.Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not self.json_save_path.endswith(".json") and not os.path.exists(Path(self.json_save_path).parent):
+        if not self.json_save_path.endswith(".json") and not os.path.exists(
+            Path(self.json_save_path).parent
+        ):
             raise FileNotFoundError(
                 f"Argument `json_save_path`='{self.json_save_path}' must point to a valid .json file"
             )
@@ -97,68 +100,75 @@ class HistogramTask(luigi.Task):
 
         return nf_nodes, classifier_node
 
-    def create_histogram(self):
-        """Generate histograms from classifier scores and save them to a JSON file.
+    def _compute_histogram_entry(self, args):
+        """Worker function for a single (jes, tes) combination."""
+        i, j, snapshot_path, root_dir, bins = args
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        This method loads model checkpoints from the snapshot, generates synthetic jet data
-        across a grid of JES and TES variations, evaluates classifier scores for 1-jet and 2-jet
-        events, computes signal and background histograms, and writes the results to a
-        JSON file at the configured output path. Will always run on CPU.
-        """
-        device = "cpu"
-
-        nf_ckpts, classifier_ckpt = self.parse_snapshot(self.snapshot_path)
-        nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device=device)
-        classifier = (
-            CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"]).to(device).eval().to(torch.float32)
+        # Re-load models per worker (required for multiprocessing)
+        nf_ckpts, classifier_ckpt = self.parse_snapshot(snapshot_path)
+        nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
+        classifier = CombinedClassifier.load_from_checkpoint(
+            classifier_ckpt["classifier"]
         )
+        classifier = classifier.to(device).eval().to(torch.float32)
 
-        # Define the parameter arrays for jet energy scale (jes_arr) and testing scale (tes_arr).
+        n_params = [1, 1, 1, j, i, 0]
+        alljet_data, _ = createJetData(  # type: ignore
+            "all",
+            True,
+            set_mu=1000,
+            seed=0,
+            n_param=n_params,
+            useRand=False,
+            root_dir=root_dir,
+        )
+        data_2j, data_1j, label_2j, label_1j = return1j2j(
+            alljet_data=alljet_data,
+            models=nf_models,
+            device=device,
+        )
+        with torch.no_grad():
+            scores_2j = torch.sigmoid(classifier(data_2j, 2)).cpu().numpy()
+            scores_1j = torch.sigmoid(classifier(data_1j, 1)).cpu().numpy()
+
+        total_score = np.concatenate([scores_2j, scores_1j])
+        total_label = np.concatenate([label_2j.cpu().numpy(), label_1j.cpu().numpy()])
+
+        S_hist, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
+        BG_hist, _ = np.histogram(
+            total_score[total_label == 0], bins=bins, density=True
+        )
+        return (i, j), S_hist, BG_hist
+
+    def create_histogram(self):
         jes_arr = np.linspace(0.9, 1.1, 10)
         tes_arr = np.linspace(0.9, 1.1, 10)
-        # Define histogram parameters.
-        nbins = 200
-        bins = np.linspace(0, 1, num=nbins)
+        bins = np.linspace(0, 1, num=200)
+
+        args_list = [
+            (i, j, self.snapshot_path, self.root_dir, bins)
+            for j in tes_arr
+            for i in jes_arr
+        ]
 
         hist_dict_class = {}
-        for j in tqdm(tes_arr, "TES", position=0):
-            for i in tqdm(jes_arr, "JES", position=1, leave=False):
-                # Define parameter list for data generation.
-                n_params = [1, 1, 1, j, i, 0]
 
-                # Create jet data using the provided root directory.
-                alljet_data, _ = createJetData(  # type: ignore
-                    "all",
-                    True,
-                    set_mu=1000,
-                    seed=0,
-                    n_param=n_params,
-                    useRand=False,
-                    root_dir=self.root_dir,
-                )
-                # Split the data into 2-jet and 1-jet sets and obtain corresponding labels.
-                data_2j, data_1j, label_2j, label_1j = return1j2j(
-                    alljet_data=alljet_data,
-                    models=nf_models,
-                    device=device,
-                )
+        with ProcessPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(self._compute_histogram_entry, args): args
+                for args in args_list
+            }
 
-                # Obtain classifier scores for each jet type without computing gradients.
-                with torch.no_grad():
-                    scores_2j = torch.sigmoid(classifier(data_2j, 2)).cpu().numpy()
-                    scores_1j = torch.sigmoid(classifier(data_1j, 1)).cpu().numpy()
-
-                total_score = np.concatenate([scores_2j, scores_1j])
-                total_label = np.concatenate([label_2j.numpy(), label_1j.numpy()])
-
-                # Compute histograms for signal (label==1) and background (label==0) separately.
-                S_hist_class, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
-                BG_hist_class, _ = np.histogram(total_score[total_label == 0], bins=bins, density=True)
-
-                hist_dict_class[(i, j)] = [S_hist_class, BG_hist_class]
+            for future in tqdm(
+                as_completed(futures), total=len(args_list), desc="Grid"
+            ):
+                key, S_hist, BG_hist = future.result()
+                hist_dict_class[key] = [S_hist, BG_hist]
 
         serializable_dict = {
-            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()} for key, val in hist_dict_class.items()
+            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()}
+            for key, val in hist_dict_class.items()
         }
         with open(self.json_save_path, "w") as f:
             json.dump(serializable_dict, f)
