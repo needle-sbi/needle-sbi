@@ -40,6 +40,7 @@ class PredictTask(luigi.Task):
         description="Number of events to test if predict_mu_test is False",
         default=10,
     )  # type: ignore
+    device = "cpu"
 
     def predict(self) -> None:
         print(f"Running pipeline on test dataset with {self.mu}")
@@ -67,12 +68,11 @@ class PredictTask(luigi.Task):
         # loading Neyman data
         std_corrected_interp, a, b = load_bias_data(self.neyman_path)
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(self.snapshot_path)
-        models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device=device)
+        models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device=self.device)
         class_model_load = (
             CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
-            .to(device)
+            .to(self.device)
             .eval()
             .to(torch.float32)
         )
@@ -91,7 +91,9 @@ class PredictTask(luigi.Task):
 
         if not self.predict_num_events:
             # Split the data into 2-jet and 1-jet subsets.
-            data_2j, data_1j, label_2j, label_1j = return1j2j(alljet_data, models)
+            data_2j, data_1j, label_2j, label_1j = return1j2j(
+                alljet_data, models, device=self.device
+            )
 
             # Compute the MLE mu using the provided classifier and fitted splines.
             mu = compute_mu_nuan_2NP_class(
@@ -120,7 +122,11 @@ class PredictTask(luigi.Task):
                 f"Running classifier (not as 'mu' estimator) for {self.predict_num_events} events"
             )
             data_2j, data_1j, label_2j, label_1j = return1j2j(
-                alljet_data, models, cut=True, nevents=self.predict_num_events
+                alljet_data,
+                models,
+                cut=True,
+                nevents=self.predict_num_events,
+                device=self.device,
             )
 
             with torch.no_grad():
