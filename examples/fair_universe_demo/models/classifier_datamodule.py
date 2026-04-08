@@ -118,20 +118,21 @@ class ClassifierDatamodule(L.LightningDataModule):
         j2_detlabel = j2_detlabel.cpu()
         j1_data = j1_data.cpu()
         j1_detlabel = j1_detlabel.cpu()
+        self.input_models.cpu()
 
         # Extract features from the loaded models. For 1-jet models, indices 0-3 are used.
         # For 2-jet models, indices 4-7 are used.
         with torch.no_grad():
             try:
                 # fmt: off
-                NF_s1j_0p5 = torch.sigmoid(self.input_models["nf_signal_1jet&c_0p5"](j1_data)).cpu().unsqueeze(1)
-                NF_b1j_0p5 = torch.sigmoid(self.input_models["nf_background_1jet&c_0p5"](j1_data)).cpu().unsqueeze(1)
-                NF_s1j_2p0 = torch.sigmoid(self.input_models["nf_signal_1jet&c_2p0"](j1_data)).cpu().unsqueeze(1)
-                NF_b1j_2p0 = torch.sigmoid(self.input_models["nf_background_1jet&c_2p0"](j1_data)).cpu().unsqueeze(1)
-                NF_s2j_0p5 = torch.sigmoid(self.input_models["nf_signal_2jet&c_0p5"](j2_data)).cpu().unsqueeze(1)
-                NF_b2j_0p5 = torch.sigmoid(self.input_models["nf_background_2jet&c_0p5"](j2_data)).cpu().unsqueeze(1)
-                NF_s2j_2p0 = torch.sigmoid(self.input_models["nf_signal_2jet&c_2p0"](j2_data)).cpu().unsqueeze(1)
-                NF_b2j_2p0 = torch.sigmoid(self.input_models["nf_background_2jet&c_2p0"](j2_data)).cpu().unsqueeze(1)
+                NF_s1j_0p5 = torch.sigmoid(self.input_models["nf_signal_1jet&c_0p5"](j1_data)).unsqueeze(1)
+                NF_b1j_0p5 = torch.sigmoid(self.input_models["nf_background_1jet&c_0p5"](j1_data)).unsqueeze(1)
+                NF_s1j_2p0 = torch.sigmoid(self.input_models["nf_signal_1jet&c_2p0"](j1_data)).unsqueeze(1)
+                NF_b1j_2p0 = torch.sigmoid(self.input_models["nf_background_1jet&c_2p0"](j1_data)).unsqueeze(1)
+                NF_s2j_0p5 = torch.sigmoid(self.input_models["nf_signal_2jet&c_0p5"](j2_data)).unsqueeze(1)
+                NF_b2j_0p5 = torch.sigmoid(self.input_models["nf_background_2jet&c_0p5"](j2_data)).unsqueeze(1)
+                NF_s2j_2p0 = torch.sigmoid(self.input_models["nf_signal_2jet&c_2p0"](j2_data)).unsqueeze(1)
+                NF_b2j_2p0 = torch.sigmoid(self.input_models["nf_background_2jet&c_2p0"](j2_data)).unsqueeze(1)
                 # fmt: on
             except KeyError as e:
                 raise KeyError(
@@ -186,7 +187,9 @@ class ClassifierDatamodule(L.LightningDataModule):
 
         models = torch.nn.ModuleDict()
 
-        for name, ckpt_path in tqdm(input_models.items(), desc="Loading NF models"):
+        for name, ckpt_path in tqdm(
+            input_models.items(), desc="Loading NF models", leave=False
+        ):
             name_dict = parse_qs(name)
             prefix = name_dict["est"][0]
             suffix = name_dict["syst"][0].replace(".", "p")
