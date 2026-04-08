@@ -49,6 +49,7 @@ class DownstreamTask(HydraMixin, law.Task):
         req["snapshot"] = SnapshotTask(
             results_path=self.results_path,
             config_file=self.config_file,
+            hydra_overrides=self.hydra_overrides,
         )
 
         if self.downstream_config.requires:
@@ -57,6 +58,7 @@ class DownstreamTask(HydraMixin, law.Task):
                     results_path=self.results_path,
                     downstream=downstream_dep,
                     config_file=self.config_file,
+                    hydra_overrides=self.hydra_overrides,
                 )
 
         return req

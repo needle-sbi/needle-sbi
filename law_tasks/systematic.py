@@ -52,6 +52,7 @@ class SystematicTask(HydraMixin, law.Task):
         return [
             EnsembleTask(
                 config_file=str(self.config_file),
+                hydra_overrides=self.hydra_overrides,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,

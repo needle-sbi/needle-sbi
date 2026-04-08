@@ -56,6 +56,7 @@ class EnsembleTask(HydraMixin, law.Task):
         return [
             FoldTask(
                 config_file=self.config_file,
+                hydra_overrides=self.hydra_overrides,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=self.ensemble,

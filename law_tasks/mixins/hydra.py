@@ -1,5 +1,6 @@
 from functools import cache
 from pathlib import Path
+from typing import List
 
 import law
 
@@ -39,11 +40,15 @@ class HydraMixin:
         to downstream Tasks.
     """
 
-    config_file = law.Parameter(
+    config_file: str = law.Parameter(
         description="Path to config folder",
         default="conf/config.yaml",
         significant=True,
-    )
+    )  # type: ignore
+    hydra_overrides: str = law.Parameter(
+        description="Overrides to be passed to hydra. Type str. Format: 'key1=value1 key2=value2'",
+        significant=False,
+    )  # type: ignore
 
     _config: MainConfig
 
@@ -54,6 +59,7 @@ class HydraMixin:
         Returns:
             MainConfig
         """
+        overrides: List[str] = self.hydra_overrides.split() if self.hydra_overrides else []
 
         if hasattr(self, "_config"):
             return self._config
@@ -62,6 +68,7 @@ class HydraMixin:
         self._config = initialize_hydra_config(
             config_dir=str(config_file.parent),
             config_name=str(config_file.stem),
+            overrides=overrides,
         )
         return self._config
 

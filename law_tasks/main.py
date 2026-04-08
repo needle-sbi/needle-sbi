@@ -31,6 +31,7 @@ class MainTask(HydraMixin, law.WrapperTask):
         return [
             EstimatorTask(
                 config_file=self.config_file,
+                hydra_overrides=self.hydra_overrides,
                 estimator=estimator_key,
                 results_path=self.abs_results_path,
             )

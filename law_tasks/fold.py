@@ -110,6 +110,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         return [
             EstimatorTask(
                 config_file=str(self.config_file),
+                hydra_overrides=self.hydra_overrides,
                 estimator=dependency,
                 results_path=self.results_path,
             )

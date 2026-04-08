@@ -84,6 +84,7 @@ class EstimatorTask(HydraMixin, law.Task):
         return [
             SystematicTask(
                 config_file=str(self.config_file),
+                hydra_overrides=self.hydra_overrides,
                 estimator=self.estimator,
                 systematic=systematic_key,
                 results_path=self.results_path,

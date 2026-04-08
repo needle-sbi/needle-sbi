@@ -37,9 +37,11 @@ class SnapshotTask(HydraMixin, law.Task):
     )  # type: ignore
 
     def requires(self):
+        self.print_config_path_once()
         """Require MainTask to ensure all training is completed"""
         return MainTask(
             config_file=self.config_file,
+            hydra_overrides=self.hydra_overrides,
             results_path=self.abs_results_path,
         )
 
