@@ -121,7 +121,8 @@ class NeymanTask(luigi.Task):
                 MLE_ratio_arr[frac].append(mu)
                 print(f"Estimated mu: {mu}")
 
-        output_filename = os.path.join(self.output_path)
-
-        with open(output_filename, "w") as f:
+        with open(self.output_path, "w") as f:
             json.dump(MLE_ratio_arr, f)
+
+    def run(self) -> None:
+        self.create_neyman_construction()
