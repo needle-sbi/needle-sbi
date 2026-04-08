@@ -48,6 +48,7 @@ class HydraMixin:
     hydra_overrides: str = law.Parameter(
         description="Overrides to be passed to hydra. Type str. Format: 'key1=value1 key2=value2'",
         significant=False,
+        default="",
     )  # type: ignore
 
     _config: MainConfig

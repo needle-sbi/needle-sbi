@@ -45,9 +45,7 @@ class HistogramTask(luigi.Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not self.json_save_path.endswith(".json") and not os.path.exists(
-            Path(self.json_save_path).parent
-        ):
+        if not self.json_save_path.endswith(".json") and not os.path.exists(Path(self.json_save_path).parent):
             raise FileNotFoundError(
                 f"Argument `json_save_path`='{self.json_save_path}' must point to a valid .json file"
             )
@@ -108,15 +106,13 @@ class HistogramTask(luigi.Task):
         # Re-load models per worker (required for multiprocessing)
         nf_ckpts, classifier_ckpt = self.parse_snapshot(snapshot_path)
         nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
-        classifier = CombinedClassifier.load_from_checkpoint(
-            classifier_ckpt["classifier"]
-        )
+        classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
         classifier = classifier.to(device).eval().to(torch.float32)
 
         n_params = [1, 1, 1, j, i, 0]
         alljet_data, _ = createJetData(  # type: ignore
-            "all",
-            True,
+            jet_num="all",
+            useTestData=True,
             set_mu=1000,
             seed=0,
             n_param=n_params,
@@ -136,9 +132,7 @@ class HistogramTask(luigi.Task):
         total_label = np.concatenate([label_2j.cpu().numpy(), label_1j.cpu().numpy()])
 
         S_hist, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
-        BG_hist, _ = np.histogram(
-            total_score[total_label == 0], bins=bins, density=True
-        )
+        BG_hist, _ = np.histogram(total_score[total_label == 0], bins=bins, density=True)
         return (i, j), S_hist, BG_hist
 
     def create_histogram(self):
@@ -146,29 +140,21 @@ class HistogramTask(luigi.Task):
         tes_arr = np.linspace(0.9, 1.1, 10)
         bins = np.linspace(0, 1, num=200)
 
-        args_list = [
-            (i, j, self.snapshot_path, self.root_dir, bins)
-            for j in tes_arr
-            for i in jes_arr
-        ]
+        args_list = [(i, j, self.snapshot_path, self.root_dir, bins) for j in tes_arr for i in jes_arr]
 
         hist_dict_class = {}
 
         with ProcessPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(self._compute_histogram_entry, args): args
-                for args in args_list
-            }
+            futures = {executor.submit(self._compute_histogram_entry, args): args for args in args_list}
 
             for future in tqdm(
                 as_completed(futures), total=len(args_list), desc="Grid"
-            ):
+            ):  # TODO Grid progress bar is not loading
                 key, S_hist, BG_hist = future.result()
                 hist_dict_class[key] = [S_hist, BG_hist]
 
         serializable_dict = {
-            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()}
-            for key, val in hist_dict_class.items()
+            str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()} for key, val in hist_dict_class.items()
         }
         with open(self.json_save_path, "w") as f:
             json.dump(serializable_dict, f)

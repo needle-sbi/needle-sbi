@@ -29,37 +29,26 @@ class PredictTask(luigi.Task):
     output_path: str = luigi.Parameter(description="Path to save the result file (.json).")  # type: ignore
     root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json).")  # type: ignore
-    neyman_path = luigi.Parameter(
-        description="Path to the Neyman construction file (.json)"
-    )
+    neyman_path = luigi.Parameter(description="Path to the Neyman construction file (.json)")
     mu: float = luigi.FloatParameter(description="Hyperparameter 'mu'", default=1.0)  # type: ignore
-    predict_on_test = luigi.BoolParameter(
-        description="Whether to test on a test dataset", default=True
-    )
+    predict_on_test = luigi.BoolParameter(description="Whether to test on a test dataset", default=True)
     predict_num_events: int = luigi.IntParameter(
         description="Number of events to test if predict_mu_test is False",
-        default=10,
+        default=0,
     )  # type: ignore
     device = "cpu"
 
     def predict(self) -> None:
-        print(f"Running pipeline on test dataset with {self.mu}")
+        print(f"Running pipeline on test dataset with mu={self.mu}")
 
         with open(self.hist_path, "r") as f:
             serializable_dict = json.load(f)
 
-        hist_dict = {
-            key: (np.array(v["sig"]), np.array(v["bg"]))
-            for key, v in serializable_dict.items()
-        }
+        hist_dict = {key: (np.array(v["sig"]), np.array(v["bg"])) for key, v in serializable_dict.items()}
 
         # Create dictionaries mapping parameter tuples to signal and background arrays.
-        S_templates_2d_2j = {
-            string_to_tuple_str(i): hist_dict[i][0] for i in hist_dict.keys()
-        }
-        B_templates_2d_2j = {
-            string_to_tuple_str(i): hist_dict[i][1] for i in hist_dict.keys()
-        }
+        S_templates_2d_2j = {string_to_tuple_str(i): hist_dict[i][0] for i in hist_dict.keys()}
+        B_templates_2d_2j = {string_to_tuple_str(i): hist_dict[i][1] for i in hist_dict.keys()}
 
         # Fit 2D splines bin-by-bin using the dictionaries.
         bin_splines_S_class = fit_2D_splines_bin_by_bin_from_dict(S_templates_2d_2j)
@@ -90,10 +79,9 @@ class PredictTask(luigi.Task):
         results: Dict[str, Any] = {"mu": self.mu}
 
         if not self.predict_num_events:
+            print("Running in prediction mode")
             # Split the data into 2-jet and 1-jet subsets.
-            data_2j, data_1j, label_2j, label_1j = return1j2j(
-                alljet_data, models, device=self.device
-            )
+            data_2j, data_1j, label_2j, label_1j = return1j2j(alljet_data, models, device=self.device)
 
             # Compute the MLE mu using the provided classifier and fitted splines.
             mu = compute_mu_nuan_2NP_class(
@@ -103,24 +91,20 @@ class PredictTask(luigi.Task):
                 bin_splines_S_class,
                 bin_splines_BG_class,
             )
-            mu_MLE, mu_lower, mu_upper = get_confidence_interval(
-                mu, std_corrected_interp, a, b
-            )
+            mu_MLE, mu_lower, mu_upper = get_confidence_interval(mu, std_corrected_interp, a, b)
 
             results.update(
                 {
                     "real_mu": self.mu,
-                    "predicted_mu": mu_MLE,
-                    "ci_lower": mu_lower,
-                    "ci_upper": mu_upper,
+                    "mu_hat": mu_MLE,
+                    "p16": mu_lower,
+                    "p84": mu_upper,
                     "delta_mu_hat": abs(mu_upper - mu_lower) / 2,
                 }
             )
 
         else:
-            print(
-                f"Running classifier (not as 'mu' estimator) for {self.predict_num_events} events"
-            )
+            print(f"Running classifier (not as 'mu' estimator) for {self.predict_num_events} events")
             data_2j, data_1j, label_2j, label_1j = return1j2j(
                 alljet_data,
                 models,

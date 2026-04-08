@@ -1,9 +1,10 @@
 import graphlib
 import inspect
 from pathlib import Path
-from typing import Any, List, Literal, Mapping, cast
+from typing import Any, List, Literal, Mapping, Type, cast
 
 import hydra
+import luigi
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning import LightningDataModule as LegacyDataModule
@@ -185,11 +186,34 @@ def hydra_check_if_arg_supported(
         return False
 
     cls = hydra.utils.get_class(cfg._target_)
-    sig = inspect.signature(cls.__init__).parameters
 
-    return (arg_name in sig) or any(  # check positional parameter
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()
-    )  # check keyword arguments
+    if issubclass(cls, luigi.Task):
+        is_luigi_parameter = hydra_check_if_luigi_parameter_supported(cls, arg_name=arg_name)
+    else:
+        is_luigi_parameter = False
+
+    sig = inspect.signature(cls.__init__).parameters
+    is_kwarg = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values())
+
+    return ((arg_name in sig) or is_luigi_parameter) and is_kwarg  # check luigi parameters  # make sure its a kwarg
+
+
+def hydra_check_if_luigi_parameter_supported(task: Type[luigi.Task], arg_name: str) -> bool:
+    """Check if an argument is a luigi.Parameter. These are not regular Args, but instead class
+    attributes that are set during the requires() and run() methods.
+
+    Args:
+        task (Type[luigi.Task]): Task to check
+        arg_name (str): Name of the Parameter to check
+
+    Returns:
+        bool: True if the arg is a valid luigi.Parameter attribute of the Task, False otherwise
+    """
+    for name, var in vars(task).items():
+        if isinstance(var, luigi.Parameter) and (name == arg_name):
+            return True
+    else:
+        return False
 
 
 def hydra_instantiate(
