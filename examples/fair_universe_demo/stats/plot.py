@@ -5,7 +5,8 @@ Adapted by: K. Schmidt
 """
 
 import json
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Dict, List, Optional
 
 import luigi
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ class PlottingTask(luigi.Task):
         return _test_settings
 
     @property
-    def ingestion_results(self) -> PredictResult:
+    def ingestion_results(self) -> Dict[int, PredictResult]:
         with open(self.ingestion_results_path, "r") as f:
             _ingestion_results = json.load(f)
 
@@ -42,8 +43,8 @@ class PlottingTask(luigi.Task):
 
     @staticmethod
     def visualize_scatter(
-        ingestion_result_dict: PredictResult,
-        ground_truth_mu: Dict[str, Any],
+        ingestion_result_dict: Dict[int, PredictResult],
+        ground_truth_mu: Dict[int, List[float]],
         savepath: Optional[str] = None,
     ) -> None:
         """
@@ -56,10 +57,9 @@ class PlottingTask(luigi.Task):
         """
         plt.figure(figsize=(6, 4))
 
-        for key in ingestion_result_dict.keys():
-            ingestion_result = ingestion_result_dict[key]
+        for test_set_index, ingestion_result in ingestion_result_dict.items():
             mu_hat = np.mean(ingestion_result["mu_hat"])
-            mu = ground_truth_mu[key]
+            mu = ground_truth_mu[int(test_set_index)]
             plt.scatter(mu, mu_hat, c="b", marker="o")
 
         plt.xlabel("Ground Truth $\\mu$")
@@ -67,11 +67,13 @@ class PlottingTask(luigi.Task):
         plt.title("Ground Truth vs. Predicted $\\mu$ Values")
 
         if savepath:
-            plt.savefig(savepath)
+            plt.savefig(os.path.join(savepath, "ground_truth_vs_predicted_mu"))
         else:
             plt.show()
 
     def run(self) -> None:
+        os.makedirs(os.path.abspath(self.plot_save_dir), exist_ok=True)
+
         self.visualize_scatter(
             ingestion_result_dict=self.ingestion_results,
             ground_truth_mu=self.test_settings["ground_truth_mus"],

@@ -101,14 +101,22 @@ downstream_tasks:
     args:
       _target_: examples.fair_universe_demo.stats.predict.PredictTask
       hist_path: "${results_path}/hist.json"
-      output_path: "${results_path}/prediction.json"
       root_dir: ${custom_settings.root_dir}
       neyman_path: "${results_path}/neyman.json"
+      output_path: "${results_path}/prediction.json"
   eval:
     requires: ["predict"]
     args:
       _target_: examples.fair_universe_demo.stats.eval.EvalTask
       root_dir: "${custom_settings.root_dir}"
-      output_path: "${results_path}/eval.json"
       test_settings_path: "examples/fair_universe_demo/test_settings.json"
       predict_path: "${results_path}/prediction.json"
+      output_path: "${results_path}/eval.json"
+  plot:
+    requires: ["eval"]
+    args:
+      _target_: examples.fair_universe_demo.stats.plot.PlottingTask
+      root_dir: "${custom_settings.root_dir}"
+      test_settings_path: "examples/fair_universe_demo/test_settings.json"
+      ingestion_results_path: "${results_path}/eval.json"
+      plot_save_dir: "${results_path}/plots"
