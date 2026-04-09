@@ -15,6 +15,7 @@ from urllib.parse import parse_qs
 import luigi
 import numpy as np
 import torch
+from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
@@ -110,6 +111,7 @@ class HistogramTask(luigi.Task):
         classifier = classifier.to(device).eval().to(torch.float32)
 
         n_params = [1, 1, 1, j, i, 0]
+
         alljet_data, _ = createJetData(  # type: ignore
             jet_num="all",
             useTestData=True,
@@ -148,7 +150,10 @@ class HistogramTask(luigi.Task):
             futures = {executor.submit(self._compute_histogram_entry, args): args for args in args_list}
 
             for future in tqdm(
-                as_completed(futures), total=len(args_list), desc="Grid"
+                as_completed(futures),
+                total=len(args_list),
+                desc="Grid",
+                position=0,
             ):  # TODO Grid progress bar is not loading
                 key, S_hist, BG_hist = future.result()
                 hist_dict_class[key] = [S_hist, BG_hist]
@@ -159,5 +164,6 @@ class HistogramTask(luigi.Task):
         with open(self.json_save_path, "w") as f:
             json.dump(serializable_dict, f)
 
+    @timing
     def run(self) -> None:
         self.create_histogram()

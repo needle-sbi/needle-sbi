@@ -14,6 +14,7 @@ from typing import Any, Dict, List, TypedDict
 
 import luigi
 import numpy as np
+from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..utils.eval import predict
@@ -168,6 +169,7 @@ class EvalTask(luigi.Task):
         with open(self.output_path, "w") as f:
             f.write(json.dumps(results_dict_serializable, indent=4))
 
+    @timing
     def run(self) -> None:
         self.prepare()
         self.predict_submission()

@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 import luigi
 import numpy as np
 import torch
+from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
@@ -109,5 +110,6 @@ class NeymanTask(luigi.Task):
         with open(self.output_path, "w") as f:
             json.dump(MLE_ratio_arr, f)
 
+    @timing
     def run(self) -> None:
         self.create_neyman_construction()

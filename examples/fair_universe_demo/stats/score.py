@@ -1,4 +1,5 @@
 import json
+import os
 from functools import cached_property
 from logging import Logger
 from typing import Any, Dict
@@ -23,6 +24,8 @@ class ScoreTask(luigi.Task):
         return _test_settings
 
     def run(self) -> None:
+        os.makedirs(self.output_dir, exist_ok=True)
+
         scoring = Scoring()
 
         scoring.start_timer()

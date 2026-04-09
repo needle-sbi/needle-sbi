@@ -46,6 +46,13 @@ class PlottingTask(luigi.Task):
 
         return _ingestion_results
 
+    @cached_property
+    def scores(self):
+        with open(self.score_path) as f:
+            _scores = json.load(f)
+
+        return _scores
+
     @staticmethod
     def visualize_scatter(
         ingestion_result_dict: Dict[int, PredictResult],

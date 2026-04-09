@@ -29,62 +29,40 @@ def filterbyjet(jet_num: int, data_vis: Dict[str, Any] | pd.DataFrame):
     if jet_num == 2:
         # Filter rows with PRI_n_jets >= 2
         filtered_data = data_vis["data"][data_vis["data"]["PRI_n_jets"] >= jet_num]
-        filtered_det_labels = data_vis["detailed_labels"][
-            data_vis["data"]["PRI_n_jets"] >= jet_num
-        ]
-        filtered_weights = data_vis["weights"][
-            data_vis["data"]["PRI_n_jets"] >= jet_num
-        ]
-        _ = data_vis["labels"][
-            data_vis["data"]["PRI_n_jets"] >= jet_num
-        ]  # Unused in this branch
+        filtered_det_labels = data_vis["detailed_labels"][data_vis["data"]["PRI_n_jets"] >= jet_num]
+        filtered_weights = data_vis["weights"][data_vis["data"]["PRI_n_jets"] >= jet_num]
+        _ = data_vis["labels"][data_vis["data"]["PRI_n_jets"] >= jet_num]  # Unused in this branch
 
         # Drop columns containing 'PRI_n_jets' and those with zero variance
         cols_to_drop = [col for col in filtered_data.columns if "PRI_n_jets" in col]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
-        cols_to_drop = [
-            col for col in filtered_data.columns if np.std(filtered_data[col]) == 0
-        ]
+        cols_to_drop = [col for col in filtered_data.columns if np.std(filtered_data[col]) == 0]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         feature_names = list(filtered_data.columns)
 
     elif jet_num == 1:
         # Filter rows with exactly 1 jet
         filtered_data = data_vis["data"][data_vis["data"]["PRI_n_jets"] == jet_num]
-        filtered_det_labels = data_vis["detailed_labels"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]
+        filtered_det_labels = data_vis["detailed_labels"][data_vis["data"]["PRI_n_jets"] == jet_num]
         logger.debug(f"{filtered_det_labels.shape}")
-        _ = data_vis["labels"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]  # Unused variable
-        filtered_weights = data_vis["weights"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]
+        _ = data_vis["labels"][data_vis["data"]["PRI_n_jets"] == jet_num]  # Unused variable
+        filtered_weights = data_vis["weights"][data_vis["data"]["PRI_n_jets"] == jet_num]
 
         # Drop columns with 'PRI_n_jets', 'subleading', or zero variance
         cols_to_drop = [col for col in filtered_data.columns if "PRI_n_jets" in col]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         cols_to_drop = [col for col in filtered_data.columns if "subleading" in col]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
-        cols_to_drop = [
-            col for col in filtered_data.columns if np.std(filtered_data[col]) == 0
-        ]
+        cols_to_drop = [col for col in filtered_data.columns if np.std(filtered_data[col]) == 0]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         feature_names = list(filtered_data.columns)
 
     elif jet_num == 0:
         # Filter rows with exactly 0 jets
         filtered_data = data_vis["data"][data_vis["data"]["PRI_n_jets"] == jet_num]
-        filtered_det_labels = data_vis["detailed_labels"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]
-        _ = data_vis["labels"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]  # Unused variable
-        filtered_weights = data_vis["weights"][
-            data_vis["data"]["PRI_n_jets"] == jet_num
-        ]
+        filtered_det_labels = data_vis["detailed_labels"][data_vis["data"]["PRI_n_jets"] == jet_num]
+        _ = data_vis["labels"][data_vis["data"]["PRI_n_jets"] == jet_num]  # Unused variable
+        filtered_weights = data_vis["weights"][data_vis["data"]["PRI_n_jets"] == jet_num]
 
         # Drop columns with 'PRI_n_jets', 'jet', 'subleading', or zero variance
         cols_to_drop = [col for col in filtered_data.columns if "PRI_n_jets" in col]
@@ -93,15 +71,11 @@ def filterbyjet(jet_num: int, data_vis: Dict[str, Any] | pd.DataFrame):
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         cols_to_drop = [col for col in filtered_data.columns if "subleading" in col]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
-        cols_to_drop = [
-            col for col in filtered_data.columns if np.std(filtered_data[col]) == 0
-        ]
+        cols_to_drop = [col for col in filtered_data.columns if np.std(filtered_data[col]) == 0]
         filtered_data = filtered_data.drop(columns=cols_to_drop)
         feature_names = list(filtered_data.columns)
     else:
-        raise ValueError(
-            f"Variable `jet_num`={jet_num} is out of bounds (accepted are 0, 1 and 2)"
-        )
+        raise ValueError(f"Variable `jet_num`={jet_num} is out of bounds (accepted are 0, 1 and 2)")
 
     return filtered_data, filtered_det_labels, filtered_weights, feature_names
 
@@ -130,7 +104,7 @@ def createJetData(
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
-    n_param: List[float | None] = [1, 1, 1, 1, 1, 0],
+    n_param: List[float | None] = None,
     useRand: bool = False,
 ) -> Tuple[pd.DataFrame, pd.Series]:
     ...
@@ -145,7 +119,7 @@ def createJetData(
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
-    n_param: List[float | None] = [1, 1, 1, 1, 1, 0],
+    n_param: List[float | None] = None,
     useRand: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]:
     ...
@@ -159,11 +133,9 @@ def createJetData(
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
-    n_param: List[float | None] = [1, 1, 1, 1, 1, 0],
+    n_param: List[float | None] = None,
     useRand: bool = False,
-) -> (
-    Tuple[pd.DataFrame, pd.Series] | Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]
-):
+) -> Tuple[pd.DataFrame, pd.Series] | Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]:
     """
     Create jet data with optional systematic variations and data processing.
 
@@ -181,6 +153,9 @@ def createJetData(
         Returns a Tensor for the first item in the Tuple if 'useTestData' is False, otherwise return
         a Dict compatible with 'return1j2j' function call.
     """
+    if not n_param:
+        n_param = [1, 1, 1, 1, 1, 0]
+
     if loaded_data:
         data = loaded_data
     else:
@@ -189,15 +164,9 @@ def createJetData(
     # Optionally apply random systematic shifts
     if useRand:
         random_state = np.random.RandomState(seed)
-        n_param[-3] = np.clip(
-            random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
-        )
-        n_param[-2] = np.clip(
-            random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
-        )
-        n_param[-1] = np.clip(
-            random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0
-        )
+        n_param[-3] = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+        n_param[-2] = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+        n_param[-1] = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
         logger.debug(f"Number of parameters: {n_param}")
 
     # Get the test set (assumed to be defined in a global 'data' object)
@@ -289,15 +258,9 @@ def createJetData(
         ) = filterbyjet(jet_num, data_vis)
 
         # Determine event counts based on computed ratios
-        count_ztt = int(
-            len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ztt
-        )
-        count_ttbar = int(
-            len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ttbar
-        )
-        count_diboson = int(
-            len(filtered_data[filtered_det_labels != "htautau"]) * ratio_diboson
-        )
+        count_ztt = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ztt)
+        count_ttbar = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ttbar)
+        count_diboson = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_diboson)
 
         # Create balanced datasets for signal and backgrounds
         temp_labels = []
@@ -311,9 +274,7 @@ def createJetData(
         temp_labels.extend([0] * len(diboson_data))
 
         # Concatenate the subsets
-        filtered_data = pd.concat(
-            (signal_data, ztt_data, ttbar_data, diboson_data), ignore_index=True
-        )
+        filtered_data = pd.concat((signal_data, ztt_data, ttbar_data, diboson_data), ignore_index=True)
 
     # Convert to torch tensors
     filtered_data = torch.tensor(filtered_data.values)
@@ -347,7 +308,7 @@ def createMultiJetMultiNuanData(
     metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
     set_mu: int = 3,
     seed: int = 0,
-    n_param: List[int] = [1, 1, 1, 1, 1, 0],
+    n_param: List[int] = None,
 ):
     """
     Create multi-jet multi-nuisance data by processing multiple sub-datasets.
@@ -363,6 +324,9 @@ def createMultiJetMultiNuanData(
         tuple[torch.Tensor, torch.Tensor, np.ndarray, list]:
             Processed data tensor, label tensor, weights, and feature names.
     """
+    if not n_param:
+        n_param = [1, 1, 1, 1, 1, 0]
+
     data = Data(
         input_dir=root_dir,
         parquet_filename=parquet_filename,
@@ -405,9 +369,7 @@ def createMultiJetMultiNuanData(
         soft_met=n_param[5],
     )
 
-    filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(
-        jet_num, data_vis
-    )
+    filtered_data, filtered_det_labels, filtered_weights, feature_names = filterbyjet(jet_num, data_vis)
     temp_labels = filtered_det_labels.values == "htautau"
     temp_labels = torch.tensor([int(val) for val in temp_labels])
 
@@ -445,29 +407,19 @@ def createMultiJetMultiNuanData(
                 if key != "settings":
                     try:
                         temp_df = data_vis_sub[key]
-                        temp_df = temp_df.iloc[
-                            MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)
-                        ].reset_index(drop=True)
+                        temp_df = temp_df.iloc[MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)].reset_index(drop=True)
                         data_vis_sub[key] = temp_df
                     except Exception:
-                        data_vis_sub[key] = data_vis_sub[key][
-                            MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)
-                        ]
+                        data_vis_sub[key] = data_vis_sub[key][MAX_SUB_EVENTS * i : MAX_SUB_EVENTS * (i + 1)]
 
             if data_vis_sub["data"].empty:
                 # Case where len(data_vis_sub["data"]) < MAX_SUB_EVENTS (e.g. dataset smaller then subset)
                 break
 
             # Apply random systematic shifts for this subset
-            tes_val = np.clip(
-                random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
-            )
-            jes_val = np.clip(
-                random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
-            )
-            soft_met_val = np.clip(
-                random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0
-            )
+            tes_val = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+            jes_val = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+            soft_met_val = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
 
             data_vis_sub_sys = systematics(
                 data_set=data_vis_sub,
@@ -484,15 +436,9 @@ def createMultiJetMultiNuanData(
                 feature_names,
             ) = filterbyjet(jet_num, data_vis_sub_sys)
 
-            count_ztt = int(
-                len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ztt
-            )
-            count_ttbar = int(
-                len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ttbar
-            )
-            count_diboson = int(
-                len(filtered_data[filtered_det_labels != "htautau"]) * ratio_diboson
-            )
+            count_ztt = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ztt)
+            count_ttbar = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_ttbar)
+            count_diboson = int(len(filtered_data[filtered_det_labels != "htautau"]) * ratio_diboson)
 
             temp_labels = []
             signal_data = filtered_data[filtered_det_labels == "htautau"]
@@ -501,14 +447,10 @@ def createMultiJetMultiNuanData(
             temp_labels.extend([0] * len(ztt_data))
             ttbar_data = filtered_data[filtered_det_labels == "ttbar"][:count_ttbar]
             temp_labels.extend([0] * len(ttbar_data))
-            diboson_data = filtered_data[filtered_det_labels == "diboson"][
-                :count_diboson
-            ]
+            diboson_data = filtered_data[filtered_det_labels == "diboson"][:count_diboson]
             temp_labels.extend([0] * len(diboson_data))
 
-            filtered_data = pd.concat(
-                (signal_data, ztt_data, ttbar_data, diboson_data), ignore_index=True
-            )
+            filtered_data = pd.concat((signal_data, ztt_data, ttbar_data, diboson_data), ignore_index=True)
             filtered_data = torch.tensor(filtered_data.values)
             filtered_det_labels = torch.tensor(temp_labels)
 
@@ -549,9 +491,7 @@ class Dataset1j2j(Dataset):
         - 'l_1j': Labels for 1-jet events.
     """
 
-    def __init__(
-        self, data_sys_list_2j, data_sys_list_1j, label_list_2j, label_list_1j
-    ):
+    def __init__(self, data_sys_list_2j, data_sys_list_1j, label_list_2j, label_list_1j):
         self.samples = []
         for i in range(len(data_sys_list_2j)):
             self.samples.append(
@@ -605,9 +545,7 @@ def return1j2j(
             - 1-jet labels (binary: 1 for htautau, 0 otherwise).
     """
     # Process 2-jet events
-    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(
-        2, alljet_data
-    )
+    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(2, alljet_data)
     temp_labels = filtered_det_labels.values == "htautau"
     temp_labels = torch.tensor([int(val) for val in temp_labels])
     data_2j = torch.tensor(filtered_data.values)
@@ -624,9 +562,7 @@ def return1j2j(
             data_2j[:, col_idx] = torch.log(data_2j[:, col_idx])
 
     # Process 1-jet events
-    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(
-        1, alljet_data
-    )
+    filtered_data, filtered_det_labels, _filtered_weights, _feature_names = filterbyjet(1, alljet_data)
     temp_labels = filtered_det_labels.values == "htautau"
     temp_labels = torch.tensor([int(val) for val in temp_labels])
     data_1j = torch.tensor(filtered_data.values)
@@ -656,40 +592,18 @@ def return1j2j(
 
     with torch.no_grad():
         try:
-            NF_s1j_0p5 = torch.sigmoid(
-                models["nf_signal_1jet&c_0p5"](data_1j)
-            ).unsqueeze(1)
-            NF_b1j_0p5 = torch.sigmoid(
-                models["nf_background_1jet&c_0p5"](data_1j)
-            ).unsqueeze(1)
-            NF_s1j_2p0 = torch.sigmoid(
-                models["nf_signal_1jet&c_2p0"](data_1j)
-            ).unsqueeze(1)
-            NF_b1j_2p0 = torch.sigmoid(
-                models["nf_background_1jet&c_2p0"](data_1j)
-            ).unsqueeze(1)
-            NF_s2j_0p5 = torch.sigmoid(
-                models["nf_signal_2jet&c_0p5"](data_2j)
-            ).unsqueeze(1)
-            NF_b2j_0p5 = torch.sigmoid(
-                models["nf_background_2jet&c_0p5"](data_2j)
-            ).unsqueeze(1)
-            NF_s2j_2p0 = torch.sigmoid(
-                models["nf_signal_2jet&c_2p0"](data_2j)
-            ).unsqueeze(1)
-            NF_b2j_2p0 = torch.sigmoid(
-                models["nf_background_2jet&c_2p0"](data_2j)
-            ).unsqueeze(1)
+            NF_s1j_0p5 = torch.sigmoid(models["nf_signal_1jet&c_0p5"](data_1j)).unsqueeze(1)
+            NF_b1j_0p5 = torch.sigmoid(models["nf_background_1jet&c_0p5"](data_1j)).unsqueeze(1)
+            NF_s1j_2p0 = torch.sigmoid(models["nf_signal_1jet&c_2p0"](data_1j)).unsqueeze(1)
+            NF_b1j_2p0 = torch.sigmoid(models["nf_background_1jet&c_2p0"](data_1j)).unsqueeze(1)
+            NF_s2j_0p5 = torch.sigmoid(models["nf_signal_2jet&c_0p5"](data_2j)).unsqueeze(1)
+            NF_b2j_0p5 = torch.sigmoid(models["nf_background_2jet&c_0p5"](data_2j)).unsqueeze(1)
+            NF_s2j_2p0 = torch.sigmoid(models["nf_signal_2jet&c_2p0"](data_2j)).unsqueeze(1)
+            NF_b2j_2p0 = torch.sigmoid(models["nf_background_2jet&c_2p0"](data_2j)).unsqueeze(1)
         except KeyError as e:
-            raise KeyError(
-                f"No key `{e}` found in model Dict. Available keys are {models.keys()}"
-            )
+            raise KeyError(f"No key `{e}` found in model Dict. Available keys are {models.keys()}")
         # Append the NF features to the original data
-        data_1j = torch.cat(
-            [data_1j, NF_s1j_0p5, NF_s1j_2p0, NF_b1j_0p5, NF_b1j_2p0], dim=1
-        )
-        data_2j = torch.cat(
-            [data_2j, NF_s2j_0p5, NF_s2j_2p0, NF_b2j_0p5, NF_b2j_2p0], dim=1
-        )
+        data_1j = torch.cat([data_1j, NF_s1j_0p5, NF_s1j_2p0, NF_b1j_0p5, NF_b1j_2p0], dim=1)
+        data_2j = torch.cat([data_2j, NF_s2j_0p5, NF_s2j_2p0, NF_b2j_0p5, NF_b2j_2p0], dim=1)
 
     return data_2j, data_1j, label_2j, label_1j
