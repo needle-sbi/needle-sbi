@@ -50,7 +50,9 @@ class V4:
         self.pz = apz
         self.e = ae
         if self.e + 1e-3 < self.p():
-            raise ValueError("Energy is too small! Energy: {}, p: {}".format(self.e, self.p()))
+            raise ValueError(
+                "Energy is too small! Energy: {}, p: {}".format(self.e, self.p())
+            )
 
     def copy(self):
         """
@@ -297,7 +299,9 @@ def diboson_bkg_weight_norm(weights, detailedlabel, systBkgNorm):
         array-like: The scaled weights
 
     """
-    weights[detailedlabel == "diboson"] = weights[detailedlabel == "diboson"] * systBkgNorm
+    weights[detailedlabel == "diboson"] = (
+        weights[detailedlabel == "diboson"] * systBkgNorm
+    )
     return weights
 
 
@@ -345,7 +349,9 @@ def mom4_manipulate(data, systTauEnergyScale, systJetEnergyScale, soft_met, seed
         data["PRI_had_pt"] *= systTauEnergyScale
 
         vtau = V4()
-        vtau.setPtEtaPhiM(data["PRI_had_pt"], data["PRI_had_eta"], data["PRI_had_phi"], 0.8)
+        vtau.setPtEtaPhiM(
+            data["PRI_had_pt"], data["PRI_had_eta"], data["PRI_had_phi"], 0.8
+        )
 
         vtauDeltaMinus = vtau.copy()
         vtauDeltaMinus.scaleFixedM((1.0 - systTauEnergyScale) / systTauEnergyScale)
@@ -422,9 +428,15 @@ def mom4_manipulate(data, systTauEnergyScale, systJetEnergyScale, soft_met, seed
     data["PRI_jet_leading_pt"] = data["PRI_jet_leading_pt"].round(decimals=DECIMALS)
     data["PRI_jet_leading_eta"] = data["PRI_jet_leading_eta"].round(decimals=DECIMALS)
     data["PRI_jet_leading_phi"] = data["PRI_jet_leading_phi"].round(decimals=DECIMALS)
-    data["PRI_jet_subleading_pt"] = data["PRI_jet_subleading_pt"].round(decimals=DECIMALS)
-    data["PRI_jet_subleading_eta"] = data["PRI_jet_subleading_eta"].round(decimals=DECIMALS)
-    data["PRI_jet_subleading_phi"] = data["PRI_jet_subleading_phi"].round(decimals=DECIMALS)
+    data["PRI_jet_subleading_pt"] = data["PRI_jet_subleading_pt"].round(
+        decimals=DECIMALS
+    )
+    data["PRI_jet_subleading_eta"] = data["PRI_jet_subleading_eta"].round(
+        decimals=DECIMALS
+    )
+    data["PRI_jet_subleading_phi"] = data["PRI_jet_subleading_phi"].round(
+        decimals=DECIMALS
+    )
     data["PRI_jet_all_pt"] = data["PRI_jet_all_pt"].round(decimals=DECIMALS)
 
     return data
@@ -442,7 +454,9 @@ def make_unweighted_set(data_set):
     keys = ["htautau", "ztautau", "ttbar", "diboson"]
     unweighted_set = {}
     for key in keys:
-        unweighted_set[key] = data_set["data"][data_set["detailedlabel"] == key].sample(frac=1, random_state=31415)
+        unweighted_set[key] = data_set["data"][data_set["detailedlabel"] == key].sample(
+            frac=1, random_state=31415
+        )
 
     return unweighted_set
 
@@ -562,10 +576,14 @@ def systematics(
             weights = np.ones(data_syst.shape[0])
 
         if ttbar_scale is not None:
-            weights = ttbar_bkg_weight_norm(weights, data_syst["detailed_labels"], ttbar_scale)
+            weights = ttbar_bkg_weight_norm(
+                weights, data_syst["detailed_labels"], ttbar_scale
+            )
 
         if diboson_scale is not None:
-            weights = diboson_bkg_weight_norm(weights, data_syst["detailed_labels"], diboson_scale)
+            weights = diboson_bkg_weight_norm(
+                weights, data_syst["detailed_labels"], diboson_scale
+            )
 
         if bkg_scale is not None:
             weights = all_bkg_weight_norm(weights, data_syst["labels"], bkg_scale)
@@ -597,7 +615,7 @@ def get_bootstrapped_dataset(
     diboson_scale=None,
     bkg_scale=None,
     poisson=True,
-):
+) -> pd.DataFrame:
     """
     Generate a bootstrapped dataset
 
@@ -710,7 +728,9 @@ def repeat_rows_by_weight(data_set: pd.DataFrame, seed=31415) -> pd.DataFrame:
     # Reset index to avoid duplicate indices
     repeated_data_set.reset_index(drop=True, inplace=True)
 
-    repeated_data_set = repeated_data_set.sample(frac=1, random_state=seed).reset_index(drop=True)
+    repeated_data_set = repeated_data_set.sample(frac=1, random_state=seed).reset_index(
+        drop=True
+    )
 
     repeated_data_set.drop(columns="weights", inplace=True)
 

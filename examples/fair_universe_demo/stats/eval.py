@@ -7,16 +7,17 @@ Adapted by: K. Schmidt
 # flake8: noqa: E704
 
 import json
+from functools import cached_property
 from itertools import product
 from logging import Logger
 from typing import Any, Dict, List, TypedDict
 
 import luigi
 import numpy as np
-import pandas as pd
+from tqdm import tqdm
 
 from ..utils.selection import load_train_set_data
-from ..utils.systematics import get_bootstrapped_dataset, get_systematics_dataset
+from .predict import PredictTask
 
 logger = Logger("eval")
 
@@ -36,63 +37,30 @@ class PredictResult(TypedDict):
 
 
 class EvalTask(luigi.Task):
+    hist_path: str = luigi.Parameter(description="Path to the histogram file (.json).")  # type: ignore
     root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
     output_path: str = luigi.Parameter(description="Path to save the result file (.json).")  # type: ignore
+    snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json).")  # type: ignore
+    neyman_path: str = luigi.Parameter(description="Path to the Neyman construction file (.json)")  # type: ignore
     test_settings_path: str = luigi.Parameter(description="Path to the test settings file (.json)")  # type: ignore
     predict_path: str = luigi.Parameter(description="Path to the prediction generated from the 'PredictTask'")  # type: ignore
 
     DEFAULT_INGESTION_SEED = 31415
 
-    def __init__(self, test_args=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @property
+    @cached_property
     def test_settings(self) -> Dict[str, Any]:
         with open(self.test_settings_path, "r") as f:
             _test_settings = json.load(f)
 
         return _test_settings
 
-    @property
-    def model_prediction(self) -> ModelResult:
-        with open(self.predict_path, "r") as f:
-            _prediction = json.load(f)
-
-        return _prediction
-
-    @staticmethod
-    def _generate_pseudo_exp_data(
-        data: Dict | pd.DataFrame,
-        set_mu: float = 1.0,
-        tes: float = 1.0,
-        jes: float = 1.0,
-        soft_met: float = 0.0,
-        ttbar_scale=None,
-        diboson_scale=None,
-        bkg_scale=None,
-        seed: int = 0,
-    ) -> Dict | pd.DataFrame:
-        pesudo_exp_data = get_bootstrapped_dataset(
-            data,
-            mu=set_mu,
-            ttbar_scale=ttbar_scale,
-            diboson_scale=diboson_scale,
-            bkg_scale=bkg_scale,
-            seed=seed,
-        )
-        test_set = get_systematics_dataset(
-            pesudo_exp_data,
-            tes=tes,
-            jes=jes,
-            soft_met=soft_met,
-        )
-        return test_set
-
     def prepare(self) -> None:
         self.data = load_train_set_data(self.root_dir)
 
     def predict_submission(self, initial_seed: int = DEFAULT_INGESTION_SEED):
-        logger.info("Calling predict method of submitted model with seed: %s", initial_seed)
+        logger.info(
+            "Calling predict method of submitted model with seed: %s", initial_seed
+        )
 
         dict_systematics = self.test_settings["systematics"]
         num_pseudo_experiments = self.test_settings["num_pseudo_experiments"]
@@ -108,11 +76,9 @@ class EvalTask(luigi.Task):
         random_state_initial = np.random.RandomState(initial_seed)
         random_state_initial.shuffle(all_combinations)
 
-        full_test_set = self.data.get_test_set()
-
         self.results_dict: PredictResult = {}  # type: ignore
 
-        for set_index, test_set_index in all_combinations:
+        for set_index, test_set_index in tqdm(all_combinations, leave=None):
             seed = (set_index * num_pseudo_experiments) + test_set_index + initial_seed
 
             # get mu value of set from test settings
@@ -121,49 +87,67 @@ class EvalTask(luigi.Task):
             random_state = np.random.RandomState(seed)
 
             if dict_systematics["tes"]:
-                tes = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+                tes = np.clip(
+                    random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
+                )
             else:
                 tes = 1.0
             if dict_systematics["jes"]:
-                jes = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+                jes = np.clip(
+                    random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1
+                )
             else:
                 jes = 1.0
             if dict_systematics["soft_met"]:
-                soft_met = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
+                soft_met = np.clip(
+                    random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0
+                )
             else:
                 soft_met = 0.0
 
             if dict_systematics["ttbar_scale"]:
-                ttbar_scale = np.clip(random_state.normal(loc=1.0, scale=0.02), a_min=0.8, a_max=1.2)
+                ttbar_scale = np.clip(
+                    random_state.normal(loc=1.0, scale=0.02), a_min=0.8, a_max=1.2
+                )
             else:
                 ttbar_scale = None
 
             if dict_systematics["diboson_scale"]:
-                diboson_scale = np.clip(random_state.normal(loc=1.0, scale=0.25), a_min=0.0, a_max=2.0)
+                diboson_scale = np.clip(
+                    random_state.normal(loc=1.0, scale=0.25), a_min=0.0, a_max=2.0
+                )
             else:
                 diboson_scale = None
 
             if dict_systematics["bkg_scale"]:
-                bkg_scale = np.clip(random_state.normal(loc=1.0, scale=0.001), a_min=0.99, a_max=1.01)
+                bkg_scale = np.clip(
+                    random_state.normal(loc=1.0, scale=0.001), a_min=0.99, a_max=1.01
+                )
             else:
                 bkg_scale = None
 
-            test_set = self._generate_pseudo_exp_data(
-                data=full_test_set,
-                set_mu=set_mu,
-                tes=tes,
-                jes=jes,
-                soft_met=soft_met,
-                ttbar_scale=ttbar_scale,
-                diboson_scale=diboson_scale,
-                bkg_scale=bkg_scale,
-                seed=seed,
+            logger.debug(
+                f"set_index: {set_index} - test_set_index: {test_set_index} - seed: {seed}"
             )
 
-            logger.debug(f"set_index: {set_index} - test_set_index: {test_set_index} - seed: {seed}")
-
+            model_prediction = PredictTask.predict(
+                mu=set_mu,
+                hist_path=self.hist_path,
+                neyman_path=self.neyman_path,
+                snapshot_path=self.snapshot_path,
+                root_dir=self.root_dir,
+                nuissance_parameters=[
+                    tes,
+                    jes,
+                    soft_met,
+                    ttbar_scale,
+                    diboson_scale,
+                    bkg_scale,
+                ],
+                predict_num_events=0,
+            )
             predicted_dict = {}
-            predicted_dict.update(self.model_prediction)
+            predicted_dict.update(model_prediction)
             predicted_dict["test_set_index"] = test_set_index
 
             logger.debug(f"Predicted: {predicted_dict}")
@@ -194,7 +178,9 @@ class EvalTask(luigi.Task):
             self.results_dict[key] = ingestion_result_dict
 
     def save_result(self):
-        results_dict_serializable = {int(key): val for key, val in self.results_dict.items()}
+        results_dict_serializable = {
+            int(key): val for key, val in self.results_dict.items()
+        }
 
         with open(self.output_path, "w") as f:
             f.write(json.dumps(results_dict_serializable, indent=4))
