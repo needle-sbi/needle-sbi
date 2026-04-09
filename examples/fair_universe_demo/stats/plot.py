@@ -6,11 +6,13 @@ Adapted by: K. Schmidt
 
 import json
 import os
+from functools import cached_property
 from typing import Any, Dict, List, Optional
 
 import luigi
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import roc_auc_score, roc_curve
 
 from .eval import PredictResult
 
@@ -27,14 +29,14 @@ class PlottingTask(luigi.Task):
         description="Path to the directory where to save the plots resulting from this Task",
     )  # type: ignore
 
-    @property
+    @cached_property
     def test_settings(self) -> Dict[str, Any]:
         with open(self.test_settings_path, "r") as f:
             _test_settings = json.load(f)
 
         return _test_settings
 
-    @property
+    @cached_property
     def ingestion_results(self) -> Dict[int, PredictResult]:
         with open(self.ingestion_results_path, "r") as f:
             _ingestion_results = json.load(f)
@@ -68,6 +70,49 @@ class PlottingTask(luigi.Task):
 
         if savepath:
             plt.savefig(os.path.join(savepath, "ground_truth_vs_predicted_mu"))
+        else:
+            plt.show()
+
+    @staticmethod
+    def roc_curve_wrapper(
+        score: np.ndarray,
+        labels: np.ndarray,
+        weights: np.ndarray,
+        savepath: str,
+        *,
+        plot_label: str = "model",
+        color="b",
+        lw: int = 2,
+    ) -> None:
+        """
+        Plots the ROC curve.
+
+        Args:
+            * score (ndarray): The score.
+            * labels (ndarray): The labels.
+            * weights (ndarray): The weights.
+            * plot_label (str, optional): The plot label. Defaults to "model".
+            * color (str, optional): The color. Defaults to "b".
+            * lw (int, optional): The line width. Defaults to 2.
+        """
+        plt.figure(figsize=(8, 7))
+
+        auc = roc_auc_score(y_true=labels, y_score=score, sample_weight=weights)
+        fpr, tpr, _ = roc_curve(y_true=labels, y_score=score, sample_weight=weights)
+
+        plt.plot(
+            fpr, tpr, color=color, lw=lw, label=plot_label + " AUC :" + f"{auc:.3f}"
+        )
+        plt.plot([0, 1], [0, 1], color="k", lw=lw, linestyle="--")
+        plt.xlim([-0.01, 1.01])
+        plt.ylim([-0.01, 1.01])
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC")
+        plt.legend(loc="lower right")
+
+        if savepath:
+            plt.savefig(os.path.join(savepath, "roc_curve"))
         else:
             plt.show()
 

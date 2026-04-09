@@ -114,6 +114,13 @@ downstream_tasks:
       test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
       predict_path: "${results_path}/prediction.json"
       output_path: "${results_path}/eval.json"
+  score:
+    requires: ["eval"]
+    args:
+      _target_: examples.fair_universe_demo.stats.score.ScoreTask
+      predict_path: "${results_path}/eval.json"
+      output_dir: "${results_path}/scores/"
+      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
   plot:
     requires: ["eval"]
     args:
