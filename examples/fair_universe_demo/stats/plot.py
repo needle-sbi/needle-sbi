@@ -25,6 +25,9 @@ class PlottingTask(luigi.Task):
     ingestion_results_path: str = luigi.Parameter(
         description="Path to the result file from the 'EvalTask' (aka. Ingestion)",
     )  # type: ignore
+    score_path: str = luigi.Parameter(
+        description="Path to the score file from the 'ScoreTask'",
+    )  # type: ignore
     plot_save_dir: str = luigi.Parameter(
         description="Path to the directory where to save the plots resulting from this Task",
     )  # type: ignore
@@ -100,9 +103,7 @@ class PlottingTask(luigi.Task):
         auc = roc_auc_score(y_true=labels, y_score=score, sample_weight=weights)
         fpr, tpr, _ = roc_curve(y_true=labels, y_score=score, sample_weight=weights)
 
-        plt.plot(
-            fpr, tpr, color=color, lw=lw, label=plot_label + " AUC :" + f"{auc:.3f}"
-        )
+        plt.plot(fpr, tpr, color=color, lw=lw, label=plot_label + " AUC :" + f"{auc:.3f}")
         plt.plot([0, 1], [0, 1], color="k", lw=lw, linestyle="--")
         plt.xlim([-0.01, 1.01])
         plt.ylim([-0.01, 1.01])

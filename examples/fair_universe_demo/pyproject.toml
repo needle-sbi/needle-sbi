@@ -1,6 +1,6 @@
 [project]
 name = "fair-universe-demo"
-version = "0.1.0"
+version = "0.2.0"
 description = "A pure Lightning implementation of the Contrastive Normalizing Flow solution for FAIR Universe HiggsML Challenge"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,3 +21,23 @@ dependencies = [
     "plotly>=6.6.0",
     "pre-commit>=4.1.0",
 ]
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["dask.*", "dask_awkward.*"]
+ignore_missing_imports = true
+
+[tool.flake8]
+max_line_length = 120
+extend_ignore = ["E203", "W503", "E704", "E123", "W293"]

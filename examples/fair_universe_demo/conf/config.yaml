@@ -96,14 +96,6 @@ downstream_tasks:
       hist_path: "${results_path}/hist.json"
       output_path: "${results_path}/neyman.json"
       root_dir: ${custom_settings.root_dir}
-  predict:
-    requires: ["neyman"]
-    args:
-      _target_: examples.fair_universe_demo.stats.predict.PredictTask
-      hist_path: "${results_path}/hist.json"
-      root_dir: ${custom_settings.root_dir}
-      neyman_path: "${results_path}/neyman.json"
-      output_path: "${results_path}/prediction.json"
   eval:
     requires: ["neyman"]
     args:
@@ -112,7 +104,6 @@ downstream_tasks:
       root_dir: "${custom_settings.root_dir}"
       neyman_path: "${results_path}/neyman.json"
       test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
-      predict_path: "${results_path}/prediction.json"
       output_path: "${results_path}/eval.json"
   score:
     requires: ["eval"]
@@ -122,7 +113,7 @@ downstream_tasks:
       output_dir: "${results_path}/scores/"
       test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
   plot:
-    requires: ["eval"]
+    requires: ["score"]
     args:
       _target_: examples.fair_universe_demo.stats.plot.PlottingTask
       root_dir: "${custom_settings.root_dir}"
