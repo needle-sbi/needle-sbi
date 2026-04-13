@@ -159,7 +159,7 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
         )  # TODO could be also solved with appropriate Protocol
 
         if not data_module_supports_folds:
-            raise TypeError(
+            logger.warning(
                 "The datamodule does not support the API for cross-fold validation. "
                 f"Your datamodule must accept the arguments: {folds_api_arguments} (type=int)"
             )
