@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, overload
+from typing import Dict, List, Set, Tuple, Union, overload
 
 import law
 import luigi
@@ -113,3 +113,38 @@ def convert_luigi_to_law_targets(
     if isinstance(luigi_targets, tuple):
         return tuple(_convert_single_luigi_to_law_target(target) for target in luigi_targets)
     raise TypeError(f"Target(s) of type: {type(luigi_targets)} must be `LocalTarget`, list or dict.")
+
+
+def collect_output_paths(
+    task: luigi.Task | law.Task,
+    visited: Set[str] = None,
+    current_depth: int = 0,
+    max_depth: int = -1,
+) -> List[str]:
+    visited = visited or set()
+
+    task_id = task.task_id
+
+    if task_id in visited:
+        return []
+
+    visited.add(task_id)
+
+    paths = []
+
+    for target in luigi.task.flatten(task.output()):
+        if hasattr(target, "path"):
+            paths.append(getattr(target, "path"))
+
+    if max_depth < 0 or current_depth < max_depth:
+        for dep in luigi.task.flatten(task.requires()):
+            paths.extend(
+                collect_output_paths(
+                    task=dep,  # type: ignore
+                    visited=visited,
+                    current_depth=current_depth + 1,
+                    max_depth=max_depth,
+                )
+            )
+
+    return paths

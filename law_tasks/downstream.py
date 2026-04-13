@@ -5,15 +5,16 @@ from typing import Dict
 
 import law
 import luigi
-from law_tasks.mixins.hydra import HydraMixin
-from law_tasks.snapshot import SnapshotTask
 from omegaconf import OmegaConf
+
+from law_tasks.mixins import CollectOutputMixin, HydraMixin
+from law_tasks.snapshot import SnapshotTask
 from orchestrator.config import DownstreamTaskConfig
 from orchestrator.config_utils import hydra_instantiate
-from orchestrator.luigi import convert_luigi_to_law_targets
+from orchestrator.luigi_utils import convert_luigi_to_law_targets
 
 
-class DownstreamTask(HydraMixin, law.Task):
+class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
     """Task which wraps an external Task that should run after the main training was performed.
 
     The task is configured via the ``downstream_tasks`` key in the config.yaml file. Each entry
