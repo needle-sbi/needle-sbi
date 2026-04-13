@@ -7,6 +7,7 @@ Adapted by: K. Schmidt
 import inspect
 import json
 import os
+from dataclasses import dataclass
 from functools import cached_property, wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, List
@@ -35,6 +36,10 @@ class PlottingTask(luigi.Task):
         description="Path to the directory where to save the plots resulting from this Task",
     )  # type: ignore
 
+    @dataclass
+    class PlottingSettings:
+        format: str = "png"
+
     @cached_property
     def test_settings(self) -> Dict[str, Any]:
         with open(self.test_settings_path, "r") as f:
@@ -58,13 +63,14 @@ class PlottingTask(luigi.Task):
 
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
         return {
-            plot_name: luigi.LocalTarget(Path(os.path.join(self.plot_save_dir, plot_name)).absolute())
+            plot_name: luigi.LocalTarget(
+                Path(os.path.join(self.plot_save_dir, f"{plot_name}.{self.PlottingSettings.format}")).absolute()
+            )
             for plot_name in self.registered_plots.keys()
         }
 
     @staticmethod
     def plot(
-        _func: Callable | None = None,
         *,
         name: str = None,
     ) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
@@ -74,7 +80,6 @@ class PlottingTask(luigi.Task):
             2. When the function is actually run, the resulting plot is automatically saved to file
 
         Args:
-            _func (Callable | None, optional): The function to register. Defaults to None.
             name (str, optional): Name of the plot. Defaults to None, in which case the name of the
                 function is used instead.
         """
@@ -112,9 +117,6 @@ class PlottingTask(luigi.Task):
                 return fig
 
             return wrapper
-
-        if _func is not None:
-            return decorator(_func)
 
         return decorator
 
