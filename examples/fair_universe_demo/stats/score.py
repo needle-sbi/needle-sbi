@@ -26,7 +26,7 @@ class ScoreTask(luigi.Task):
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
         return {
             "scores": luigi.LocalTarget(os.path.join(self.output_dir, "scores.json")),
-            "detailed_scores": luigi.LocalTarget(os.path.join(self.output_dir, "detailed_results.json")),
+            "detailed_scores": luigi.LocalTarget(os.path.join(self.output_dir, "detailed_results.html")),
         }
 
     def run(self) -> None:

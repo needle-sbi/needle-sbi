@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Dict, List, Tuple, Union, overload
 
 import law
@@ -45,7 +46,7 @@ def _convert_single_luigi_to_law_target(target: luigi.LocalTarget) -> law.LocalF
             stacklevel=3,
         )
     return law.LocalFileTarget(
-        path=target.path,
+        path=Path(target.path).absolute(),
         is_tmp=target.is_tmp,
     )
 

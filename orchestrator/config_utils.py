@@ -7,12 +7,11 @@ import hydra
 import luigi
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
+from orchestrator.config import MainConfig
+from preprocessor.utils import ColorFormatter
 from pytorch_lightning import LightningDataModule as LegacyDataModule
 from pytorch_lightning import LightningModule as LegacyModule
 from pytorch_lightning import Trainer as LegacyTrainer
-
-from orchestrator.config import MainConfig
-from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
@@ -274,13 +273,7 @@ def check_for_lightning_import_mismatch(cfg: DictConfig) -> None:
         TypeError: If the target class inherits from `pytorch_lightning` instead of
             `lightning.pytorch`.
     """
-    try:
-        cls = hydra.utils.get_class(cfg._target_)
-    except Exception:
-        raise ValueError(
-            "Module config must include the key `_target_` that points to the location of your module. "
-            "See the hydra docs https://hydra.cc/docs/advanced/instantiate_objects/overview/"
-        )
+    cls = hydra.utils.get_class(cfg._target_)
 
     mro_module_paths = [f"{c.__module__}.{c.__qualname__}" for c in inspect.getmro(cls)]
     legacy_bases = [p for p in mro_module_paths if p.startswith("pytorch_lightning.")]

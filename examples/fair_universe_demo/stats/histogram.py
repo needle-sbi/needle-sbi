@@ -161,7 +161,7 @@ class HistogramTask(luigi.Task):
         serializable_dict = {
             str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()} for key, val in hist_dict_class.items()
         }
-        with open(self.json_save_path, "w") as f:
+        with open(self.output().path, "w") as f:
             json.dump(serializable_dict, f)
 
     @timing
