@@ -7,6 +7,7 @@ Adapted by: K. Schmidt
 import json
 import os
 from functools import cached_property
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import luigi
@@ -52,6 +53,13 @@ class PlottingTask(luigi.Task):
             _scores = json.load(f)
 
         return _scores
+
+    def output(self):  # type: ignore
+        return {
+            "visualize_scatter": luigi.LocalTarget(
+                Path(os.path.join(self.plot_save_dir, "ground_truth_vs_predicted_mu"))
+            )
+        }
 
     @staticmethod
     def visualize_scatter(

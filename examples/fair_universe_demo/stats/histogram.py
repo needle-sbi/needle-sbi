@@ -101,6 +101,7 @@ class HistogramTask(luigi.Task):
 
     def _compute_histogram_entry(self, args):
         """Worker function for a single (jes, tes) combination."""
+        tqdm.disable = True
         i, j, snapshot_path, root_dir, bins = args
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -145,16 +146,15 @@ class HistogramTask(luigi.Task):
         args_list = [(i, j, self.snapshot_path, self.root_dir, bins) for j in tes_arr for i in jes_arr]
 
         hist_dict_class = {}
+        progress_bar = tqdm(total=len(args_list), desc="Histogram entries")
+        futures = []
 
         with ProcessPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(self._compute_histogram_entry, args): args for args in args_list}
+            for args in args_list:
+                futures.append(executor.submit(self._compute_histogram_entry, args))
+                progress_bar.update(1)
 
-            for future in tqdm(
-                as_completed(futures),
-                total=len(args_list),
-                desc="Grid",
-                position=0,
-            ):  # TODO Grid progress bar is not loading
+            for future in as_completed(futures):
                 key, S_hist, BG_hist = future.result()
                 hist_dict_class[key] = [S_hist, BG_hist]
 

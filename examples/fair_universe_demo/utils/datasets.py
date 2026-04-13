@@ -142,9 +142,13 @@ class Data:
             raise ValueError("Sample size exceeds the number of available rows")
 
         if selected_indices is None:
-            selected_indices = np.random.choice((self.total_rows - self.test_size), size=train_size, replace=False)
+            selected_indices = np.random.choice(
+                (self.total_rows - self.test_size),
+                size=train_size,
+                replace=False,
+            )  # type: ignore
 
-        selected_train_indices = np.sort(selected_indices) + self.test_size
+        selected_train_indices = np.sort(selected_indices) + self.test_size  # type: ignore
         self.__train_set = self.__load_data(selected_train_indices)
 
         # Balancing the weights
@@ -165,7 +169,6 @@ class Data:
         for row_group_index in tqdm(
             range(self.parquet_file.num_row_groups),
             total=self.parquet_file.num_row_groups,
-            leave=False,
             unit="row_groups",
             desc="Loading data from parquet file",
         ):

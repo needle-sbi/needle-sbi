@@ -38,6 +38,9 @@ class NeymanTask(luigi.Task):
         if not self.hist_path.endswith(".json") and not os.path.exists(Path(self.hist_path).parent):
             raise FileNotFoundError(f"Argument `hist_path`='{self.hist_path}' must point to a valid .json file")
 
+    def output(self):  # type: ignore
+        return {"neyman": luigi.LocalTarget(Path(self.output_path))}
+
     def _compute_neyman_entry(
         self,
         seed: int,

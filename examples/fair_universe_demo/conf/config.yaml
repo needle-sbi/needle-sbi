@@ -119,4 +119,5 @@ downstream_tasks:
       root_dir: "${custom_settings.root_dir}"
       test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
       ingestion_results_path: "${results_path}/eval.json"
+      score_path: "${results_path}/scores/"
       plot_save_dir: "${results_path}/plots"

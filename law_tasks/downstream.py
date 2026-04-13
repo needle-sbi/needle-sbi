@@ -1,15 +1,16 @@
 import os
+from functools import cached_property
 from pathlib import Path
 from typing import Dict
 
 import law
 import luigi
-from omegaconf import OmegaConf
-
 from law_tasks.mixins.hydra import HydraMixin
 from law_tasks.snapshot import SnapshotTask
+from omegaconf import OmegaConf
 from orchestrator.config import DownstreamTaskConfig
 from orchestrator.config_utils import hydra_instantiate
+from orchestrator.luigi import convert_luigi_to_law_targets
 
 
 class DownstreamTask(HydraMixin, law.Task):
@@ -63,19 +64,18 @@ class DownstreamTask(HydraMixin, law.Task):
 
         return req
 
-    def output(self) -> law.LocalFileTarget:
-        return law.LocalFileTarget(os.path.join(self.abs_results_path, f"{self.downstream}.done"))
+    def output(self):
+        return convert_luigi_to_law_targets(self.downstream_task.output())
 
-    def run(self) -> None:
-        downstream_task: luigi.Task = hydra_instantiate(
+    def input(self):
+        return convert_luigi_to_law_targets(self.downstream_task.input())
+
+    @cached_property
+    def downstream_task(self) -> luigi.Task:
+        return hydra_instantiate(
             OmegaConf.structured(self.downstream_config.args),
             snapshot_path=self.snapshot_path,
         )
-        if downstream_task.requires() != []:
-            raise NotImplementedError(
-                "Using the luigi `requires` method in downstream Tasks (tasks that are run after the"
-                "ML training) is currently not supported. Instead, encode the dependency between your"
-                "downstream Tasks using the `requires` keyword in the config.yaml."
-            )
-        downstream_task.run()
-        self.output().touch()
+
+    def run(self) -> None:
+        self.downstream_task.run()
