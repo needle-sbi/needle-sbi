@@ -23,6 +23,12 @@ class ScoreTask(luigi.Task):
 
         return _test_settings
 
+    def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
+        return {
+            "scores": luigi.LocalTarget(os.path.join(self.output_dir, "scores.json")),
+            "detailed_scores": luigi.LocalTarget(os.path.join(self.output_dir, "detailed_results.json")),
+        }
+
     def run(self) -> None:
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -30,7 +36,8 @@ class ScoreTask(luigi.Task):
 
         scoring.start_timer()
         scoring.load_ingestion_results(
-            self.predict_path, self.output_dir
+            self.predict_path,
+            self.output_dir,
         )  # TODO Account for the fact that we store everything in the same .json
 
         num_samples = len(self.test_settings["ground_truth_mus"])

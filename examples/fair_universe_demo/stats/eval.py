@@ -7,6 +7,7 @@ Adapted by: K. Schmidt
 # flake8: noqa: E704
 
 import json
+import os
 from functools import cached_property
 from itertools import product
 from logging import Logger
@@ -53,6 +54,9 @@ class EvalTask(luigi.Task):
             _test_settings = json.load(f)
 
         return _test_settings
+
+    def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
+        return {"eval": luigi.LocalTarget(self.output_path)}
 
     def prepare(self) -> None:
         self.data = load_train_set_data(self.root_dir)
@@ -166,7 +170,7 @@ class EvalTask(luigi.Task):
     def save_result(self):
         results_dict_serializable = {int(key): val for key, val in self.results_dict.items()}
 
-        with open(self.output_path, "w") as f:
+        with open(self.output()["eval"].path, "w") as f:
             f.write(json.dumps(results_dict_serializable, indent=4))
 
     @timing

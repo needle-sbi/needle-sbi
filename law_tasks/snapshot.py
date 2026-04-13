@@ -8,10 +8,9 @@ from typing import Dict, List
 from urllib.parse import urlencode
 
 import law
-from omegaconf import OmegaConf
-
 from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
+from omegaconf import OmegaConf
 from orchestrator.results import (
     AggregationEdge,
     AggregationMethod,
@@ -37,7 +36,6 @@ class SnapshotTask(HydraMixin, law.Task):
     )  # type: ignore
 
     def requires(self):
-        self.print_config_path_once()
         """Require MainTask to ensure all training is completed"""
         return MainTask(
             config_file=self.config_file,
@@ -60,6 +58,8 @@ class SnapshotTask(HydraMixin, law.Task):
         Traverse the entire DAG hierarchy:
         MainTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
         """
+        self.print_config_path_once()
+
         nodes: Dict[str, ModelNodeMetadata] = {}
         edges: List[AggregationEdge] = []
 

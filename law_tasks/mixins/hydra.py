@@ -3,12 +3,11 @@ from pathlib import Path
 from typing import List
 
 import law
-
 from orchestrator.config import MainConfig
 from orchestrator.config_utils import initialize_hydra_config
 from preprocessor.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("hydra")
+logger = ColorFormatter.get_logger("orchestrator")
 
 
 class HydraMixin:
