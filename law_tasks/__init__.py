@@ -3,6 +3,7 @@ from .ensemble import EnsembleTask
 from .estimator import EstimatorTask
 from .fold import FoldTask
 from .main import MainTask
+from .remote.bundle_repo import BundleRepoTask
 from .snapshot import SnapshotTask
 from .systematic import SystematicTask
 
@@ -14,4 +15,5 @@ __all__ = [
     "FoldTask",
     "SnapshotTask",
     "DownstreamTask",
+    "BundleRepoTask",
 ]

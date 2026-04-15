@@ -5,21 +5,23 @@
 #   Adapted by K. Schmidt using Claude Sonnet 4.6
 
 action() {
-    # resolve hashed filenames by glob
+    # Resolve hashed filenames by glob
     local pyproject
     pyproject=$(ls "$LAW_JOB_HOME"/pyproject_*.toml 2>/dev/null | head -1)
     local setup
     setup=$(ls "$LAW_JOB_HOME"/setup_*.sh 2>/dev/null | head -1)
 
+    # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh
     source $HOME/.local/bin
 
-    # copy pyproject.toml to a clean working dir so uv sees a proper project root
+    # Copy hashed pyproject.toml to a clean working dir
     cp "$pyproject" "$LAW_JOB_HOME/pyproject.toml"
 
     uv python pin 3.12  # TODO Support other python versions
     uv sync --no-dev --no-install-project
 
+    # Source the venv (either with uv or pip as a fallback)
     if [ $? -ne 0 ]; then
         echo "uv sync failed, falling back to pip"
         "$uv" run python -m venv "$LAW_JOB_HOME/.venv"
@@ -29,6 +31,7 @@ action() {
         source "$LAW_JOB_HOME/.venv/bin/activate"
     fi
 
+    # Run setup script
     [ -n "$setup" ] && source "$setup"
 }
 action
