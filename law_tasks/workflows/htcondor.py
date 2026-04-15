@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List
 
 import law
@@ -14,26 +15,30 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         bootstrap_file = rel_path(__file__, "bootstrap.sh")
         return law.JobInputFile(bootstrap_file, share=True, render_job=True)
 
+    @property
+    def script_dir(self) -> Path:
+        _script_dir = os.getenv("SCRIPT_DIR")
+
+        if not _script_dir:
+            _script_dir = Path(os.path.abspath(__file__)).parent.parent
+
+        return Path(_script_dir)
+
     def htcondor_job_config(
         self,
         config: htcondor.HTCondorJobFileFactory.Config,
         job_num: int,
         branches: List[int],
     ):
-        script_dir = os.getenv("SCRIPT_DIR")
-
-        if not script_dir:
-            raise ValueError("Variable 'SCRIPT_DIR' is not defined")
-
         config = super().htcondor_job_config(config, job_num, branches)
 
-        config.render_variables["SCRIPT_DIR"] = script_dir
+        config.render_variables["SCRIPT_DIR"] = self.script_dir
 
         config.input_files["pyproject.toml"] = law.JobInputFile(
-            os.path.join(script_dir, "pyproject.toml"),
+            os.path.join(self.script_dir, "pyproject.toml"),
         )
         config.input_files["setup.sh"] = law.JobInputFile(
-            os.path.join(script_dir, "setup.sh"),
+            os.path.join(self.script_dir, "setup.sh"),
         )
 
         config.custom_content.append(("getenv", "true"))
