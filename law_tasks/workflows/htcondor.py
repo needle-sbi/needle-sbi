@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from pathlib import Path
 from typing import List
 
 import law
@@ -20,7 +21,7 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         _script_dir = os.getenv("SCRIPT_DIR")
 
         if not _script_dir:
-            _script_dir = Path(os.path.abspath(__file__)).parent.parent
+            _script_dir = Path(os.path.abspath(__file__)).parent.parent.parent
 
         return Path(_script_dir)
 
@@ -33,11 +34,14 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         config = super().htcondor_job_config(config, job_num, branches)
 
         config.render_variables["SCRIPT_DIR"] = self.script_dir
+        config.render_variables["SCRIPT_DIR"] = self.script_dir
 
         config.input_files["pyproject.toml"] = law.JobInputFile(
             os.path.join(self.script_dir, "pyproject.toml"),
+            os.path.join(self.script_dir, "pyproject.toml"),
         )
         config.input_files["setup.sh"] = law.JobInputFile(
+            os.path.join(self.script_dir, "setup.sh"),
             os.path.join(self.script_dir, "setup.sh"),
         )
 
