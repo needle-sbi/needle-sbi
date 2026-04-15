@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from pathlib import Path
 from typing import List
 
 import law
@@ -17,13 +16,13 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         return law.JobInputFile(bootstrap_file, share=True, render_job=True)
 
     @property
-    def script_dir(self) -> Path:
+    def script_dir(self) -> str:
         _script_dir = os.getenv("SCRIPT_DIR")
 
         if not _script_dir:
             _script_dir = Path(os.path.abspath(__file__)).parent.parent.parent
 
-        return Path(_script_dir)
+        return str(_script_dir)
 
     def htcondor_job_config(
         self,
