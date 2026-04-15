@@ -7,11 +7,12 @@ import hydra
 import luigi
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
-from orchestrator.config import MainConfig
-from preprocessor.utils import ColorFormatter
 from pytorch_lightning import LightningDataModule as LegacyDataModule
 from pytorch_lightning import LightningModule as LegacyModule
 from pytorch_lightning import Trainer as LegacyTrainer
+
+from orchestrator.config import MainConfig
+from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
@@ -192,9 +193,7 @@ def hydra_check_if_arg_supported(
         is_luigi_parameter = False
 
     sig = inspect.signature(cls.__init__).parameters
-    is_kwarg = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values())
-
-    return ((arg_name in sig) or is_luigi_parameter) and is_kwarg  # check luigi parameters  # make sure its a kwarg
+    return (arg_name in sig) or is_luigi_parameter  # check luigi parameters
 
 
 def hydra_check_if_luigi_parameter_supported(task: Type[luigi.Task], arg_name: str) -> bool:

@@ -1,3 +1,5 @@
+results_path: "runs/default"
+
 estimators:
   model_A:
     model: mock_transformer

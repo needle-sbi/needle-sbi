@@ -32,13 +32,12 @@ if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
 fi
 
 # resolve script dir instead of relying on pwd (bash/zsh compatible)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
-
+export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
 # save current values so deactivate can restore them
 export _OLD_PYTHONPATH="$PYTHONPATH"
 export _OLD_PS1="$PS1"
 # use resolved script dir so LAW_HOME is always correct
-export LAW_HOME="$SCRIPT_DIR"
+export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
 export NEEDLE_ENV_ACTIVE=1
 
@@ -67,6 +66,7 @@ deactivate() {
     export PYTHONPATH="$_OLD_PYTHONPATH"
     export PS1="$_OLD_PS1"
     unset NEEDLE_ENV_ACTIVE
+    unset SCRIPT_DIR
     unset LAW_HOME
     unset LAW_CONFIG_FILE
     unset _OLD_PYTHONPATH

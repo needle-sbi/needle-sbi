@@ -18,7 +18,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
-from law_tasks.training_base import TrainingBase
+from law_tasks.workflows import HTCondorWorkflow, LocalWorkflow, SlurmWorkflow
 from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.config_utils import hydra_check_if_arg_supported, hydra_instantiate
 from orchestrator.results import FoldResults
@@ -27,7 +27,12 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("fold")
 
 
-class FoldTask(HydraMixin, law.Task, TrainingBase):
+class FoldTask(
+    HydraMixin,
+    LocalWorkflow,
+    HTCondorWorkflow,
+    SlurmWorkflow,
+):
     results_path: str = law.Parameter(
         description="Root directory where results are saved.",
         significant=False,
@@ -100,6 +105,9 @@ class FoldTask(HydraMixin, law.Task, TrainingBase):
                         model_paths_dict[key] = path
 
         return model_paths_dict
+
+    def create_branch_map(self) -> Dict[int, None]:  # type: ignore
+        return {0: None}
 
     def requires(self) -> List[Any]:
         if not self.estimator_config.requires:
