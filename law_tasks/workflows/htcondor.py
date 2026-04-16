@@ -36,9 +36,6 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         config.input_files["setup.sh"] = law.JobInputFile(
             os.path.join(get_script_dir(), "setup.sh"),
         )
-
-        config.custom_content.append(("getenv", "true"))
-
         config.stdout = "stdout.txt"
         config.stderr = "stderr.txt"
         config.log = "condor.log"
