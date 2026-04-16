@@ -4,6 +4,10 @@
 #   Original: https://github.com/riga/law/blob/master/examples/htcondor_at_cern/analysis/bootstrap.sh
 #   Adapted by K. Schmidt using Claude Sonnet 4.6
 
+# Description:
+#   This file is ran by law directly after starting the job. Used to install the dependencies (either
+#   with uv or pip) and source the .venv as well as the setup.sh script.
+
 action() {
     # Resolve hashed filenames by glob
     local pyproject

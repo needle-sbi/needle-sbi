@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from law.contrib import htcondor
 from law.contrib import slurm
@@ -21,6 +22,17 @@ logger = ColorFormatter.get_logger("workflow")
 
 
 def get_script_dir() -> str:
+    """Find the path to the root directory of the project. Either by accessing the environment variable
+    `$SCRIPT_DIR` which is defined in the `setup.sh` file or by calculating the relative path based
+    on the location of this file.
+
+    Raises:
+        ValueError: If the resulting path does not end with 'orchestrator', which is the hard-coded
+            name of the project.
+
+    Returns:
+        str: The path to the root directory of the project.
+    """
     _script_dir = os.getenv("SCRIPT_DIR")
 
     if not _script_dir:
@@ -42,6 +54,26 @@ def add_workflow_settings_from_cfg(
     cfg: Config,
     workflow_type: Literal["htcondor", "slurm"],
 ) -> Config:
+    """Add the settings for a Workflow from the law.cfg to the job Config
+
+    Note:
+        Law will pass through luigi configs when they are labelled "luigi_<section>". Therefore, our 
+        Workflow is accessible through the section "[luigi_<Task>_<batch_system>]". 
+
+    Args:
+        self (SupportsLuigiAPI): Any Task that inherits from luigi
+        cfg (Config): The Config used by the Workflow. One of `htcondor.HTCondorJobFileFactory.Config`
+            or `slurm.SlurmJobFileFactory.Config` depending on the Workflow.
+        workflow_type (Literal[&quot;htcondor&quot;, &quot;slurm&quot;]): The name of the batch system
+            to use. This is used for accessing the correct section in the luigi cfg.
+
+    Raises:
+        ValueError: If the sub-config for luigi does not contain the proper section. If the section
+            exists but is empty, then only a Warning is triggered
+
+    Returns:
+        Config: The same object as `cfg` but with the added items from the luigi cfg.
+    """
     luigi_cfg: LuigiConfig = luigi.configuration.get_config()
     section = f"{self.get_task_family()}_{workflow_type}"
 
@@ -65,7 +97,17 @@ def add_workflow_settings_from_cfg(
 
 
 def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
-    import shutil
+    """Ensure that the flag set by the user for `workflow=<system>` actually matches a valid batch 
+    system. Otherwise the error produced by law is rather cryptic and difficult to understand.
+
+    Args:
+        system (Literal[&quot;htcondor&quot;, &quot;slurm&quot;]): The batch system name to check. 
+            Currently only htcondor and slurm are supported.
+
+    Raises:
+        RuntimeError: If the batch system is not available from using `shutil.which`
+        ValueError: If the batch system is not in the list of available systems
+    """
 
     valid_batch_systems = {
         "htcondor": "condor_submit",
@@ -80,4 +122,4 @@ def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
                 f"Selected batch system '{system}' is not available: '{binary}' not in PATH. "
             )
     else:
-        raise RuntimeError(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")
+        raise ValueError(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")
