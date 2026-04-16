@@ -13,7 +13,9 @@ logger = ColorFormatter.get_logger("htcondor")
 
 class HTCondorWorkflow(htcondor.HTCondorWorkflow):
     def htcondor_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
-        return law.LocalDirectoryTarget(os.path.join("/tmp/law_output", "htcondor", self.__class__.__name__))
+        return law.LocalDirectoryTarget(
+            os.path.join(get_script_dir(), "htcondor", self.__class__.__name__),
+        )  # TODO Make dependent on law output
 
     def htcondor_bootstrap_file(self) -> law.JobInputFile:  # type: ignore
         bootstrap_file = rel_path(__file__, "bootstrap.sh")
