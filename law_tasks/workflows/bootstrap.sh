@@ -10,6 +10,7 @@ action() {
     pyproject=$(ls "$LAW_JOB_HOME"/pyproject_*.toml 2>/dev/null | head -1)
     local setup
     setup=$(ls "$LAW_JOB_HOME"/setup_*.sh 2>/dev/null | head -1)
+    export UV_CACHE_DIR="$LAW_JOB_HOME"/.uv_cache
 
     # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh
