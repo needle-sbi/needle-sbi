@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Protocol
+from typing import List
 
 import luigi
 import law
@@ -15,12 +15,7 @@ Config = slurm.SlurmJobFileFactory.Config
 LuigiConfig = luigi.configuration.cfg_parser.LuigiConfigParser
 
 
-class SupportLuigiTaskAPI(Protocol):
-    def get_task_family(self) -> str:
-        ...
-
-
-class SlurmWorkflow(slurm.SlurmWorkflow, SupportLuigiTaskAPI):
+class SlurmWorkflow(slurm.SlurmWorkflow):
     def slurm_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
         return law.LocalDirectoryTarget(os.path.join("/tmp/law_output", "slurm", self.__class__.__name__))
 
@@ -56,16 +51,18 @@ class SlurmWorkflow(slurm.SlurmWorkflow, SupportLuigiTaskAPI):
 
             if luigi_cfg.has_section(section):
                 if not luigi_cfg.items(section):
-                    logger.warning(f"The law.cfg section [{self.get_task_family()}_slurm] is empty.")
+                    logger.warning(f"The law.cfg section [luigi_{self.get_task_family()}_slurm] is empty.")
 
                 for key, value in luigi_cfg.items(section):
                     cfg.custom_content.append((key, value))
             else:
                 raise ValueError(
-                    f"Your 'law.cfg' file does not contain a '{self.get_task_family()}_slurm' section. "
-                    "Add it in the following format:\n"
-                    f"[{self.get_task_family()}_slurm]\n"
-                    "nodes: 1...  # for example"
+                    f"Your 'law.cfg' file does not contain a 'luigi_{self.get_task_family()}_slurm' section. "
+                    f"Add it in the following format:\n"
+                    f"    [{self.get_task_family()}_slurm]\n"
+                    f"    nodes: 1  # for example\n"
+                    f"    ...\n"
+                    f"Available luigi sections are: {luigi_cfg.sections()}\n"
                 )
 
             return cfg
