@@ -13,7 +13,7 @@ logger = ColorFormatter.get_logger("slurm")
 
 class SlurmWorkflow(slurm.SlurmWorkflow):
     def slurm_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
-        return law.LocalDirectoryTarget(os.path.join("/tmp/law_output", "slurm", self.__class__.__name__))
+        return law.LocalDirectoryTarget(os.path.join(get_script_dir(), "runs", "slurm", self.__class__.__name__))
 
     def slurm_bootstrap_file(self):  # type: ignore
         bootstrap_file = os.path.join(rel_path(__file__), "bootstrap.sh")
