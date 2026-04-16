@@ -18,7 +18,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
-from law_tasks.workflows import HTCondorWorkflow, LocalWorkflow, SlurmWorkflow
+from law_tasks.workflows import HTCondorWorkflow, LocalWorkflow, SlurmWorkflow, check_batch_system
 from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.config_utils import hydra_check_if_arg_supported, hydra_instantiate
 from orchestrator.results import FoldResults
@@ -127,6 +127,8 @@ class FoldTask(
 
     def output(self) -> Dict[str, Any]:
         """Define all output targets for this task"""
+        check_batch_system(system=str(self.workflow))  # type: ignore
+
         base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "dir": base,

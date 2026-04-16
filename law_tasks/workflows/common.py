@@ -62,3 +62,22 @@ def add_workflow_settings_from_cfg(
         )
 
     return cfg
+
+
+def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
+    import shutil
+
+    valid_batch_systems = {
+        "htcondor": "condor_submit",
+        "slurm": "sbatch",
+    }
+
+    binary = valid_batch_systems.get(system)
+
+    if binary:
+        if shutil.which(binary) is None:
+            raise RuntimeError(
+                f"Selected batch system '{system}' is not available: '{binary}' not in PATH. "
+            )
+    else:
+        raise RuntimeError(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")
