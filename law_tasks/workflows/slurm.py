@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from pathlib import Path
 from typing import List
 
 import law
@@ -22,6 +21,13 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
 
         if not _script_dir:
             _script_dir = Path(os.path.abspath(__file__)).parent.parent.parent
+
+        _script_dir = Path(_script_dir) if isinstance(_script_dir, str) else _script_dir
+
+        if not _script_dir.name == "orchestrator":
+            raise ValueError(
+                "The path to the root directory of the project should end with 'orchestrator' " f"but is {_script_dir}"
+            )
 
         return str(_script_dir)
 
