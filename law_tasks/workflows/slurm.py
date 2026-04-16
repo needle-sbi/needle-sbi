@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from pathlib import Path
 from typing import List
 
 import law
@@ -20,7 +21,7 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
         _script_dir = os.getenv("SCRIPT_DIR")
 
         if not _script_dir:
-            _script_dir = Path(os.path.abspath(__file__)).parent.parent
+            _script_dir = Path(os.path.abspath(__file__)).parent.parent.parent
 
         return str(_script_dir)
 
