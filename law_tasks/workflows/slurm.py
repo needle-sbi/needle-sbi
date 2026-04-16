@@ -1,13 +1,26 @@
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Protocol
 
+import luigi
 import law
 from law.contrib import slurm
 from law.util import rel_path
+from preprocessor.utils.logging import ColorFormatter
 
 
-class SlurmWorkflow(slurm.SlurmWorkflow):
+logger = ColorFormatter.get_logger("slurm")
+
+Config = slurm.SlurmJobFileFactory.Config
+LuigiConfig = luigi.configuration.cfg_parser.LuigiConfigParser
+
+
+class SupportLuigiTaskAPI(Protocol):
+    def get_task_family(self) -> str:
+        ...
+
+
+class SlurmWorkflow(slurm.SlurmWorkflow, SupportLuigiTaskAPI):
     def slurm_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
         return law.LocalDirectoryTarget(os.path.join("/tmp/law_output", "slurm", self.__class__.__name__))
 
@@ -17,7 +30,7 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
 
     def slurm_job_config(
         self,
-        config: slurm.SlurmJobFileFactory.Config,
+        config: Config,
         job_num: int,
         branches: List[int],
     ):
@@ -31,12 +44,35 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
 
             if not _script_dir.name == "orchestrator":
                 raise ValueError(
-                    "The path to the root directory of the project should end with 'orchestrator' " f"but is {_script_dir}"
+                    "The path to the root directory of the project should end with 'orchestrator' "
+                    f"but is {_script_dir}"
                 )
 
             return str(_script_dir)
 
+        def add_slurm_settings(cfg: Config) -> Config:
+            luigi_cfg: LuigiConfig = luigi.configuration.get_config()
+            section = f"{self.get_task_family()}_slurm"
+
+            if luigi_cfg.has_section(section):
+                if not luigi_cfg.items(section):
+                    logger.warning(f"The law.cfg section [{self.get_task_family()}_slurm] is empty.")
+
+                for key, value in luigi_cfg.items(section):
+                    cfg.custom_content.append((key, value))
+            else:
+                raise ValueError(
+                    f"Your 'law.cfg' file does not contain a '{self.get_task_family()}_slurm' section. "
+                    "Add it in the following format:\n"
+                    f"[{self.get_task_family()}_slurm]\n"
+                    "nodes: 1...  # for example"
+                )
+
+            return cfg
+
         config = super().slurm_job_config(config, job_num, branches)
+
+        config = add_slurm_settings(config)
 
         config.input_files["pyproject.toml"] = law.JobInputFile(
             os.path.join(get_script_dir(), "pyproject.toml"),
