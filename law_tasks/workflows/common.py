@@ -1,10 +1,11 @@
 import os
 import shutil
 from pathlib import Path
-from law.contrib import htcondor
-from law.contrib import slurm
+from typing import Literal, Protocol, Union
+
 import luigi
-from typing import Union, Literal, Protocol
+from law.contrib import htcondor, slurm
+
 from preprocessor.utils.logging import ColorFormatter
 
 HTCondorConfig = htcondor.HTCondorJobFileFactory.Config
@@ -42,8 +43,7 @@ def get_script_dir() -> str:
 
     if not _script_dir.name == "orchestrator":
         raise ValueError(
-            "The path to the root directory of the project should end with 'orchestrator' "
-            f"but is {_script_dir}"
+            "The path to the root directory of the project should end with 'orchestrator' " f"but is {_script_dir}"
         )
 
     return str(_script_dir)
@@ -57,8 +57,8 @@ def add_workflow_settings_from_cfg(
     """Add the settings for a Workflow from the law.cfg to the job Config
 
     Note:
-        Law will pass through luigi configs when they are labelled "luigi_<section>". Therefore, our 
-        Workflow is accessible through the section "[luigi_<Task>_<batch_system>]". 
+        Law will pass through luigi configs when they are labelled "luigi_<section>". Therefore, our
+        Workflow is accessible through the section "[luigi_<Task>_<batch_system>]".
 
     Args:
         self (SupportsLuigiAPI): Any Task that inherits from luigi
@@ -96,13 +96,13 @@ def add_workflow_settings_from_cfg(
     return cfg
 
 
-def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
-    """Ensure that the flag set by the user for `workflow=<system>` actually matches a valid batch 
+def check_batch_system(system: Literal["local", "htcondor", "slurm"]) -> None:
+    """Ensure that the flag set by the user for `workflow=<system>` actually matches a valid batch
     system. Otherwise the error produced by law is rather cryptic and difficult to understand.
 
     Args:
-        system (Literal[&quot;htcondor&quot;, &quot;slurm&quot;]): The batch system name to check. 
-            Currently only htcondor and slurm are supported.
+        system (Literal["local", "htcondor", "slurm]): The batch system name to check.
+            Currently only local, htcondor and slurm are supported.
 
     Raises:
         RuntimeError: If the batch system is not available from using `shutil.which`
@@ -110,6 +110,7 @@ def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
     """
 
     valid_batch_systems = {
+        "local": "law",
         "htcondor": "condor_submit",
         "slurm": "sbatch",
     }
@@ -118,8 +119,6 @@ def check_batch_system(system: Literal["htcondor", "slurm"]) -> None:
 
     if binary:
         if shutil.which(binary) is None:
-            raise RuntimeError(
-                f"Selected batch system '{system}' is not available: '{binary}' not in PATH. "
-            )
+            raise RuntimeError(f"Selected batch system '{system}' is not available: '{binary}' not in PATH. ")
     else:
         raise ValueError(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")
