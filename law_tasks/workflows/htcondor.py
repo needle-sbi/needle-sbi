@@ -42,6 +42,7 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
         )
 
         config.custom_content.append(("getenv", "true"))
+        config.render_variables["script_dir"] = get_script_dir()
 
         config.stdout = "stdout.txt"
         config.stderr = "stderr.txt"
