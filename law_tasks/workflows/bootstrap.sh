@@ -17,7 +17,8 @@ action() {
 
     # Use user environment variables or set local path relative to $LAW_JOB_HOME
     # double curly brackets implies runtime variable rendering by law
-    SCRIPT_DIR="{$SCRIPT_DIR:{{script_dir}}"
+    _RENDERED_SCRIPT_DIR="{{script_dir}}"
+    SCRIPT_DIR="{$SCRIPT_DIR:-$_RENDERED_SCRIPT_DIR"
     UV_INSTALL_DIR="${UV_INSTALL_DIR:-$LAW_JOB_HOME/.local/bin}"
     UV_CACHE_DIR="${UV_CACHE_DIR:-$LAW_JOB_HOME/.uv_cache}"
     PIP_CACHE_DIR="${PIP_CACHE_DIR:-$LAW_JOB_HOME/.cache/pip}"
@@ -29,6 +30,9 @@ action() {
     #   Consider bundling the repo / git cloning it / using file transfer instead
     #   This line make law.JobInputFile for pyproject.toml and setup.sh redundant
     ln -s "$SCRIPT_DIR" "$LAW_JOB_HOME" || cp -r "$SCRIPT_DIR" "$LAW_JOB_HOME"
+    echo "Root directory '$SCRIPT_DIR' copied to '$LAW_JOB_HOME'"
+    echo "Rendered env variable '$_RENDERED_SCRIPT_DIR'"
+    ls "$LAW_JOB_HOME"
 
     # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh
