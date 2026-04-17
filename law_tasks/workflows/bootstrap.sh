@@ -9,16 +9,10 @@
 #   with uv or pip) and source the .venv as well as the setup.sh script.
 
 action() {
-    # Resolve hashed filenames by glob
-    local pyproject
-    pyproject=$(ls "$LAW_JOB_HOME"/pyproject_*.toml 2>/dev/null | head -1)
-    local setup
-    setup=$(ls "$LAW_JOB_HOME"/setup_*.sh 2>/dev/null | head -1)
-
     # Use user environment variables or set local path relative to $LAW_JOB_HOME
     # double curly brackets implies runtime variable rendering by law
     _RENDERED_SCRIPT_DIR="{{script_dir}}"
-    SCRIPT_DIR="{$SCRIPT_DIR:-$_RENDERED_SCRIPT_DIR"
+    SCRIPT_DIR="${SCRIPT_DIR:-$_RENDERED_SCRIPT_DIR}"
     UV_INSTALL_DIR="${UV_INSTALL_DIR:-$LAW_JOB_HOME/.local/bin}"
     UV_CACHE_DIR="${UV_CACHE_DIR:-$LAW_JOB_HOME/.uv_cache}"
     PIP_CACHE_DIR="${PIP_CACHE_DIR:-$LAW_JOB_HOME/.cache/pip}"
@@ -29,17 +23,14 @@ action() {
     #   TODO This only works while all files are in this repository
     #   Consider bundling the repo / git cloning it / using file transfer instead
     #   This line make law.JobInputFile for pyproject.toml and setup.sh redundant
-    ln -s "$SCRIPT_DIR" "$LAW_JOB_HOME" || cp -r "$SCRIPT_DIR" "$LAW_JOB_HOME"
+    ln -s "$SCRIPT_DIR/*" "$LAW_JOB_HOME"
     echo "Root directory '$SCRIPT_DIR' copied to '$LAW_JOB_HOME'"
-    echo "Rendered env variable '$_RENDERED_SCRIPT_DIR'"
-    ls "$LAW_JOB_HOME"
+    echo "Contents of 'LAW_JOB_HOME:'"
+    ls $LAW_JOB_HOME
 
     # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh
     source "$UV_INSTALL_DIR"
-
-    # Copy hashed pyproject.toml to a clean working dir
-    cp "$pyproject" "$LAW_JOB_HOME/pyproject.toml"
 
     uv python pin 3.12  # TODO Support other python versions
     uv sync --no-dev --no-install-project
@@ -49,9 +40,9 @@ action() {
         echo "uv sync failed, falling back to pip"
         "$uv" run python -m venv "$LAW_JOB_HOME/.venv"
         source "$LAW_JOB_HOME/.venv/bin/activate"
-        pip install --quiet --no-cache-dir -e "$LAW_JOB_HOME"
+        pip install --quiet --no-cache-dir -e .
     else
-        source "$LAW_JOB_HOME/.venv/bin/activate"
+        source ".venv/bin/activate"
     fi
 
     # Run setup script
