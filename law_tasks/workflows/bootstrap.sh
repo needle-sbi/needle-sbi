@@ -37,7 +37,6 @@ action() {
         source ".venv/bin/activate"
     fi
 
-    # Run setup script
-    [ -n "$setup" ] && source "$setup"
+    source setup.sh
 }
 action
