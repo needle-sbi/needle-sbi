@@ -21,6 +21,13 @@ action() {
     PIP_CACHE_DIR="${PIP_CACHE_DIR:-$LAW_JOB_HOME/.cache/pip}"
     mkdir -p "$UV_INSTALL_DIR" "$UV_CACHE_DIR" "$PIP_CACHE_DIR"
 
+    # Copy root directory
+    # Notes:
+    #   TODO This only works while all files are in this repository
+    #   Consider bundling the repo / git cloning it / using file transfer instead
+    #   This line make law.JobInputFile for pyproject.toml and setup.sh redundant
+    ln -s "$SCRIPT_DIR" "$LAW_JOB_HOME" || cp -r "$SCRIPT_DIR" "$LAW_JOB_HOME"
+
     # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh
     source "$UV_INSTALL_DIR"
