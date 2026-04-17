@@ -4,13 +4,13 @@ from typing import List
 import law
 from law.contrib import htcondor
 from law.util import rel_path
-from preprocessor.utils.logging import ColorFormatter
-from law_tasks.workflows.common import (
-    get_script_dir,
-    add_workflow_settings_from_cfg,
-    Config,
-)
 
+from law_tasks.workflows.common import (
+    Config,
+    add_workflow_settings_from_cfg,
+    get_script_dir,
+)
+from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("htcondor")
 
