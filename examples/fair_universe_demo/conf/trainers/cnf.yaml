@@ -2,7 +2,6 @@ _target_: lightning.Trainer
 max_epochs: 500
 log_every_n_steps: 10
 accelerator: auto
-devices: 0
 strategy: auto
 precision: 32
 callbacks:
