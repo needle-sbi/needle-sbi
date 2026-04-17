@@ -14,12 +14,12 @@ action() {
     pyproject=$(ls "$LAW_JOB_HOME"/pyproject_*.toml 2>/dev/null | head -1)
     local setup
     setup=$(ls "$LAW_JOB_HOME"/setup_*.sh 2>/dev/null | head -1)
-    export UV_CACHE_DIR="$LAW_JOB_HOME"/.uv_cache
 
     # Use user environment variables or set local path relative to $LAW_JOB_HOME
     UV_INSTALL_DIR="${UV_INSTALL_DIR:-$LAW_JOB_HOME/.local/bin}"
     UV_CACHE_DIR="${UV_CACHE_DIR:-$LAW_JOB_HOME/.uv_cache}"
     PIP_CACHE_DIR="${PIP_CACHE_DIR:-$LAW_JOB_HOME/.cache/pip}"
+    mkdir -p "$UV_INSTALL_DIR" "$UV_CACHE_DIR" "$PIP_CACHE_DIR"
 
     # Install astral uv for dependency management
     curl -LsSf "https://astral.sh/uv/install.sh" | sh

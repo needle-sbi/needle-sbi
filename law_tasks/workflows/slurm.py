@@ -4,13 +4,13 @@ from typing import List
 import law
 from law.contrib import slurm
 from law.util import rel_path
-from preprocessor.utils.logging import ColorFormatter
-from law_tasks.workflows.common import (
-    get_script_dir,
-    add_workflow_settings_from_cfg,
-    Config,
-)
 
+from law_tasks.workflows.common import (
+    Config,
+    add_workflow_settings_from_cfg,
+    get_script_dir,
+)
+from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("slurm")
 
@@ -40,6 +40,8 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
         config.input_files["setup.sh"] = law.JobInputFile(
             os.path.join(get_script_dir(), "setup.sh"),
         )
+
+        config.custom_content.append(("getenv", "true"))
 
         config.stdout = self.slurm_output_directory().child("stdout_%j.txt", type="f")  # %j = Slurm job id
         config.stderr = self.slurm_output_directory().child("stderr_%j.txt", type="f")
