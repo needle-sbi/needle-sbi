@@ -1,2 +1,2 @@
 _target_: examples.fair_universe_demo.models.nf_datamodule.NormalizingFlowDatamodule
-root_dir: custom_settings.root_dir
+root_dir: ${custom_settings.root_dir}
