@@ -8,7 +8,12 @@ import torch
 from omegaconf import OmegaConf
 import hydra
 
+# Option 1
 from ml.lightning.models.pseudo_model import NEEDLE as PseudoModel
+# Option 2
+from ml.lightning.models.pseudo_model_parallel import NEEDLEParallel as PseudoModel
+# Option 3
+from ml.lightning.models.pseudo_model_vectorized import NEEDLEVectorized as PseudoModel
 from orchestrator.config import MainConfig
 from orchestrator.config_utils import initialize_hydra_config
 from preprocessor.utils import ColorFormatter

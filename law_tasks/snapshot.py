@@ -9,7 +9,7 @@ from typing import Dict, List
 import law
 from omegaconf import OmegaConf
 
-from law_tasks.main import MainTask
+from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import (
     EnsembleResults,
@@ -38,11 +38,14 @@ class SnapshotTask(law.Task, HydraMixin):
 
     def requires(self):
         """Require MainTask to ensure all training is completed"""
-        return MainTask.req(
-            self,
-            config_file=self.config_file,
-            #rel_results_path=self.rel_results_path,
-        )
+        return [
+            EstimatorTask.req(
+                self,
+                config_file=self.config_file,
+                estimator=estimator_key,
+            )
+            for estimator_key in self.config.estimators.keys()
+        ]
 
     def output(self):
         return law.LocalFileTarget(f"{self.abs_results_path}/dag_snapshot.json")
@@ -54,7 +57,7 @@ class SnapshotTask(law.Task, HydraMixin):
     def run(self):
         """
         Traverse the entire DAG hierarchy:
-        MainTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
+        EstimatorTask → SystematicTask → EnsembleTask → FoldTask
         """
         nodes: Dict[str, ModelNodeMetadata] = {}
         edges: List[AggregationEdge] = []
@@ -66,19 +69,11 @@ class SnapshotTask(law.Task, HydraMixin):
         systematic_agg_method = agg_config.systematic_method
         estimator_agg_method = agg_config.estimator_method
 
-        # Get optional weights
-        #fold_weights = agg_config.get("fold_weights")
-        #ensemble_weights = agg_config.get("ensemble_weights")
-        #systematic_weights = agg_config.get("systematic_weights")
-        #estimator_weights = agg_config.get("estimator_weights")
-
-        main_task = self.requires()
-        
         # Track all node IDs at each level for aggregation
         all_estimator_nodes = []
 
         # Traverse EstimatorTasks
-        for estimator_task in main_task.requires():
+        for estimator_task in self.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"Processing estimator: {estimator_name}")
             
@@ -151,7 +146,8 @@ class SnapshotTask(law.Task, HydraMixin):
 
                 # Aggregate ensembles → systematic
                 systematic_node_id = (
-                    f"estimator_{estimator_name}_" f"systematic_{systematic_name}"
+                    f"estimator_{estimator_name}_" 
+                    f"systematic_{systematic_name}"
                 )
                 edges.append(
                     AggregationEdge(

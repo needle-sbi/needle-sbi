@@ -144,4 +144,6 @@ def resolve_defaults(
             else:
                 est_cfg[override_key] = group_cfg
 
+    # Mark as resolved to prevent re-resolution
+    cfg["_resolved"] = True
     return cfg
