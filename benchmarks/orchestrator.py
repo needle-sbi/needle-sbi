@@ -146,9 +146,11 @@ class GridSearchOrchestrator:
         
         config_paths['main'] = main_config_dst
         
-        # 2. Copy and modify datamodules/padded.yaml
+        # 2. Copy and modify datamodules/padded.yaml (maintain directory structure)
         datamodule_src = self.workspace_root / "conf" / "datamodules" / "padded.yaml"
-        datamodule_dst = job_dir / "padded.yaml"
+        datamodule_dir = job_dir / "datamodules"
+        datamodule_dir.mkdir(exist_ok=True)
+        datamodule_dst = datamodule_dir / "padded.yaml"
         
         with open(datamodule_src, 'r') as f:
             datamodule_config = yaml.safe_load(f)
@@ -160,9 +162,11 @@ class GridSearchOrchestrator:
         
         config_paths['datamodule'] = datamodule_dst
         
-        # 3. Copy and modify models/mock_transformer.yaml
+        # 3. Copy and modify models/mock_transformer.yaml (maintain directory structure)
         model_src = self.workspace_root / "conf" / "models" / "mock_transformer.yaml"
-        model_dst = job_dir / "mock_transformer.yaml"
+        model_dir = job_dir / "models"
+        model_dir.mkdir(exist_ok=True)
+        model_dst = model_dir / "mock_transformer.yaml"
         
         with open(model_src, 'r') as f:
             model_config = yaml.safe_load(f)
@@ -175,15 +179,19 @@ class GridSearchOrchestrator:
         
         config_paths['model'] = model_dst
         
-        # 4. Copy dataset config unchanged
+        # 4. Copy dataset config unchanged (maintain directory structure)
         dataset_src = self.workspace_root / "conf" / "datasets" / "fair_universe.yaml"
-        dataset_dst = job_dir / "fair_universe.yaml"
+        dataset_dir = job_dir / "datasets"
+        dataset_dir.mkdir(exist_ok=True)
+        dataset_dst = dataset_dir / "fair_universe.yaml"
         shutil.copy(dataset_src, dataset_dst)
         config_paths['dataset'] = dataset_dst
         
-        # 5. Copy trainer config unchanged
+        # 5. Copy trainer config unchanged (maintain directory structure)
         trainer_src = self.workspace_root / "conf" / "trainers" / "default.yaml"
-        trainer_dst = job_dir / "default.yaml"
+        trainer_dir = job_dir / "trainers"
+        trainer_dir.mkdir(exist_ok=True)
+        trainer_dst = trainer_dir / "default.yaml"
         shutil.copy(trainer_src, trainer_dst)
         config_paths['trainer'] = trainer_dst
         
@@ -225,6 +233,7 @@ echo ""
 
 # Setup environment
 export NEEDLE_WORKSPACE={self.workspace_root}
+export PYTHONUNBUFFERED=1  # Force unbuffered output for real-time logs
 cd $NEEDLE_WORKSPACE
 
 # Source setup script if it exists
