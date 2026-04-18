@@ -1,0 +1,10 @@
+executable              = Run.sh
+arguments               = $(ClusterId)$(ProcId)
+output                  = Diffusion-DRE.$(ClusterId).$(ProcId).out
+error                   = Diffusion-DRE.$(ClusterId).$(ProcId).err
+log                     = Diffusion-DRE.$(ClusterId).log
++Request_Runtime         = 3600
++Request_Memory          = 24000
+request_GPUs = 0
+request_CPUs = 1
+queue
