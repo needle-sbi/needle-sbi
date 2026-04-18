@@ -233,9 +233,14 @@ if [ -f setup.sh ]; then
 fi
 
 echo "=== Training Phase ==="
-# Run LAW training task with custom config
+# Create job-specific output directory
+JOB_OUTPUT_DIR="runs/{param_set['network_size_name']}_e{param_set['num_ensembles']}_f{param_set['folds']}_b{param_set['batch_size']}"
+mkdir -p "$JOB_OUTPUT_DIR"
+
+# Run LAW training task with custom config and job-specific output
 law run MainTask \\
     --config-file {job_dir / 'config.yaml'} \\
+    --SnapshotTask-rel-results-path "$JOB_OUTPUT_DIR" \\
     --workers 1
 
 echo ""
@@ -244,20 +249,14 @@ echo "=== Training Complete ==="
 # Wait for outputs to settle
 sleep 5
 
-# Find the most recent snapshot
-SNAPSHOT_DIR=$(find runs/ -type d -name "snapshot_*" | sort -r | head -n 1)
-if [ -z "$SNAPSHOT_DIR" ]; then
-    echo "ERROR: No snapshot directory found!"
-    exit 1
-fi
-
-echo "Using snapshot: $SNAPSHOT_DIR"
-SNAPSHOT_JSON="$SNAPSHOT_DIR/dag_snapshot.json"
-
+# Find the snapshot in job-specific output directory
+SNAPSHOT_JSON="$JOB_OUTPUT_DIR/dag_snapshot.json"
 if [ ! -f "$SNAPSHOT_JSON" ]; then
     echo "ERROR: Snapshot JSON not found: $SNAPSHOT_JSON"
     exit 1
 fi
+
+echo "Using snapshot: $SNAPSHOT_JSON"
 
 echo ""
 echo "=== Benchmark Phase ==="
@@ -295,9 +294,9 @@ error                   = {job_dir}/job.$(ClusterId).$(ProcId).err
 log                     = {job_dir}/job.$(ClusterId).log
 
 # Resource requests
-+Request_Runtime         = 7200  # 2 hours
-+Request_Memory          = 32000  # 32 GB
-request_GPUs             = 0  # CPU only for now
++Request_Runtime         = 7200
++Request_Memory          = 32000
+request_GPUs             = 0
 request_CPUs             = 1
 
 # Environment
