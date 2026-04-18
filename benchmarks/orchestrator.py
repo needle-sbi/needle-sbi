@@ -234,6 +234,7 @@ echo ""
 # Setup environment
 export NEEDLE_WORKSPACE={self.workspace_root}
 export PYTHONUNBUFFERED=1  # Force unbuffered output for real-time logs
+export FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet
 cd $NEEDLE_WORKSPACE
 
 # Source setup script if it exists
@@ -250,7 +251,7 @@ mkdir -p "$JOB_OUTPUT_DIR"
 law run MainTask \\
     --config-file {job_dir / 'config.yaml'} \\
     --SnapshotTask-rel-results-path "$JOB_OUTPUT_DIR" \\
-    --workers 1
+    --workers 2
 
 echo ""
 echo "=== Training Complete ==="
@@ -306,7 +307,7 @@ log                     = {job_dir}/job.$(ClusterId).log
 +Request_Runtime         = 7200
 +Request_Memory          = 32000
 request_GPUs             = 0
-request_CPUs             = 1
+request_CPUs             = 2
 
 # Environment
 getenv                  = True
