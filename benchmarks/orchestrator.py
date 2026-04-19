@@ -251,13 +251,10 @@ JOB_OUTPUT_DIR="runs/{param_set['network_size_name']}_e{param_set['num_ensembles
 mkdir -p "$JOB_OUTPUT_DIR"
 
 # Run LAW training task with custom config and job-specific output
-# Use --parallel-jobs to speed up dependency checking
-# Use more workers to parallelize FoldTask execution within this job
 law run MainTask \\
     --config-file {job_dir / 'config.yaml'} \\
     --SnapshotTask-rel-results-path "$JOB_OUTPUT_DIR" \\
-    --workers {param_set['num_ensembles']} \\
-    --parallel-jobs 4 \\
+    --workers 4 \\
     --log-level INFO
 
 END_TIME=$(date +%s)
@@ -316,7 +313,7 @@ log                     = {job_dir}/job.$(ClusterId).log
 
 # Resource requests
 request_runtime         = 14000
-request_memory          = 10000
+request_memory          = 16000
 request_GPUs             = 0
 request_CPUs             = 2
 
