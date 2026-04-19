@@ -14,7 +14,7 @@ import luigi
 from omegaconf import OmegaConf
 from lightning.pytorch.loggers import Logger, MLFlowLogger
 
-from law_tasks.mixins import HydraMixin, HTCondorMixin
+from law_tasks.mixins import HydraMixin
 from law_tasks.training_base import TrainingBase
 from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.results import FoldResults 
@@ -23,7 +23,7 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("fold")
 
 
-class FoldTask(HTCondorMixin, law.Task, TrainingBase, HydraMixin):
+class FoldTask(law.Task, TrainingBase, HydraMixin):
     results_path = law.Parameter(
         description="Directory where the fold training results will be saved.",
         default="runs",
