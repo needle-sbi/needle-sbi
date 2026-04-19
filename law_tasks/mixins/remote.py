@@ -4,6 +4,7 @@ Mixin classes for remote task executing. Currently supports:
 """
 
 import law
+import luigi
 
 law.contrib.load("htcondor")  # type: ignore
 
@@ -27,17 +28,16 @@ class HTCondorMixin(law.htcondor.HTCondorWorkflow):  # type: ignore
         description="Maximum runtime of the task in minutes.",
     )
     
-    htcondor_request_cpus = law.IntParameter(
+    htcondor_request_cpus = luigi.IntParameter(
         default=2,
         significant=False,
         description="Number of CPUs to request per job",
     )
     
-    htcondor_request_memory = law.BytesParameter(
-        default=32.0,
-        unit="GB",
+    htcondor_request_memory = luigi.IntParameter(
+        default=32000,  # MB
         significant=False,
-        description="Memory to request per job",
+        description="Memory to request per job in MB",
     )
 
     def htcondor_output_directory(self):
@@ -53,7 +53,7 @@ class HTCondorMixin(law.htcondor.HTCondorWorkflow):  # type: ignore
         
         # Resource requests
         config.custom_content.append(("request_cpus", self.htcondor_request_cpus))
-        config.custom_content.append(("request_memory", f"{self.htcondor_request_memory}MB"))
+        config.custom_content.append(("request_memory", self.htcondor_request_memory))
         config.custom_content.append(("+Request_Runtime", int(self.max_runtime * 60)))  # seconds
         config.custom_content.append(("request_GPUs", "0"))
         
