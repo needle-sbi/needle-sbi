@@ -253,15 +253,12 @@ mkdir -p "$JOB_OUTPUT_DIR"
 # Run LAW training task with custom config and job-specific output
 # Use --parallel-jobs to speed up dependency checking
 # Use more workers to parallelize FoldTask execution within this job
-# Use --remove-output to force re-execution (fix LAW caching issues)
 law run MainTask \\
     --config-file {job_dir / 'config.yaml'} \\
     --SnapshotTask-rel-results-path "$JOB_OUTPUT_DIR" \\
     --workers {param_set['num_ensembles']} \\
     --parallel-jobs 4 \\
-    --log-level INFO \\
-    --print-status 1 \\
-    --remove-output 0,a,y
+    --log-level INFO
 
 END_TIME=$(date +%s)
 TRAIN_DURATION=$((END_TIME - START_TIME))
