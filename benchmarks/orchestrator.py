@@ -156,6 +156,7 @@ class GridSearchOrchestrator:
             datamodule_config = yaml.safe_load(f)
         
         datamodule_config['batch_size'] = param_set['batch_size']
+        datamodule_config['num_workers'] = 0  # Disable multiprocessing to avoid fork issues on HTCondor
         
         with open(datamodule_dst, 'w') as f:
             yaml.dump(datamodule_config, f, default_flow_style=False)
@@ -311,9 +312,9 @@ output                  = {job_dir}/job.$(ClusterId).$(ProcId).out
 error                   = {job_dir}/job.$(ClusterId).$(ProcId).err
 log                     = {job_dir}/job.$(ClusterId).log
 
-# Resource requests
-request_runtime         = 14000
-request_memory          = 16000
+# Resource requests (adjusted for sequential execution with workers=1)
++Request_Runtime         = 28800
++Request_Memory          = 16000
 request_GPUs             = 0
 request_CPUs             = 2
 
