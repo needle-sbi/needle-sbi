@@ -7,6 +7,8 @@ Adapted by K. Schmidt
 import json
 import logging
 import os
+from pathlib import Path
+from shutil import copy2
 from typing import Annotated, Dict, List
 
 import numpy as np
@@ -49,12 +51,14 @@ class Data:
 
     __train_set: pd.DataFrame
     __test_set: Dict[str, pd.DataFrame]
+    cache_parquet_file: Path
 
     def __init__(
         self,
         input_dir: str,
         parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
         metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
+        cache_parquet_file: str | None = "/tmp/needle/fair_universe_data.parquet",
         test_size: Percentage = 0.3,
     ):
         """
@@ -79,6 +83,21 @@ class Data:
             logger.warning(f"An error occurred while reading the metadata file: {e}")
             self.metadata = {}
 
+        # Cache file on fastest available storage
+        if cache_parquet_file:
+            self.cache_parquet_file = Path(cache_parquet_file)
+            os.makedirs(self.cache_parquet_file.parent, exist_ok=True)
+
+            if not self.cache_parquet_file.exists():
+                logger.info(
+                    f"Caching input file '{train_data_file}' to '{self.cache_parquet_file} for faster access. "
+                    "Disable by setting `Data(cache_parquet_file=...)` to None or False"
+                )
+                copy2(train_data_file, self.cache_parquet_file)
+
+            train_data_file = self.cache_parquet_file
+
+        logger.info(f"Opening file {train_data_file}")
         self.parquet_file = pq.ParquetFile(train_data_file)
 
         # Step 1: Determine the total number of rows
