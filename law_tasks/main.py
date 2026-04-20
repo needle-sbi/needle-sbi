@@ -6,6 +6,9 @@ import law
 
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
+from preprocessor.utils.logging import ColorFormatter
+
+logger = ColorFormatter.get_logger("orchestrator")
 
 
 class MainTask(HydraMixin, law.WrapperTask):
@@ -22,10 +25,16 @@ class MainTask(HydraMixin, law.WrapperTask):
 
     @property
     def abs_results_path(self) -> Path:
-        if self.config.results_path:
-            self.results_path = self.config.results_path
+        if self.results_path != "runs":
+            if self.config.results_path:
+                logger.warning(
+                    f"Conflicting value for arg `--results-path`. Config indicates '{self.config.results_path}' "
+                    f"while CLI arg is '{self.results_path}'. The CLI value takes precedence. You can also "
+                    f"set this parameter using `--hydra-overrides='results_path={self.results_path}'`."
+                )
+                return Path(self.config.results_path)
 
-        return os.path.abspath(self.results_path)  # type: ignore
+        return Path(os.path.abspath(self.results_path))
 
     def requires(self) -> List[EstimatorTask]:
         return [

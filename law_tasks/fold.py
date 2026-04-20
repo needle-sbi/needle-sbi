@@ -18,13 +18,20 @@ from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import OmegaConf
 
 from law_tasks.mixins import HydraMixin
-from law_tasks.workflows import HTCondorWorkflow, LocalWorkflow, SlurmWorkflow, check_batch_system
+from law_tasks.workflows import (
+    HTCondorWorkflow,
+    LocalWorkflow,
+    SlurmWorkflow,
+    check_batch_system,
+)
 from orchestrator.config import EstimatorConfig, SystematicConfig
 from orchestrator.config_utils import hydra_check_if_arg_supported, hydra_instantiate
 from orchestrator.results import FoldResults
 from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("fold")
+
+FoldTaskOutput = Dict[str, law.LocalFileTarget] | Dict[str, law.TargetCollection]
 
 
 class FoldTask(
@@ -113,7 +120,7 @@ class FoldTask(
         if not self.estimator_config.requires:
             return []
 
-        from law_tasks import EstimatorTask
+        from law_tasks import EstimatorTask  # Avoid circular imports
 
         return [
             EstimatorTask(
@@ -126,7 +133,14 @@ class FoldTask(
         ]
 
     def output(self) -> Dict[str, Any]:
-        """Define all output targets for this task"""
+        """Define all output targets for this task
+
+        Important:
+            If using this method in another Task, beware that for remote jobs, the output of this
+            method will be wrapped in a Dict of Lists to account for each potential branch of the
+            workflow. To avoid encountering this problem, use the `output_as_dict` method instead,
+            which flattens the remote output to the same shape as the local version.
+        """
         check_batch_system(system=str(self.workflow))  # type: ignore
 
         base = law.LocalDirectoryTarget(self.abs_results_path)
@@ -135,14 +149,55 @@ class FoldTask(
             "ckpt": base.child("model.ckpt", type="f"),
             "model_config": base.child("model_config.yaml", type="f"),
             "metrics": base.child("metrics", type="d"),
-            "outputs": base.child("fold_results.json", type="f"),  # Add this!
+            "outputs": base.child("fold_results.json", type="f"),
             "input_models": base.child("input_models.json", type="f"),
         }
 
+    @staticmethod
+    def output_as_dict(fold_output: FoldTaskOutput) -> Dict[str, law.LocalTarget]:
+        """Unpack local and remote inputs
+
+         1. Local is simply the Dict defined in the output method of the FoldTask
+         2. Remote is instead a DotDict with 'collection' and 'jobs' fields.
+
+        Example:
+            print(super().input())
+            [
+                DotDict(
+                    {
+                        "jobs": law.LocalFileTarget(),
+                        "collection": law.TargetCollection(len=1)
+                    }
+                )
+            ]
+
+        Returns:
+            Dict[str, str]: Properly formatted output Dict with key:Target pairs
+        """
+        remote_collection: law.TargetCollection | None = fold_output.get("collection")  # type: ignore
+
+        if remote_collection:
+            if len(remote_collection) != 1:
+                raise NotImplementedError(
+                    "Currently the usage of branches in FoldTask is not supported. Instead, folds "
+                    "have to be their own Task instance required by EnsembleTask."
+                )
+            return remote_collection[0]
+        else:
+            return fold_output  # type: ignore
+
     @property
     def mlflow_logger(self) -> MLFlowLogger:
+        experiment_name = urlencode(
+            {
+                "est": self.estimator,
+                "syst": self.systematic,
+                "ens": self.ensemble,
+                "fold": self.fold_index,
+            }
+        )
         return MLFlowLogger(
-            experiment_name=f"est={self.estimator}_syst={self.systematic}_ens={self.ensemble}_fold={self.fold_index}",
+            experiment_name=experiment_name,
             save_dir=os.path.join(self.output()["metrics"].path, "mlflow"),
             log_model=False,
         )

@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import law
 from omegaconf import open_dict
 
+from law_tasks.fold import FoldTask
 from law_tasks.mixins import HydraMixin
 from law_tasks.systematic import SystematicTask
 from orchestrator.config import EstimatorConfig, SystematicConfig
@@ -75,8 +76,7 @@ class EstimatorTask(HydraMixin, law.Task):
                             "fold": fold_task.fold_index,
                         }
                     )
-                    path = fold_task.output()["ckpt"].path
-                    model_paths_dict[key] = path
+                    model_paths_dict[key] = FoldTask.output_as_dict(fold_task.output())["ckpt"].path  # type: ignore
 
         return model_paths_dict
 
