@@ -108,7 +108,7 @@ class FoldTask(
                                 "fold": fold_task.fold_index,
                             }
                         )
-                        path = fold_task.output()["ckpt"].path
+                        path: str = self.output_as_dict(fold_task.output())["ckpt"].path  # type: ignore
                         model_paths_dict[key] = path
 
         return model_paths_dict
