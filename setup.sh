@@ -62,7 +62,7 @@ fi
 export PS1="($ENV_NAME):$PS1"
 
 # fully restore env: unset all exported vars, not just PYTHONPATH/PS1
-deactivate() {
+_deactivate() {
     export PYTHONPATH="$_OLD_PYTHONPATH"
     export PS1="$_OLD_PS1"
     unset NEEDLE_ENV_ACTIVE
@@ -78,7 +78,12 @@ deactivate() {
     return 0
 }
 
-alias exit="deactivate"
+alias exit="_deactivate"
+alias deactivate="_deactivate"
+
+# Backup in case .venv was exited before needle env
+alias needle_deactivate="_deactivate"
+alias needle_exit="_deactivate"
 
 # clean up colour vars so they don't pollute the users env
 unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC _NEEDLE_BLUE
