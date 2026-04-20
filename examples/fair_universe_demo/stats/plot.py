@@ -22,17 +22,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from .eval import PredictResult
 
 
-class PlottingTask(luigi.Task):
-    test_settings_path: str = luigi.Parameter(description="Path to the test settings file (.json)")  # type: ignore
-    root_dir: str = luigi.Parameter(
-        description="Path to the directory containing the FAIR Universe Data",
-    )  # type: ignore
-    ingestion_results_path: str = luigi.Parameter(
-        description="Path to the result file from the 'EvalTask' (aka. Ingestion)",
-    )  # type: ignore
-    score_path: str = luigi.Parameter(
-        description="Path to the score file from the 'ScoreTask'",
-    )  # type: ignore
+class PlottingMixin(luigi.Task):
     plot_save_dir: str = luigi.Parameter(
         description="Path to the directory where to save the plots resulting from this Task",
     )  # type: ignore
@@ -41,28 +31,9 @@ class PlottingTask(luigi.Task):
     class PlottingSettings:
         format: str = "png"
 
-    @cached_property
-    def test_settings(self) -> Dict[str, Any]:
-        with open(self.test_settings_path, "r") as f:
-            _test_settings = json.load(f)
-
-        return _test_settings
-
-    @cached_property
-    def ingestion_results(self) -> Dict[int, PredictResult]:
-        with open(self.ingestion_results_path, "r") as f:
-            _ingestion_results = json.load(f)
-
-        return _ingestion_results
-
-    @cached_property
-    def scores(self):
-        with open(self.score_path) as f:
-            _scores = json.load(f)
-
-        return _scores
-
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
+        os.makedirs(os.path.abspath(self.plot_save_dir), exist_ok=True)
+
         return {
             plot_name: luigi.LocalTarget(
                 Path(os.path.join(self.plot_save_dir, f"{plot_name}.{self.PlottingSettings.format}")).absolute()
@@ -70,7 +41,8 @@ class PlottingTask(luigi.Task):
             for plot_name in self.registered_plots.keys()
         }
 
-    def set_needle_plot_style(self, fig: Figure) -> Figure:
+    @staticmethod
+    def set_needle_plot_style(fig: Figure) -> Figure:
         ax = fig.axes[0]
         mplhep.label.exp_label(
             loc=0,
@@ -123,10 +95,11 @@ class PlottingTask(luigi.Task):
                     raise TypeError(f"Function {func.__name__} must return matplotlib.figure.Figure")
 
                 fig = self.set_needle_plot_style(fig)
-                save_path = self.output()[getattr(func, "_plot_name")].path
+                name = getattr(func, "_plot_name")
+                save_path = self.output()[name].path
                 fig.savefig(save_path)
+                print(f"Saved plot '{name}' to '{save_path}'.")
                 plt.close(fig)
-
                 return fig
 
             return wrapper
@@ -148,7 +121,41 @@ class PlottingTask(luigi.Task):
 
         return plots
 
-    @plot(name="ground_truth_vs_predicted_mu")
+
+class PlottingTask(PlottingMixin):
+    test_settings_path: str = luigi.Parameter(description="Path to the test settings file (.json)")  # type: ignore
+    root_dir: str = luigi.Parameter(
+        description="Path to the directory containing the FAIR Universe Data",
+    )  # type: ignore
+    ingestion_results_path: str = luigi.Parameter(
+        description="Path to the result file from the 'EvalTask' (aka. Ingestion)",
+    )  # type: ignore
+    score_path: str = luigi.Parameter(
+        description="Path to the score file from the 'ScoreTask'",
+    )  # type: ignore
+
+    @cached_property
+    def test_settings(self) -> Dict[str, Any]:
+        with open(self.test_settings_path, "r") as f:
+            _test_settings = json.load(f)
+
+        return _test_settings
+
+    @cached_property
+    def ingestion_results(self) -> Dict[int, PredictResult]:
+        with open(self.ingestion_results_path, "r") as f:
+            _ingestion_results = json.load(f)
+
+        return _ingestion_results
+
+    @cached_property
+    def scores(self):
+        with open(self.score_path) as f:
+            _scores = json.load(f)
+
+        return _scores
+
+    @PlottingMixin.plot(name="ground_truth_vs_predicted_mu")
     def visualize_scatter(
         self,
         ingestion_result_dict: Dict[int, PredictResult],
@@ -219,8 +226,6 @@ class PlottingTask(luigi.Task):
         return fig
 
     def run(self) -> None:
-        os.makedirs(os.path.abspath(self.plot_save_dir), exist_ok=True)
-
         self.visualize_scatter(
             ingestion_result_dict=self.ingestion_results,
             ground_truth_mu=self.test_settings["ground_truth_mus"],

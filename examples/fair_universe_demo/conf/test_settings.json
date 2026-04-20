@@ -7,7 +7,7 @@
         "diboson_scale": true,
         "bkg_scale": true
     },
-    "num_pseudo_experiments": 2,
+    "num_pseudo_experiments": 10,
     "num_of_sets": 5,
     "ground_truth_mus": [
         1.1861663446573514,

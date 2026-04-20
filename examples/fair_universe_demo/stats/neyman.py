@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import luigi
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from matplotlib.figure import Figure
 from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
@@ -24,9 +26,10 @@ from ..utils.stats import (
     string_to_tuple_str,
 )
 from .histogram import HistogramTask
+from .plot import PlottingMixin
 
 
-class NeymanTask(luigi.Task):
+class NeymanTask(PlottingMixin):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     hist_path: str = luigi.Parameter(description="Path to the histogram file (.json)")  # type: ignore
     output_path: str = luigi.Parameter(description="Path to the output file (.json)")  # type: ignore
@@ -39,7 +42,9 @@ class NeymanTask(luigi.Task):
             raise FileNotFoundError(f"Argument `hist_path`='{self.hist_path}' must point to a valid .json file")
 
     def output(self):  # type: ignore
-        return {"neyman": luigi.LocalTarget(Path(self.output_path))}
+        plots = super().output()
+        plots.update({"neyman": luigi.LocalTarget(Path(self.output_path))})
+        return plots
 
     def _compute_neyman_entry(
         self,
@@ -95,6 +100,8 @@ class NeymanTask(luigi.Task):
         self.bin_splines_S_class = fit_2D_splines_bin_by_bin_from_dict(S_templates_2d_2j)
         self.bin_splines_BG_class = fit_2D_splines_bin_by_bin_from_dict(B_templates_2d_2j)
 
+        self.plot_validate_s_templates_2d_2j()
+
         # Loop over a range of "mu" values and compute MLE ratios.
         MLE_ratio_arr: Dict[str, List[float]] = {}
         frac_array = np.linspace(0.1, 3.2, 10)
@@ -108,10 +115,16 @@ class NeymanTask(luigi.Task):
                 mu = self._compute_neyman_entry(seed=seed, frac=frac)
 
                 MLE_ratio_arr[frac].append(mu)
-                tqdm.write(f"Estimated mu: {mu}")
+                tqdm.write(f"Estimated mu: {mu}, with mu_true {frac}")
 
         with open(self.output_path, "w") as f:
             json.dump(MLE_ratio_arr, f)
+
+    @PlottingMixin.plot(name="validate_s_templates_2d_2j")
+    def plot_validate_s_templates_2d_2j(self) -> Figure:
+        fig, ax = plt.subplots(figsize=(5, 4), dpi=400)
+
+        return fig
 
     @timing
     def run(self) -> None:
