@@ -13,7 +13,7 @@ import torch
 
 from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
-from ..stats.histogram import HistogramTask
+from ..tasks.histogram import HistogramTask
 from .selection import createJetData, return1j2j
 from .stats import (
     compute_mu_nuan_2NP_class,

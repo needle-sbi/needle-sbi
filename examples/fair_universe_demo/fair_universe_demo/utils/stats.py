@@ -48,19 +48,13 @@ def string_to_tuple_str(s: str) -> Tuple | None:
             raise ValueError("The string does not represent a tuple of length 2 or 3.")
 
     except (SyntaxError, ValueError) as e:
-        print(
-            f"Error parsing string to tuple: {e}\n -> '{s}' is not a valid python literal structure"
-        )
+        print(f"Error parsing string to tuple: {e}\n -> '{s}' is not a valid python literal structure")
         return None
 
 
 def prior_theta(theta, mu_theta=1.0, sigma_theta=0.01) -> float:
     """Gaussian prior on theta."""
-    return (
-        1.0
-        / (np.sqrt(2 * np.pi) * sigma_theta)
-        * np.exp(-0.5 * ((theta - mu_theta) / sigma_theta) ** 2)
-    )
+    return 1.0 / (np.sqrt(2 * np.pi) * sigma_theta) * np.exp(-0.5 * ((theta - mu_theta) / sigma_theta) ** 2)
 
 
 def compute_mu_nuan_2NP_class(
@@ -148,9 +142,7 @@ def compute_mu_nuan_2NP_class(
     initial_params = [0.002, 1, 1]  # f_s ~ 1%, all NPs ~ 0
 
     # We'll use L-BFGS-B
-    opt_result = minimize(
-        neg_log_likelihood, x0=initial_params, method="L-BFGS-B", bounds=param_bounds
-    )
+    opt_result = minimize(neg_log_likelihood, x0=initial_params, method="L-BFGS-B", bounds=param_bounds)
     f_s_hat, nu1_hat, nu2_hat = opt_result.x
 
     tqdm.write(
@@ -275,10 +267,7 @@ def load_bias_data(path: str):
 
     # Example data (replace with your actual data)
     mu_real_values = np.sort(np.array(list(MLE_ratio_arr.keys())))  # Your mu_real keys
-    mu_obs_distributions = {
-        mu_real: np.array(MLE_ratio_arr[mu_real], dtype=float)
-        for mu_real in mu_real_values
-    }
+    mu_obs_distributions = {mu_real: np.array(MLE_ratio_arr[mu_real], dtype=float) for mu_real in mu_real_values}
 
     mu_obs_means = []
     mu_obs_stds = []
@@ -299,9 +288,7 @@ def load_bias_data(path: str):
     a, b = params
 
     mu_obs_stds_corrected = mu_obs_stds / abs(a)
-    std_corrected_interp = interp1d(
-        mu_real_values, mu_obs_stds_corrected, kind="linear", fill_value="extrapolate"
-    )
+    std_corrected_interp = interp1d(mu_real_values, mu_obs_stds_corrected, kind="linear", fill_value="extrapolate")
 
     return std_corrected_interp, a, b
 
@@ -312,11 +299,7 @@ def inverse_bias_func(mu_obs_mean, a, b):
 
 def compute_posterior(mu_obs, mu_real_range, std_corrected_interp, a, b):
     mu_obs_corrected = inverse_bias_func(mu_obs, a, b)
-    likelihood = np.exp(
-        -0.5
-        * ((mu_obs_corrected - mu_real_range) / std_corrected_interp(mu_real_range))
-        ** 2
-    )
+    likelihood = np.exp(-0.5 * ((mu_obs_corrected - mu_real_range) / std_corrected_interp(mu_real_range)) ** 2)
     posterior = likelihood
     posterior /= np.trapz(posterior, mu_real_range)
     return mu_obs_corrected, posterior
@@ -324,9 +307,7 @@ def compute_posterior(mu_obs, mu_real_range, std_corrected_interp, a, b):
 
 def get_confidence_interval(mu_obs, std_corrected_interp, a, b):
     mu_real_range = np.linspace(0, 3, 1000)
-    mu_obs_corrected, posterior = compute_posterior(
-        mu_obs, mu_real_range, std_corrected_interp, a, b
-    )
+    mu_obs_corrected, posterior = compute_posterior(mu_obs, mu_real_range, std_corrected_interp, a, b)
     cdf = np.cumsum(posterior)
     cdf /= cdf[-1]
     lower_idx = np.searchsorted(cdf, 0.16)

@@ -51,6 +51,14 @@ class NeymanTask(PlottingMixin):
         seed: int,
         frac: float,  # alias for "mu"
     ) -> Any:
+        def _save_objects(tmp_dir: str = "/tmp/needle") -> None:
+            alljet_data["weights"].to_csv(f"{tmp_dir}/weights.csv")
+            alljet_data["detailed_labels"].to_csv(f"{tmp_dir}/detailed_labels.csv")
+            alljet_data["labels"].to_csv(f"{tmp_dir}/labels.csv")
+            alljet_data["data"].to_csv(f"{tmp_dir}/data.csv")
+            torch.save(data_1j, f"{tmp_dir}/data_1j")
+            torch.save(data_2j, f"{tmp_dir}/data_2j")
+
         alljet_data, _ = createJetData(  # type: ignore
             jet_num="all",
             useTestData=True,
@@ -61,13 +69,18 @@ class NeymanTask(PlottingMixin):
             useRand=True,
             root_dir=self.root_dir,
         )
-        data_2j, data_1j, _, _ = return1j2j(alljet_data, models=self.nf_models, device=self.device)  # type: ignore
+        data_2j, data_1j, _, _ = return1j2j(
+            alljet_data,
+            models=self.nf_models,
+            device=self.device,
+        )  # type: ignore
         mu = compute_mu_nuan_2NP_class(
-            data_2j,
-            data_1j,
-            self.classifier,
-            self.bin_splines_S_class,
-            self.bin_splines_BG_class,
+            test_data_2j=data_2j,
+            test_data_1j=data_1j,
+            dnn_model=self.classifier,
+            bin_splines_S=self.bin_splines_S_class,
+            bin_splines_BG=self.bin_splines_BG_class,
+            eval_device=self.device,
         )
         return mu
 

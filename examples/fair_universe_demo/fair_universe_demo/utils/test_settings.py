@@ -18,9 +18,7 @@ def generate_test_settings(file_savepath: str = None) -> Dict[str, Any]:
     test_settings["num_pseudo_experiments"] = 2
     test_settings["num_of_sets"] = 5
     random_state = np.random.RandomState(42)
-    test_settings["ground_truth_mus"] = (
-        random_state.uniform(0.1, 3, test_settings["num_of_sets"])
-    ).tolist()
+    test_settings["ground_truth_mus"] = (random_state.uniform(0.1, 3, test_settings["num_of_sets"])).tolist()
     test_settings["random_mu"] = True
 
     if file_savepath:

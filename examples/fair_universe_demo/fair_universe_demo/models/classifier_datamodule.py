@@ -94,9 +94,7 @@ class ClassifierDatamodule(L.LightningDataModule):
         self.input_models = self.load_nf_models(self.input_models_dict)
 
         if len(self.input_models) != 8:
-            raise ValueError(
-                f"Expected to load exactly eight models but found {len(self.input_models)}"
-            )
+            raise ValueError(f"Expected to load exactly eight models but found {len(self.input_models)}")
 
         j2_data, j2_detlabel, _, _ = createMultiJetMultiNuanData(
             jet_num=2,
@@ -135,17 +133,11 @@ class ClassifierDatamodule(L.LightningDataModule):
                 NF_b2j_2p0 = torch.sigmoid(self.input_models["nf_background_2jet&c_2p0"](j2_data)).unsqueeze(1)
                 # fmt: on
             except KeyError as e:
-                raise KeyError(
-                    f"No key `{e}` found in model Dict. Available keys are {self.input_models.keys()}"
-                )
+                raise KeyError(f"No key `{e}` found in model Dict. Available keys are {self.input_models.keys()}")
 
             # Append the Normalizing Flow features to the original data.
-            j1_data = torch.cat(
-                [j1_data, NF_s1j_0p5, NF_s1j_2p0, NF_b1j_0p5, NF_b1j_2p0], dim=1
-            )
-            j2_data = torch.cat(
-                [j2_data, NF_s2j_0p5, NF_s2j_2p0, NF_b2j_0p5, NF_b2j_2p0], dim=1
-            )
+            j1_data = torch.cat([j1_data, NF_s1j_0p5, NF_s1j_2p0, NF_b1j_0p5, NF_b1j_2p0], dim=1)
+            j2_data = torch.cat([j2_data, NF_s2j_0p5, NF_s2j_2p0, NF_b2j_0p5, NF_b2j_2p0], dim=1)
 
         max_shape = min(len(j1_data), len(j2_data))
         print(f"Number of data points used: {max_shape}")
@@ -159,9 +151,7 @@ class ClassifierDatamodule(L.LightningDataModule):
         # Split the dataset into training and validation sets.
         n_val = int(0.1 * len(all_jet_dataset))
         n_train = len(all_jet_dataset) - n_val
-        self.train_dataset, self.val_dataset = random_split(
-            all_jet_dataset, [n_train, n_val]
-        )
+        self.train_dataset, self.val_dataset = random_split(all_jet_dataset, [n_train, n_val])
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(self.train_dataset, batch_size=self.batch_size)
@@ -187,9 +177,7 @@ class ClassifierDatamodule(L.LightningDataModule):
 
         models = torch.nn.ModuleDict()
 
-        for name, ckpt_path in tqdm(
-            input_models.items(), desc="Loading NF models", leave=False
-        ):
+        for name, ckpt_path in tqdm(input_models.items(), desc="Loading NF models", leave=False):
             name_dict = parse_qs(name)
             prefix = name_dict["est"][0]
             suffix = name_dict["syst"][0].replace(".", "p")

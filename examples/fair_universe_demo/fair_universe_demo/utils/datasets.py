@@ -58,7 +58,7 @@ class Data:
         input_dir: str,
         parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
         metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
-        cache_parquet_file: str | None = "/tmp/needle/fair_universe_data.parquet",
+        cache_parquet_file: str | None = None,
         test_size: Percentage = 0.3,
     ):
         """

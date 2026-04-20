@@ -84,15 +84,20 @@ estimators:
     trainer: classifier
 
 downstream_tasks:
+  validation:
+    args:
+      _target_: examples.fair_universe_demo.src.tasks.validation.ValidationTask
+      root_dir: ${custom_settings.root_dir}
+      plot_save_dir: "${results_path}/plots"
   histogram:
     args:
-      _target_: examples.fair_universe_demo.stats.histogram.HistogramTask
+      _target_: examples.fair_universe_demo.src.tasks.histogram.HistogramTask
       root_dir: ${custom_settings.root_dir}
       json_save_path: "${results_path}/hist.json"
   neyman:
     requires: ["histogram"]
     args:
-      _target_: examples.fair_universe_demo.stats.neyman.NeymanTask
+      _target_: examples.fair_universe_demo.src.tasks.neyman.NeymanTask
       hist_path: "${results_path}/hist.json"
       output_path: "${results_path}/neyman.json"
       root_dir: "${custom_settings.root_dir}"
@@ -100,25 +105,25 @@ downstream_tasks:
   eval:
     requires: ["neyman"]
     args:
-      _target_: examples.fair_universe_demo.stats.eval.EvalTask
+      _target_: examples.fair_universe_demo.src.tasks.eval.EvalTask
       hist_path: "${results_path}/hist.json"
       root_dir: "${custom_settings.root_dir}"
       neyman_path: "${results_path}/neyman.json"
-      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
       output_path: "${results_path}/eval.json"
   score:
     requires: ["eval"]
     args:
-      _target_: examples.fair_universe_demo.stats.score.ScoreTask
+      _target_: examples.fair_universe_demo.src.tasks.score.ScoreTask
       predict_path: "${results_path}/eval.json"
       output_dir: "${results_path}/scores/"
-      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
   plot:
     requires: ["score"]
     args:
-      _target_: examples.fair_universe_demo.stats.plot.PlottingTask
+      _target_: examples.fair_universe_demo.src.tasks.plot.PlottingTask
       root_dir: "${custom_settings.root_dir}"
-      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
       ingestion_results_path: "${results_path}/eval.json"
       score_path: "${results_path}/scores/"
       plot_save_dir: "${results_path}/plots"

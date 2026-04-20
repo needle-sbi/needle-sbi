@@ -94,16 +94,11 @@ class Scoring:
             eval_results: EvalResults = json.load(f)
 
             ingestion_results_with_set_index = [
-                {"set_index": set_idx, "results": set_result}
-                for set_idx, set_result in eval_results.items()
+                {"set_index": set_idx, "results": set_result} for set_idx, set_result in eval_results.items()
             ]
 
-        ingestion_results_with_set_index = sorted(
-            ingestion_results_with_set_index, key=lambda x: x["set_index"]
-        )
-        self.ingestion_results = [
-            x["results"] for x in ingestion_results_with_set_index
-        ]
+        ingestion_results_with_set_index = sorted(ingestion_results_with_set_index, key=lambda x: x["set_index"])
+        self.ingestion_results = [x["results"] for x in ingestion_results_with_set_index]
 
         self.score_file = os.path.join(score_dir, "scores.json")
         self.html_file = os.path.join(score_dir, "detailed_results.html")
@@ -166,9 +161,7 @@ class Scoring:
                 self._print(f"Coverage: {set_coverage}")
                 self._print(f"Quantiles Score: {set_quantiles_score}")
 
-                self.save_figure(
-                    mu=np.mean(mu_hats), p16s=p16s, p84s=p84s, set=i, true_mu=mu
-                )
+                self.save_figure(mu=np.mean(mu_hats), p16s=p16s, p84s=p84s, set=i, true_mu=mu)
 
             # Save set scores in lists
             rmses.append(set_rmse)
@@ -190,9 +183,7 @@ class Scoring:
             overall_interval,
             overall_coverage,
             overall_quantiles_score,
-        ) = self.Quantiles_Score(
-            np.array(all_mus), np.array(all_p16s), np.array(all_p84s)
-        )
+        ) = self.Quantiles_Score(np.array(all_mus), np.array(all_p16s), np.array(all_p84s))
 
         self.scores_dict = {
             "rmse": np.mean(rmses),
@@ -214,9 +205,7 @@ class Scoring:
             self._print(f"[*] --- Quantiles score: {round(overall_quantiles_score, 3)}")
             self._print(f"[*] --- Ingestion duration: {self.ingestion_duration}")
 
-    def compute_bootstrapped_scores(
-        self, eps=1e-3, n_bootstraps=10, sample_size=50, random_seed=42
-    ):
+    def compute_bootstrapped_scores(self, eps=1e-3, n_bootstraps=10, sample_size=50, random_seed=42):
         def f(x, n_tries, max_coverage=1e4, one_sigma=0.6827):
             sigma68 = np.sqrt(((1 - one_sigma) * one_sigma * n_tries)) / n_tries
 
@@ -235,9 +224,7 @@ class Scoring:
         for i in range(n_bootstraps):
             random_state = np.random.RandomState(random_seed + i)
 
-            bootstrap_indices = random_state.choice(
-                self.set_score_df.index, size=sample_size, replace=True
-            )
+            bootstrap_indices = random_state.choice(self.set_score_df.index, size=sample_size, replace=True)
             bootstrap_df = self.set_score_df.loc[bootstrap_indices]
             bootstrap_df = bootstrap_df.reset_index(drop=True)
 
@@ -487,9 +474,7 @@ class Scoring:
             if p16 > p84:
                 p16, p84 = 0, 0
             if i == 0:
-                plt.hlines(
-                    y=i, xmin=p16, xmax=p84, colors="b", label="Coverage interval"
-                )
+                plt.hlines(y=i, xmin=p16, xmax=p84, colors="b", label="Coverage interval")
             else:
                 plt.hlines(y=i, xmin=p16, xmax=p84, colors="b")
         plt.vlines(

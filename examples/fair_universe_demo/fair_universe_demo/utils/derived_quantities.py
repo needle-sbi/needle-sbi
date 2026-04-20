@@ -15,9 +15,7 @@ log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
 logging.basicConfig(
-    level=getattr(
-        logging, log_level, logging.INFO
-    ),  # Fallback to INFO if the level is invalid
+    level=getattr(logging, log_level, logging.INFO),  # Fallback to INFO if the level is invalid
     format="%(asctime)s - %(name)-20s - %(levelname) -8s - %(message)s",
 )
 
@@ -61,41 +59,17 @@ def calcul_int(data):
     data["jet_leading_px"] = (
         data.PRI_jet_leading_pt * cos(data.PRI_jet_leading_phi) * (data.PRI_n_jets >= 1)
     )  # = 0 if PRI_n_jets == 0
-    data["jet_leading_py"] = (
-        data.PRI_jet_leading_pt * sin(data.PRI_jet_leading_phi) * (data.PRI_n_jets >= 1)
-    )
-    data["jet_leading_pz"] = (
-        data.PRI_jet_leading_pt
-        * sinh(data.PRI_jet_leading_eta)
-        * (data.PRI_n_jets >= 1)
-    )
-    data["p_jet_leading"] = (
-        data.PRI_jet_leading_pt
-        * cosh(data.PRI_jet_leading_eta)
-        * (data.PRI_n_jets >= 1)
-    )
+    data["jet_leading_py"] = data.PRI_jet_leading_pt * sin(data.PRI_jet_leading_phi) * (data.PRI_n_jets >= 1)
+    data["jet_leading_pz"] = data.PRI_jet_leading_pt * sinh(data.PRI_jet_leading_eta) * (data.PRI_n_jets >= 1)
+    data["p_jet_leading"] = data.PRI_jet_leading_pt * cosh(data.PRI_jet_leading_eta) * (data.PRI_n_jets >= 1)
 
     # Definition of the x and y components of the subleading jet's momentum
     data["jet_subleading_px"] = (
-        data.PRI_jet_subleading_pt
-        * cos(data.PRI_jet_subleading_phi)
-        * (data.PRI_n_jets >= 2)
+        data.PRI_jet_subleading_pt * cos(data.PRI_jet_subleading_phi) * (data.PRI_n_jets >= 2)
     )  # = 0 if PRI_n_jets <= 1
-    data["jet_subleading_py"] = (
-        data.PRI_jet_subleading_pt
-        * sin(data.PRI_jet_subleading_phi)
-        * (data.PRI_n_jets >= 2)
-    )
-    data["jet_subleading_pz"] = (
-        data.PRI_jet_subleading_pt
-        * sinh(data.PRI_jet_subleading_eta)
-        * (data.PRI_n_jets >= 2)
-    )
-    data["p_jet_subleading"] = (
-        data.PRI_jet_subleading_pt
-        * cosh(data.PRI_jet_subleading_eta)
-        * (data.PRI_n_jets >= 2)
-    )
+    data["jet_subleading_py"] = data.PRI_jet_subleading_pt * sin(data.PRI_jet_subleading_phi) * (data.PRI_n_jets >= 2)
+    data["jet_subleading_pz"] = data.PRI_jet_subleading_pt * sinh(data.PRI_jet_subleading_eta) * (data.PRI_n_jets >= 2)
+    data["p_jet_subleading"] = data.PRI_jet_subleading_pt * cosh(data.PRI_jet_subleading_eta) * (data.PRI_n_jets >= 2)
 
     return data
 
@@ -110,9 +84,7 @@ def f_DER_mass_transverse_met_lep(data: pd.DataFrame) -> pd.DataFrame:
         pandas.DataFrame: Updated dataframe with `DER_mass_transverse_met_lep`.
     """
     data["calcul_int"] = (
-        (data.PRI_met + data.PRI_lep_pt) ** 2
-        - (data.met_x + data.lep_px) ** 2
-        - (data.met_y + data.lep_py) ** 2
+        (data.PRI_met + data.PRI_lep_pt) ** 2 - (data.met_x + data.lep_px) ** 2 - (data.met_y + data.lep_py) ** 2
     )
     data["DER_mass_transverse_met_lep"] = sqrt(data.calcul_int * (data.calcul_int >= 0))
     del data["calcul_int"]
@@ -149,8 +121,7 @@ def f_DER_pt_h(data):
     """
 
     data["DER_pt_h"] = sqrt(
-        (data.had_px + data.lep_px + data.met_x) ** 2
-        + (data.had_py + data.lep_py + data.met_y) ** 2
+        (data.had_px + data.lep_px + data.met_x) ** 2 + (data.had_py + data.lep_py + data.met_y) ** 2
     )
     return data
 
@@ -165,9 +136,9 @@ def f_DER_deltaeta_jet_jet(data):
         pandas.DataFrame: Updated dataframe with `DER_deltaeta_jet_jet`.
     """
 
-    data["DER_deltaeta_jet_jet"] = abs(
-        data.PRI_jet_subleading_eta - data.PRI_jet_leading_eta
-    ) * (data.PRI_n_jets >= 2) - 25 * (data.PRI_n_jets < 2)
+    data["DER_deltaeta_jet_jet"] = abs(data.PRI_jet_subleading_eta - data.PRI_jet_leading_eta) * (
+        data.PRI_n_jets >= 2
+    ) - 25 * (data.PRI_n_jets < 2)
     return data
 
 
@@ -191,9 +162,9 @@ def f_DER_mass_jet_jet(data):
         - (data.jet_leading_py + data.jet_subleading_py) ** 2
         - (data.jet_leading_pz + data.jet_subleading_pz) ** 2
     )
-    data["DER_mass_jet_jet"] = sqrt(data.calcul_int * (data.calcul_int >= 0)) * (
-        data.PRI_n_jets >= 2
-    ) - 25 * (data.PRI_n_jets <= 1)
+    data["DER_mass_jet_jet"] = sqrt(data.calcul_int * (data.calcul_int >= 0)) * (data.PRI_n_jets >= 2) - 25 * (
+        data.PRI_n_jets <= 1
+    )
 
     del data["calcul_int"]
     return data
@@ -209,13 +180,9 @@ def f_DER_prodeta_jet_jet(data):
         pandas.DataFrame: Updated dataframe with `DER_prodeta_jet_jet`.
     """
 
-    data[
-        "DER_prodeta_jet_jet"
-    ] = data.PRI_jet_leading_eta * data.PRI_jet_subleading_eta * (
+    data["DER_prodeta_jet_jet"] = data.PRI_jet_leading_eta * data.PRI_jet_subleading_eta * (
         data.PRI_n_jets >= 2
-    ) - 25 * (
-        data.PRI_n_jets <= 1
-    )
+    ) - 25 * (data.PRI_n_jets <= 1)
     return data
 
 
@@ -229,11 +196,7 @@ def f_DER_deltar_had_lep(data):
         pandas.DataFrame: Updated dataframe with `DER_deltar_had_lep`.
     """
     data["difference2_eta"] = (data.PRI_lep_eta - data.PRI_had_eta) ** 2
-    data["difference2_phi"] = (
-        np.abs(
-            np.mod(data.PRI_lep_phi - data.PRI_had_phi + 3 * np.pi, 2 * np.pi) - np.pi
-        )
-    ) ** 2
+    data["difference2_phi"] = (np.abs(np.mod(data.PRI_lep_phi - data.PRI_had_phi + 3 * np.pi, 2 * np.pi) - np.pi)) ** 2
     data["DER_deltar_had_lep"] = sqrt(data.difference2_eta + data.difference2_phi)
 
     del data["difference2_eta"]
@@ -251,22 +214,8 @@ def f_DER_pt_tot(data):
         pandas.DataFrame: Updated dataframe with `DER_pt_tot`.
     """
     data["DER_pt_tot"] = sqrt(
-        (
-            data.had_px
-            + data.lep_px
-            + data.met_x
-            + data.jet_leading_px
-            + data.jet_subleading_px
-        )
-        ** 2
-        + (
-            data.had_py
-            + data.lep_py
-            + data.met_y
-            + data.jet_leading_py
-            + data.jet_subleading_py
-        )
-        ** 2
+        (data.had_px + data.lep_px + data.met_x + data.jet_leading_px + data.jet_subleading_px) ** 2
+        + (data.had_py + data.lep_py + data.met_y + data.jet_leading_py + data.jet_subleading_py) ** 2
     )
     return data
 
@@ -319,23 +268,19 @@ def f_DER_met_phi_centrality(data):
     data["num"] = data.A + data.B
     data["denum"] = sqrt(data.A**2 + data.B**2)
 
-    data["DER_met_phi_centrality"] = data.num / (data.denum + (data.denum == 0)) * (
-        data.denum != 0
-    ) - 25 * (data.denum == 0)
+    data["DER_met_phi_centrality"] = data.num / (data.denum + (data.denum == 0)) * (data.denum != 0) - 25 * (
+        data.denum == 0
+    )
     epsilon = 0.0001
     mask = data.denum == 0
 
-    data.loc[mask, "A"] = A(
-        data.PRI_met_phi, data.PRI_lep_phi + epsilon, data.PRI_had_phi
-    )
-    data.loc[mask, "B"] = B(
-        data.PRI_met_phi, data.PRI_lep_phi + epsilon, data.PRI_had_phi
-    )
+    data.loc[mask, "A"] = A(data.PRI_met_phi, data.PRI_lep_phi + epsilon, data.PRI_had_phi)
+    data.loc[mask, "B"] = B(data.PRI_met_phi, data.PRI_lep_phi + epsilon, data.PRI_had_phi)
     data.loc[mask, "num"] = data.A + data.B
     data.loc[mask, "denum"] = sqrt(data.A**2 + data.B**2)
-    data.loc[mask, "DER_met_phi_centrality"] = data.num / (
-        data.denum + (data.denum == 0)
-    ) * (data.denum != 0) - 25 * (data.denum == 0)
+    data.loc[mask, "DER_met_phi_centrality"] = data.num / (data.denum + (data.denum == 0)) * (data.denum != 0) - 25 * (
+        data.denum == 0
+    )
 
     del data["A"]
     del data["B"]
@@ -360,9 +305,9 @@ def f_DER_lep_eta_centrality(data):
     epsilon = 0.0001
     mask = data["difference"] == 0.0
 
-    data["DER_lep_eta_centrality"] = exp(
-        -4 / (data.difference) * ((data.PRI_lep_eta - data.moyenne) ** 2)
-    ) * (data.PRI_n_jets >= 2) - 25 * (data.PRI_n_jets <= 1)
+    data["DER_lep_eta_centrality"] = exp(-4 / (data.difference) * ((data.PRI_lep_eta - data.moyenne) ** 2)) * (
+        data.PRI_n_jets >= 2
+    ) - 25 * (data.PRI_n_jets <= 1)
 
     data.loc[mask, "DER_lep_eta_centrality"] = exp(
         -4 / (data.difference + epsilon) * ((data.PRI_lep_eta - data.moyenne) ** 2)

@@ -106,7 +106,7 @@ def createJetData(
     seed: int = 0,
     n_param: List[float | None] = None,
     useRand: bool = False,
-) -> Tuple[pd.DataFrame, pd.Series]:
+) -> Tuple[pd.DataFrame | Dict, pd.Series]:
     ...
 
 
@@ -135,7 +135,7 @@ def createJetData(
     seed: int = 0,
     n_param: List[float | None] = None,
     useRand: bool = False,
-) -> Tuple[pd.DataFrame, pd.Series] | Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]:
+) -> Tuple[pd.DataFrame | Dict, pd.Series] | Tuple[torch.Tensor, torch.Tensor, np.ndarray, List]:
     """
     Create jet data with optional systematic variations and data processing.
 
