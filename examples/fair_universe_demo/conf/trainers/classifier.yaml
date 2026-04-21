@@ -2,6 +2,7 @@ _target_: lightning.Trainer
 max_epochs: 500
 log_every_n_steps: 10
 accelerator: "auto"
+devices: 1
 callbacks:
   - _target_: lightning.pytorch.callbacks.ModelCheckpoint
     monitor: "val_loss"

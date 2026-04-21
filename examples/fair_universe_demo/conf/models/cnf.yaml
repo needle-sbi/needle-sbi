@@ -1,1 +1,1 @@
-_target_: examples.fair_universe_demo.src.models.nf_model.ConditionalNormalizingFlowModule
+_target_: examples.fair_universe_demo.fair_universe_demo.models.nf_model.ConditionalNormalizingFlowModule

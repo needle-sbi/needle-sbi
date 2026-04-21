@@ -1,2 +1,2 @@
-_target_: examples.fair_universe_demo.src.models.classifier_datamodule.ClassifierDatamodule
+_target_: examples.fair_universe_demo.fair_universe_demo.models.classifier_datamodule.ClassifierDatamodule
 root_dir: ${custom_settings.root_dir}
