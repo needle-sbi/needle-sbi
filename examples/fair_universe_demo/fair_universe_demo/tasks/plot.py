@@ -121,7 +121,9 @@ class PlottingMixin(luigi.Task):
 
 
 class PlottingTask(PlottingMixin):
-    test_settings_path: str = luigi.Parameter(description="Path to the test settings file (.json)")  # type: ignore
+    cached_test_settings_file: str = luigi.Parameter(
+        description="Path to the cache test_settings.json file. Should be in the results directory",
+    )  # type: ignore
     root_dir: str = luigi.Parameter(
         description="Path to the directory containing the FAIR Universe Data",
     )  # type: ignore
@@ -145,15 +147,7 @@ class PlottingTask(PlottingMixin):
 
     @cached_property
     def test_settings(self) -> Dict[str, Any]:
-        cached_test_settings_file = Path(self.output()["test_settings"].path)
-
-        if cached_test_settings_file.exists():
-            with open(cached_test_settings_file, "r") as f:
-                _test_settings: Dict[str, Any] = json.load(f)
-
-            return _test_settings
-
-        with open(self.test_settings_path, "r") as f:
+        with open(self.cached_test_settings_file, "r") as f:
             _test_settings: Dict[str, Any] = json.load(f)
 
         return _test_settings
