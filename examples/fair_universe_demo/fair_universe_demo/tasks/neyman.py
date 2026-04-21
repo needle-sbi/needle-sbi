@@ -133,8 +133,8 @@ class NeymanTask(PlottingMixin):
         with open(self.output_path, "w") as f:
             json.dump(MLE_ratio_arr, f)
 
-    @PlottingMixin.plot(name="validate_s_templates_2d_2j")
     def plot_validate_s_templates_2d_2j(self) -> Figure:
+        """TODO Currently not implemented"""
         fig, ax = plt.subplots(figsize=(5, 4), dpi=400)
 
         return fig

@@ -15,8 +15,8 @@ def generate_test_settings(file_savepath: str = None) -> Dict[str, Any]:
         "diboson_scale": True,
         "bkg_scale": True,
     }
-    test_settings["num_pseudo_experiments"] = 2
-    test_settings["num_of_sets"] = 5
+    test_settings["num_pseudo_experiments"] = 20
+    test_settings["num_of_sets"] = 10
     random_state = np.random.RandomState(42)
     test_settings["ground_truth_mus"] = (random_state.uniform(0.1, 3, test_settings["num_of_sets"])).tolist()
     test_settings["random_mu"] = True
@@ -29,4 +29,4 @@ def generate_test_settings(file_savepath: str = None) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    generate_test_settings(f"{os.path.dirname(__file__)}/../test_settings.json")
+    generate_test_settings(f"{os.path.dirname(__file__)}/../../conf/test_settings.json")

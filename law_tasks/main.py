@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List
 
 import law
-
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
 from preprocessor.utils.logging import ColorFormatter
@@ -37,9 +36,12 @@ class MainTask(HydraMixin, law.WrapperTask):
         return Path(os.path.abspath(self.results_path))
 
     def requires(self) -> List[EstimatorTask]:
+        cache_config_file = os.path.join(self.results_path, "config.yaml")
+        self.config.to_yaml(cache_config_file)
+
         return [
             EstimatorTask(
-                config_file=self.config_file,
+                config_file=cache_config_file,
                 hydra_overrides=self.hydra_overrides,
                 estimator=estimator_key,
                 results_path=self.abs_results_path,

@@ -2,7 +2,7 @@ custom_settings:
   use_test_data: false
   root_dir: ${if:${custom_settings.use_test_data}, "examples/fair_universe_demo/test_data", "${oc.env:FAIR_UNIVERSE_DATA}"}
 
-results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_debugging"}
+results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_full"}
 
 estimators:
   nf_signal_1jet:
@@ -86,18 +86,18 @@ estimators:
 downstream_tasks:
   validation:
     args:
-      _target_: examples.fair_universe_demo.src.tasks.validation.ValidationTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.validation.ValidationTask
       root_dir: ${custom_settings.root_dir}
       plot_save_dir: "${results_path}/plots"
   histogram:
     args:
-      _target_: examples.fair_universe_demo.src.tasks.histogram.HistogramTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.histogram.HistogramTask
       root_dir: ${custom_settings.root_dir}
       json_save_path: "${results_path}/hist.json"
   neyman:
     requires: ["histogram"]
     args:
-      _target_: examples.fair_universe_demo.src.tasks.neyman.NeymanTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.neyman.NeymanTask
       hist_path: "${results_path}/hist.json"
       output_path: "${results_path}/neyman.json"
       root_dir: "${custom_settings.root_dir}"
@@ -105,25 +105,25 @@ downstream_tasks:
   eval:
     requires: ["neyman"]
     args:
-      _target_: examples.fair_universe_demo.src.tasks.eval.EvalTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.eval.EvalTask
       hist_path: "${results_path}/hist.json"
       root_dir: "${custom_settings.root_dir}"
       neyman_path: "${results_path}/neyman.json"
-      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
       output_path: "${results_path}/eval.json"
   score:
     requires: ["eval"]
     args:
-      _target_: examples.fair_universe_demo.src.tasks.score.ScoreTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.score.ScoreTask
       predict_path: "${results_path}/eval.json"
       output_dir: "${results_path}/scores/"
-      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
   plot:
     requires: ["score"]
     args:
-      _target_: examples.fair_universe_demo.src.tasks.plot.PlottingTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot.PlottingTask
       root_dir: "${custom_settings.root_dir}"
-      test_settings_path: "examples/fair_universe_demo.src/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
       ingestion_results_path: "${results_path}/eval.json"
       score_path: "${results_path}/scores/"
       plot_save_dir: "${results_path}/plots"

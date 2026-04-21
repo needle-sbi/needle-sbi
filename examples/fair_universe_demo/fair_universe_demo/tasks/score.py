@@ -2,6 +2,7 @@ import json
 import os
 from functools import cached_property
 from logging import Logger
+from pathlib import Path
 from typing import Any, Dict
 
 import luigi
@@ -18,15 +19,29 @@ class ScoreTask(luigi.Task):
 
     @cached_property
     def test_settings(self) -> Dict[str, Any]:
+        cached_test_settings_file = Path(self.output()["test_settings"].path)
+
+        if cached_test_settings_file.exists():
+            with open(cached_test_settings_file, "r") as f:
+                _test_settings: Dict[str, Any] = json.load(f)
+
+            return _test_settings
+
         with open(self.test_settings_path, "r") as f:
-            _test_settings = json.load(f)
+            _test_settings: Dict[str, Any] = json.load(f)
+
+        with open(self.output()["test_settings"].path, "w") as f:
+            json.dump(_test_settings, f)
 
         return _test_settings
 
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
+        output_dir = Path(self.output_dir).parent
+        test_settings_filename = Path(self.test_settings_path).name
         return {
             "scores": luigi.LocalTarget(os.path.join(self.output_dir, "scores.json")),
             "detailed_scores": luigi.LocalTarget(os.path.join(self.output_dir, "detailed_results.html")),
+            "test_settings": luigi.LocalTarget(os.path.join(output_dir, test_settings_filename)),
         }
 
     def run(self) -> None:

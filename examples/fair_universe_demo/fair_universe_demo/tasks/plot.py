@@ -23,9 +23,7 @@ from .eval import PredictResult
 
 
 class PlottingMixin(luigi.Task):
-    plot_save_dir: str = luigi.Parameter(
-        description="Path to the directory where to save the plots resulting from this Task",
-    )  # type: ignore
+    plot_save_dir: str
 
     @dataclass
     class PlottingSettings:
@@ -133,11 +131,30 @@ class PlottingTask(PlottingMixin):
     score_path: str = luigi.Parameter(
         description="Path to the score file from the 'ScoreTask'",
     )  # type: ignore
+    plot_save_dir: str = luigi.Parameter(
+        description="Path to the directory where to save the plots resulting from this Task",
+    )  # type: ignore
+
+    @property
+    def registered_plots(self) -> Dict[str, Callable[..., Figure]]:
+        return super().registered_plots
+
+    @staticmethod
+    def plot(*, name: str | None = None) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
+        return PlottingMixin().plot(name=name)
 
     @cached_property
     def test_settings(self) -> Dict[str, Any]:
+        cached_test_settings_file = Path(self.output()["test_settings"].path)
+
+        if cached_test_settings_file.exists():
+            with open(cached_test_settings_file, "r") as f:
+                _test_settings: Dict[str, Any] = json.load(f)
+
+            return _test_settings
+
         with open(self.test_settings_path, "r") as f:
-            _test_settings = json.load(f)
+            _test_settings: Dict[str, Any] = json.load(f)
 
         return _test_settings
 
@@ -155,7 +172,7 @@ class PlottingTask(PlottingMixin):
 
         return _scores
 
-    @PlottingMixin.plot(name="ground_truth_vs_predicted_mu")
+    @plot(name="ground_truth_vs_predicted_mu")
     def visualize_scatter(
         self,
         ingestion_result_dict: Dict[int, PredictResult],
@@ -184,6 +201,40 @@ class PlottingTask(PlottingMixin):
 
         ax.set_xlim(*xlims)
         ax.set_ylim(-4, 4)
+
+        ax.set_xlabel(r"$\mu_{\text{true}}$", loc="right")
+        ax.set_ylabel(r"$\mu_{\text{predicted}}$)", loc="top")
+        return fig
+
+    @plot(name="ground_truth_vs_predicted_mu_errorbars")
+    def visualize_errorbars(
+        self,
+        ingestion_result_dict: Dict[int, PredictResult],
+        ground_truth_mu: Dict[int, List[float]],
+    ) -> Figure:
+        """
+        Plots a scatter plot of ground truth vs. predicted mu values with error bars in y direction.
+
+        Args:
+            ingestion_result_dict (dict): A dictionary containing the ingestion results.
+            ground_truth_mu (dict): A dictionary of ground truth mu values.
+        """
+        fig, ax = plt.subplots(figsize=(5, 4), dpi=600)
+        xlims = (0, 3)
+
+        for test_set_index, ingestion_result in ingestion_result_dict.items():
+            mu_hat_values = ingestion_result["mu_hat"]
+            mu_hat = np.mean(mu_hat_values)
+            mu_hat_err = np.std(mu_hat_values)
+            mu = ground_truth_mu[int(test_set_index)]
+            ax.errorbar(mu, mu_hat, yerr=mu_hat_err, fmt="k+", capsize=5)
+
+        x = np.linspace(*xlims)
+        ax.plot(x, x, linestyle="--", label=r"$y=x$")
+
+        ax.legend(loc="upper left", title=r"$H \to \tau \tau$ (MC) averaged")
+
+        ax.set_xlim(*xlims)
 
         ax.set_xlabel(r"$\mu_{\text{true}}$", loc="right")
         ax.set_ylabel(r"$\mu_{\text{predicted}}$)", loc="top")
@@ -227,6 +278,10 @@ class PlottingTask(PlottingMixin):
 
     def run(self) -> None:
         self.visualize_scatter(
+            ingestion_result_dict=self.ingestion_results,
+            ground_truth_mu=self.test_settings["ground_truth_mus"],
+        )
+        self.visualize_errorbars(
             ingestion_result_dict=self.ingestion_results,
             ground_truth_mu=self.test_settings["ground_truth_mus"],
         )
