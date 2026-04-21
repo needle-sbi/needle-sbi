@@ -4,11 +4,12 @@ Based on https://github.com/ibrahimEls/CNFParameterEstimation
 Adapted by K. Schmidt
 """
 
-from typing import Literal, Tuple
+from typing import Any, Literal, Tuple
 
 import lightning as L
 import torch
 
+from .nf_datamodule import NormalizingFlowDatamodule
 from .nf_layers import NormalizingQuadFlow
 
 
@@ -24,8 +25,6 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         num_jets: Literal[1, 2],
         num_layers: int = 10,
         lr: float = 1e-3,
-        x_mean: float = 0.0,
-        x_std: float = 1.0,
         c: float = 1,
         clamp_val: float = -10,
     ) -> None:
@@ -33,8 +32,8 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
         self.save_hyperparameters()
 
         self.lr = lr
-        self.x_mean = torch.tensor(x_mean, dtype=torch.float32).to(self.device)
-        self.x_std = torch.tensor(x_std + 10e-10, dtype=torch.float32).to(self.device)
+        self.x_mean: torch.Tensor
+        self.x_std: torch.Tensor
         self.prior = torch.distributions.normal.Normal(loc=0.0, scale=1.0)
         self.c = c
         self.train_losses = []
@@ -46,6 +45,25 @@ class ConditionalNormalizingFlowModule(L.LightningModule):
             2: 27,  # Case: 2 jets
         }[self.num_jets]
         self.flow = NormalizingQuadFlow(self.input_dim, num_layers)
+        self.register_buffer("x_mean", torch.zeros(self.input_dim, dtype=torch.float32))
+        self.register_buffer("x_std", torch.ones(self.input_dim, dtype=torch.float32))
+
+    def on_train_start(self) -> None:
+        datamodule: NormalizingFlowDatamodule = self.trainer.datamodule  # type: ignore
+        x_mean_old = self.x_mean.clone()
+        x_std_old = self.x_std.clone()
+
+        self.x_mean = self.x_mean.copy_(datamodule.X_mean)
+        self.x_std = self.x_std.copy_(datamodule.X_std + 1e-10)
+
+        if torch.all(torch.isclose(self.x_mean, x_mean_old)).float():
+            raise RuntimeError(
+                f"Normalization for mean failed: New mean={self.x_mean} is same as " f"placeholder={x_mean_old}"
+            )
+        if torch.all(torch.isclose(self.x_std, x_std_old)).float():
+            raise ValueError(
+                f"Normalization for std failed: New std={self.x_std} is same as " f"placeholder={x_std_old}"
+            )
 
     def forward(self, x: torch.Tensor, eval: bool = True) -> torch.Tensor:
         """Evaluate the normalizing flow on input data.

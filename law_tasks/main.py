@@ -6,7 +6,7 @@ import law
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
 from omegaconf import OmegaConf
-from preprocessor.utils.logging import ColorFormatter
+from preprocessor.utils.logging import ColorFormatter, LogOnce
 
 logger = ColorFormatter.get_logger("orchestrator")
 
@@ -27,7 +27,7 @@ class MainTask(HydraMixin, law.WrapperTask):
     def abs_results_path(self) -> Path:
         if self.results_path != "runs":
             if self.config.results_path:
-                logger.warning(
+                LogOnce(logger).warn_once(
                     f"Conflicting value for arg `--results-path`. Config indicates '{self.config.results_path}' "
                     f"while CLI arg is '{self.results_path}'. The CLI value takes precedence. You can also "
                     f"set this parameter using `--hydra-overrides='results_path={self.results_path}'`."

@@ -161,7 +161,7 @@ class HistogramTask(luigi.Task):
         futures = []
 
         with ProcessPoolExecutor(
-            max_workers=20,
+            max_workers=5,
             initializer=init_worker,
             initargs=(data,),
         ) as executor:
