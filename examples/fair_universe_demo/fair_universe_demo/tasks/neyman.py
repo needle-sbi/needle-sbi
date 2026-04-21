@@ -30,6 +30,7 @@ from .plot import PlottingMixin
 
 
 class NeymanTask(PlottingMixin):
+    plot_save_dir: str = luigi.Parameter(description="Path to the directory where to save the validation plots")  # type: ignore
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     hist_path: str = luigi.Parameter(description="Path to the histogram file (.json)")  # type: ignore
     output_path: str = luigi.Parameter(description="Path to the output file (.json)")  # type: ignore

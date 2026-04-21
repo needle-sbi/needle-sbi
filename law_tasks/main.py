@@ -5,6 +5,7 @@ from typing import List
 import law
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
+from omegaconf import OmegaConf
 from preprocessor.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
@@ -37,7 +38,10 @@ class MainTask(HydraMixin, law.WrapperTask):
 
     def requires(self) -> List[EstimatorTask]:
         cache_config_file = os.path.join(self.results_path, "config.yaml")
-        self.config.to_yaml(cache_config_file)
+        self.config._resolved = True
+
+        with open(cache_config_file, "w") as f:
+            f.write(OmegaConf.to_yaml(OmegaConf.structured(self.config), resolve=True))
 
         return [
             EstimatorTask(

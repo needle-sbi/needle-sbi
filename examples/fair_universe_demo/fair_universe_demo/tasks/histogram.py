@@ -7,6 +7,7 @@ Adapted by K. Schmidt
 import json
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import cached_property
 from logging import Logger
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -20,9 +21,52 @@ from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
-from ..utils.selection import createJetData, return1j2j
+from ..utils.selection import Data, createJetData, load_train_set_data, return1j2j
 
 logger = Logger("histogram")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def init_worker(data: Data):
+    global shared_data
+    shared_data = data
+
+
+def _compute_histogram_entry(args):
+    """Worker function for a single (jes, tes) combination."""
+    tqdm.disable = True
+    i, j, bins, snapshot_path = args
+    n_params = [1, 1, 1, j, i, 0]
+
+    nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(snapshot_path)
+    nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
+    classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
+    classifier = classifier.to(device).eval().to(torch.float32)
+
+    alljet_data, _ = createJetData(  # type: ignore
+        jet_num="all",
+        useTestData=True,
+        set_mu=1000,
+        seed=0,
+        n_param=n_params,
+        useRand=False,
+        loaded_data=shared_data,
+    )
+    data_2j, data_1j, label_2j, label_1j = return1j2j(
+        alljet_data=alljet_data,
+        models=nf_models,
+        device=device,
+    )
+    with torch.no_grad():
+        scores_2j = torch.sigmoid(classifier(data_2j, 2)).cpu().numpy()
+        scores_1j = torch.sigmoid(classifier(data_1j, 1)).cpu().numpy()
+
+    total_score = np.concatenate([scores_2j, scores_1j])
+    total_label = np.concatenate([label_2j.cpu().numpy(), label_1j.cpu().numpy()])
+
+    S_hist, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
+    BG_hist, _ = np.histogram(total_score[total_label == 0], bins=bins, density=True)
+    return (i, j), S_hist, BG_hist
 
 
 class HistogramTask(luigi.Task):
@@ -42,6 +86,10 @@ class HistogramTask(luigi.Task):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     json_save_path: str = luigi.Parameter(description="Path to the output histogram file (.json)")  # type: ignore
     root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
+
+    @cached_property
+    def loaded_data(self):
+        return load_train_set_data(self.root_dir)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,59 +147,26 @@ class HistogramTask(luigi.Task):
 
         return nf_nodes, classifier_node
 
-    def _compute_histogram_entry(self, args):
-        """Worker function for a single (jes, tes) combination."""
-        tqdm.disable = True
-        i, j, snapshot_path, root_dir, bins = args
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        # Re-load models per worker (required for multiprocessing)
-        nf_ckpts, classifier_ckpt = self.parse_snapshot(snapshot_path)
-        nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
-        classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
-        classifier = classifier.to(device).eval().to(torch.float32)
-
-        n_params = [1, 1, 1, j, i, 0]
-
-        alljet_data, _ = createJetData(  # type: ignore
-            jet_num="all",
-            useTestData=True,
-            set_mu=1000,
-            seed=0,
-            n_param=n_params,
-            useRand=False,
-            root_dir=root_dir,
-        )
-        data_2j, data_1j, label_2j, label_1j = return1j2j(
-            alljet_data=alljet_data,
-            models=nf_models,
-            device=device,
-        )
-        with torch.no_grad():
-            scores_2j = torch.sigmoid(classifier(data_2j, 2)).cpu().numpy()
-            scores_1j = torch.sigmoid(classifier(data_1j, 1)).cpu().numpy()
-
-        total_score = np.concatenate([scores_2j, scores_1j])
-        total_label = np.concatenate([label_2j.cpu().numpy(), label_1j.cpu().numpy()])
-
-        S_hist, _ = np.histogram(total_score[total_label == 1], bins=bins, density=True)
-        BG_hist, _ = np.histogram(total_score[total_label == 0], bins=bins, density=True)
-        return (i, j), S_hist, BG_hist
-
     def create_histogram(self):
         jes_arr = np.linspace(0.9, 1.1, 10)
         tes_arr = np.linspace(0.9, 1.1, 10)
         bins = np.linspace(0, 1, num=200)
 
-        args_list = [(i, j, self.snapshot_path, self.root_dir, bins) for j in tes_arr for i in jes_arr]
+        data = load_train_set_data(root_dir=self.root_dir)
+
+        args_list = [(i, j, bins, self.snapshot_path) for j in tes_arr for i in jes_arr]
 
         hist_dict_class = {}
         progress_bar = tqdm(total=len(args_list), desc="Histogram entries")
         futures = []
 
-        with ProcessPoolExecutor(max_workers=5) as executor:
+        with ProcessPoolExecutor(
+            max_workers=20,
+            initializer=init_worker,
+            initargs=(data,),
+        ) as executor:
             for args in args_list:
-                futures.append(executor.submit(self._compute_histogram_entry, args))
+                futures.append(executor.submit(_compute_histogram_entry, args))
                 progress_bar.update(1)
 
             for future in as_completed(futures):

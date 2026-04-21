@@ -37,6 +37,12 @@ class SnapshotTask(HydraMixin, law.Task):
 
     def requires(self):
         """Require MainTask to ensure all training is completed"""
+        cache_config_file = os.path.join(self.results_path, "config.yaml")
+        self.config._resolved = True
+
+        with open(cache_config_file, "w") as f:
+            f.write(OmegaConf.to_yaml(OmegaConf.structured(self.config), resolve=True))
+
         return MainTask(
             config_file=self.config_file,
             hydra_overrides=self.hydra_overrides,
@@ -119,7 +125,7 @@ class SnapshotTask(HydraMixin, law.Task):
                             }
                         )
 
-                        fold_output = fold_task.output()
+                        fold_output = fold_task.output_as_dict(fold_output=fold_task.output())
 
                         # Find checkpoint path
                         checkpoint_path = self._find_checkpoint(fold_output)

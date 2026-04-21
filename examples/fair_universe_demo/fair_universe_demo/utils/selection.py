@@ -100,7 +100,7 @@ def createJetData(
     jet_num: str,  # Case where 'jet_num' == "all"
     useTestData: bool,
     *,
-    root_dir: str,
+    root_dir: str = None,
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
@@ -115,7 +115,7 @@ def createJetData(
     jet_num: int,
     useTestData: bool,
     *,
-    root_dir: str,
+    root_dir: str = None,
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
@@ -129,7 +129,7 @@ def createJetData(
     jet_num: int | str,
     useTestData: bool,
     *,
-    root_dir: str,
+    root_dir: str = None,
     loaded_data: Data = None,
     set_mu: float = 3,
     seed: int = 0,
@@ -142,6 +142,7 @@ def createJetData(
     Parameters:
         jet_num (int or str): Jet number to filter (or "all" to return full dataset).
         useTestData (bool): Whether to use test data.
+        root_dir (str, optional): Path to the FAIR Universe Data directory.
         loaded_data (Data): Data with train and test set loaded for more efficient dataloading if using
             this function in a loop.
         set_mu (float, optional): Mu parameter for bootstrapping. Defaults to 3.
@@ -159,6 +160,9 @@ def createJetData(
     if loaded_data:
         data = loaded_data
     else:
+        if not root_dir:
+            raise ValueError(f"Arg `root_dir` is empty: {root_dir}")
+
         data = load_train_set_data(root_dir=root_dir)
 
     # Optionally apply random systematic shifts
