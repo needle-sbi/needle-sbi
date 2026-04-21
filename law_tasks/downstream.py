@@ -147,6 +147,14 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
 
     @property
     def downstream_config(self) -> DownstreamTaskConfig:
+        """Get the configuration for this downstream task.
+
+        Returns:
+            DownstreamTaskConfig: Configuration containing task instantiation args and dependencies.
+
+        Raises:
+            ValueError: If no downstream tasks are defined in the config.
+        """
         if not self.config.downstream_tasks:
             raise ValueError(f"No entries where found for downstream Tasks: {self.config.downstream_tasks}")
 
@@ -154,6 +162,13 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
 
     @cached_property
     def snapshot_path(self) -> str:
+        """Get the path to the DAG snapshot created by SnapshotTask.
+
+        Cached to avoid recreating the SnapshotTask multiple times.
+
+        Returns:
+            str: Path to dag_snapshot.json file.
+        """
         snapshot = SnapshotTask(
             results_path=self.results_path,
             config_file=self.config_file,
@@ -163,12 +178,27 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
 
     @property
     def abs_results_path(self) -> Path:
+        """Get the absolute path to the results directory.
+
+        Uses config-specified path if available, otherwise uses the CLI parameter.
+
+        Returns:
+            Path: Absolute path to results directory.
+        """
         if self.config.results_path:
             self.results_path = self.config.results_path
 
         return os.path.abspath(self.results_path)  # type: ignore
 
     def requires(self) -> Dict[str, SnapshotTask | law.Task]:
+        """Resolve dependencies for this downstream task.
+
+        If no explicit dependencies are configured, requires SnapshotTask (the root training).
+        If dependencies are specified, creates DownstreamTask instances for each dependency.
+
+        Returns:
+            Dict[str, law.Task]: Named dependencies. Keys are 'snapshot' or dependent task names.
+        """
         req: Dict[str, law.Task] = {}
 
         if not self.downstream_config.requires:
@@ -190,13 +220,33 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
         return req
 
     def output(self):
+        """Convert the wrapped task's output from Luigi to Law format.
+
+        Returns:
+            Target or nested Target structure converted to Law format.
+        """
         return convert_luigi_to_law_targets(self.downstream_task.output())
 
     def input(self):
+        """Convert the wrapped task's input from Luigi to Law format.
+
+        Returns:
+            Target or nested Target structure converted to Law format.
+        """
         return convert_luigi_to_law_targets(self.downstream_task.input())
 
     @cached_property
     def downstream_task(self) -> luigi.Task:
+        """Instantiate the wrapped external task from config.
+
+        Uses Hydra to instantiate the task class specified in the config's _target_ field,
+        passing all other config args and the snapshot_path as constructor arguments.
+
+        Cached to ensure the same task instance is reused.
+
+        Returns:
+            luigi.Task: Instantiated external task.
+        """
         return hydra_instantiate(
             OmegaConf.structured(self.downstream_config.args),
             snapshot_path=self.snapshot_path,

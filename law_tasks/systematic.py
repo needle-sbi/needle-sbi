@@ -18,6 +18,12 @@ logger = ColorFormatter.get_logger("systematic")
 
 
 class SystematicTask(HydraMixin, law.Task):
+    """Task representing a systematic uncertainty variation.
+
+    Creates EnsembleTask instances for multiple ensemble runs of the same systematic.
+    Aggregates results from all ensembles into a single systematic results object.
+    """
+
     results_path: str = law.Parameter(
         description="Root directory where results are saved.",
         significant=False,
@@ -39,13 +45,28 @@ class SystematicTask(HydraMixin, law.Task):
 
     @property
     def estimator_config(self) -> EstimatorConfig:
+        """Get the configuration for the associated estimator.
+
+        Returns:
+            EstimatorConfig: Configuration object for this systematic's estimator.
+        """
         return self.config.estimators[self.estimator]
 
     @property
     def systematic_config(self) -> SystematicConfig:
+        """Get the configuration for this specific systematic uncertainty.
+
+        Returns:
+            SystematicConfig: Specific systematic uncertainty configuration.
+        """
         return self.config.estimators[self.estimator].expands.systematics[self.systematic]
 
     def requires(self):
+        """Create EnsembleTask instances for all ensemble runs.
+
+        Returns:
+            List[EnsembleTask]: One task per ensemble index (0 to num_ensembles-1).
+        """
         num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
         num_ensembles = max(1, num_ensembles)
 
@@ -62,6 +83,11 @@ class SystematicTask(HydraMixin, law.Task):
         ]
 
     def output(self) -> Dict[str, Any]:
+        """Define output target for aggregated systematic results.
+
+        Returns:
+            Dict[str, Any]: Dictionary with 'outputs' file target containing systematic results JSON.
+        """
         base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "outputs": base.child("systematic_results.json", type="f"),

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List
 
 import law
+
 from orchestrator.config import MainConfig
 from orchestrator.config_utils import initialize_hydra_config
 from preprocessor.utils.logging import ColorFormatter
@@ -54,10 +55,13 @@ class HydraMixin:
 
     @property
     def config(self) -> MainConfig:
-        """Load the config from the `HydraMixin.config_file` and convert to an instance of MainConfig.
+        """Load and cache the Hydra configuration from file.
+
+        Resolves config file path, applies overrides, and caches result for performance.
+        Can be overridden after instantiation by setting the property directly.
 
         Returns:
-            MainConfig
+            MainConfig: Configuration object as OmegaConf DictConfig.
         """
         overrides: List[str] = self.hydra_overrides.split() if self.hydra_overrides else []
 

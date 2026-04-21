@@ -34,6 +34,12 @@ warnings.filterwarnings("once", message="The '*' does not have many workers*")
 
 
 class TrainingBase:
+    """Base class providing common training task functionality.
+
+    Mixin that provides standard result path handling and output structure for training tasks.
+    Filters unnecessary logging from PyTorch Lightning to reduce noise.
+    """
+
     results_path = law.Parameter(
         description="Directory where the training results will be saved.",
         default="runs",
@@ -42,6 +48,11 @@ class TrainingBase:
 
     @property
     def abs_results_path(self) -> Path:
+        """Get the absolute path to the results directory.
+
+        Returns:
+            Path: Absolute path to results directory.
+        """
         return os.path.abspath(self.results_path)  # type: ignore
 
     def output(self) -> Dict[str, Any]:

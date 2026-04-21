@@ -8,9 +8,10 @@ from typing import Dict, List
 from urllib.parse import urlencode
 
 import law
+from omegaconf import OmegaConf
+
 from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
-from omegaconf import OmegaConf
 from orchestrator.results import (
     AggregationEdge,
     AggregationMethod,
@@ -36,7 +37,13 @@ class SnapshotTask(HydraMixin, law.Task):
     )  # type: ignore
 
     def requires(self):
-        """Require MainTask to ensure all training is completed"""
+        """Ensure all training is completed by requiring MainTask.
+
+        Also caches the resolved config to the results directory for reference.
+
+        Returns:
+            MainTask: Root task that triggers all training.
+        """
         cache_config_file = os.path.join(self.results_path, "config.yaml")
         self.config._resolved = True
 
@@ -50,19 +57,39 @@ class SnapshotTask(HydraMixin, law.Task):
         )
 
     def output(self):
+        """Define output target for the DAG snapshot.
+
+        Returns:
+            Dict: Dictionary with 'dag_snapshot' file target containing the serialized DAG.
+        """
         return {"dag_snapshot": law.LocalFileTarget(f"{self.abs_results_path}/dag_snapshot.json")}
 
     @property
     def abs_results_path(self) -> Path:
+        """Get the absolute path to the results directory.
+
+        Uses config-specified path if available, otherwise uses the CLI parameter.
+
+        Returns:
+            Path: Absolute path to results directory.
+        """
         if self.config.results_path:
             self.results_path = self.config.results_path
 
         return os.path.abspath(self.results_path)  # type: ignore
 
     def run(self):
-        """
-        Traverse the entire DAG hierarchy:
-        MainTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
+        """Traverse the DAG hierarchy and construct a snapshot with nodes and aggregation edges.
+
+        Creates a DAGSnapshot containing:
+        - Nodes: Metadata for each FoldTask (leaf level), with checkpoint paths and metrics
+        - Edges: Aggregation operations connecting folds → ensembles → systematics → estimators → root
+
+        Aggregation methods (best, mean, etc.) are determined by config. The snapshot enables
+        evaluation/inference without re-running training.
+
+        The DAG hierarchy traversed is:
+            MainTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
         """
         self.print_config_path_once()
 
@@ -217,7 +244,17 @@ class SnapshotTask(HydraMixin, law.Task):
         logger.info(f"DAG snapshot saved to {self.output()['dag_snapshot'].path}")
 
     def _find_checkpoint(self, fold_output) -> str:
-        """Find the best or last checkpoint for a fold task"""
+        """Get the checkpoint file path for a fold, verifying it exists.
+
+        Args:
+            fold_output: Fold task output dictionary.
+
+        Returns:
+            str: Absolute path to the model checkpoint file.
+
+        Raises:
+            FileNotFoundError: If checkpoint file does not exist.
+        """
         # fold_output["ckpt"] is the LocalFileTarget for model.ckpt
         ckpt_path = fold_output["ckpt"].path
         if Path(ckpt_path).exists():

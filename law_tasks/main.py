@@ -3,9 +3,10 @@ from pathlib import Path
 from typing import List
 
 import law
+from omegaconf import OmegaConf
+
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
-from omegaconf import OmegaConf
 from preprocessor.utils.logging import ColorFormatter, LogOnce
 
 logger = ColorFormatter.get_logger("orchestrator")
@@ -25,6 +26,14 @@ class MainTask(HydraMixin, law.WrapperTask):
 
     @property
     def abs_results_path(self) -> Path:
+        """Get the absolute path to the results directory.
+
+        Resolves potential conflicts between config-specified and CLI-specified paths.
+        The CLI value (--results-path) takes precedence if both are provided.
+
+        Returns:
+            Path: Absolute path to results directory.
+        """
         if self.results_path != "runs":
             if self.config.results_path:
                 LogOnce(logger).warn_once(
@@ -37,6 +46,13 @@ class MainTask(HydraMixin, law.WrapperTask):
         return Path(os.path.abspath(self.results_path))
 
     def requires(self) -> List[EstimatorTask]:
+        """Create EstimatorTask instances for all estimators in the config.
+
+        Also caches the resolved config to ensure consistency across all dependent tasks.
+
+        Returns:
+            List[EstimatorTask]: Tasks for each estimator key in the config.
+        """
         cache_config_file = os.path.join(self.results_path, "config.yaml")
         self.config._resolved = True
 

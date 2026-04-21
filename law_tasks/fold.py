@@ -40,6 +40,13 @@ class FoldTask(
     HTCondorWorkflow,
     SlurmWorkflow,
 ):
+    """Task for training a single cross-validation fold.
+
+    Executes the complete training pipeline for one fold: model instantiation, data loading,
+    training via PyTorch Lightning, checkpoint saving, and result serialization. Supports
+    optional dependencies on other estimators and generates MLflow experiment tracking.
+    """
+
     results_path: str = law.Parameter(
         description="Root directory where results are saved.",
         significant=False,
@@ -77,12 +84,23 @@ class FoldTask(
 
     @property
     def estimator_config(self) -> EstimatorConfig:
+        """Get the configuration for the associated estimator.
+
+        Returns:
+            EstimatorConfig: Configuration object for this fold's estimator.
+        """
         return self.config.estimators[self.estimator]
 
     @property
     def systematic_config(self) -> SystematicConfig:
-        """Populate the entries of the Systematic with the values from the Estimator and update them
-        with potential overrides
+        """Get the systematic configuration merged with estimator overrides.
+
+        Merges the systematic uncertainty config with the estimator config to apply any
+        systematic-specific overrides (model, datamodule, dataset, trainer) on top of the
+        base estimator settings. The systematic config takes precedence in the merge.
+
+        Returns:
+            SystematicConfig: Merged configuration with systematic overrides applied.
         """
         return OmegaConf.merge(
             OmegaConf.to_container(
@@ -94,6 +112,15 @@ class FoldTask(
 
     @property
     def input_model_paths(self) -> Dict[str, str]:
+        """Collect checkpoint paths from dependencies if this fold depends on other estimators.
+
+        Used for transfer learning or cascade architectures where this fold's model needs
+        pre-trained weights from other estimators. Traverses the full dependency hierarchy.
+
+        Returns:
+            Dict[str, str]: Mapping of URL-encoded task indices to checkpoint paths.
+                Empty if estimator has no dependencies.
+        """
         model_paths_dict: Dict[str, str] = {}
 
         for estimator_task in self.requires():
@@ -114,9 +141,25 @@ class FoldTask(
         return model_paths_dict
 
     def create_branch_map(self) -> Dict[int, None]:  # type: ignore
+        """Create branch map for Law task scheduling.
+
+        Returns a single branch (0) since each fold is its own task instance.
+        Branching is not used; instead, FoldTasks are created individually by EnsembleTask.
+
+        Returns:
+            Dict[int, None]: Branch map with single entry {0: None}.
+        """
         return {0: None}
 
     def requires(self) -> List[Any]:
+        """Get dependencies on other estimators if configured.
+
+        Returns EstimatorTask instances for any estimators listed in the config as dependencies.
+        Used for cascade/transfer learning architectures.
+
+        Returns:
+            List[Any]: List of EstimatorTask dependencies, or empty list if none.
+        """
         if not self.estimator_config.requires:
             return []
 
@@ -188,6 +231,14 @@ class FoldTask(
 
     @property
     def mlflow_logger(self) -> MLFlowLogger:
+        """Create MLflow logger for this fold's training run.
+
+        Experiment name is encoded with estimator, systematic, ensemble, and fold indices
+        to organize the MLflow runs hierarchically.
+
+        Returns:
+            MLFlowLogger: Configured logger for PyTorch Lightning trainer.
+        """
         experiment_name = urlencode(
             {
                 "est": self.estimator,

@@ -19,6 +19,12 @@ logger = ColorFormatter.get_logger("ensemble")
 
 
 class EnsembleTask(HydraMixin, law.Task):
+    """Task representing a single ensemble training run.
+
+    Creates FoldTask instances for each cross-validation fold and aggregates their results
+    into an ensemble results object.
+    """
+
     results_path: str = law.Parameter(
         description="Root directory where results are saved.",
         significant=False,
@@ -50,9 +56,19 @@ class EnsembleTask(HydraMixin, law.Task):
 
     @property
     def estimator_config(self) -> EstimatorConfig:
+        """Get the configuration for the associated estimator.
+
+        Returns:
+            EstimatorConfig: Configuration object for this ensemble's estimator.
+        """
         return self.config.estimators[self.estimator]
 
     def requires(self):
+        """Create FoldTask instances for all cross-validation folds.
+
+        Returns:
+            List[FoldTask]: One task per fold (0 to n_folds-1).
+        """
         return [
             FoldTask(
                 config_file=self.config_file,
@@ -67,6 +83,15 @@ class EnsembleTask(HydraMixin, law.Task):
         ]
 
     def input(self) -> List[Dict[str, law.LocalTarget]]:
+        """Retrieve and flatten fold task outputs for local use.
+
+        Unwraps remote fold outputs (which are nested in collection/jobs structure) to match
+        the local output format, ensuring consistent access to fold results regardless of
+        whether tasks ran locally or remotely.
+
+        Returns:
+            List[Dict[str, law.LocalTarget]]: Flattened fold outputs, one per fold.
+        """
         _remote_fold_outputs = super().input()
 
         _flattened_fold_outputs = []
@@ -77,6 +102,11 @@ class EnsembleTask(HydraMixin, law.Task):
         return _flattened_fold_outputs
 
     def output(self) -> Dict[str, Any]:
+        """Define output target for aggregated ensemble results.
+
+        Returns:
+            Dict[str, Any]: Dictionary with 'outputs' file target containing ensemble results JSON.
+        """
         base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "outputs": base.child("ensemble_results.json", type="f"),

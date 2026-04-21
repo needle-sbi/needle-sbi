@@ -18,6 +18,12 @@ logger = ColorFormatter.get_logger("estimator")
 
 
 class EstimatorTask(HydraMixin, law.Task):
+    """Task representing a single estimator in the ensemble hierarchy.
+
+    Creates SystematicTask instances for each systematic uncertainty defined in the config.
+    Handles systematic configuration merging and aggregates results from all systematic variations.
+    """
+
     results_path: str = law.Parameter(
         description="Root directory where results are saved.",
         significant=False,
@@ -33,22 +39,22 @@ class EstimatorTask(HydraMixin, law.Task):
 
     @property
     def estimator_config(self) -> EstimatorConfig:
+        """Get the estimator configuration with normalized systematic cases.
+
+        Handles the 'nominal' systematic special case:
+        - If only 'nominal' exists and is the default (unmodified), keeps it
+        - If other systematics exist alongside a default 'nominal', removes the nominal
+        - Otherwise, preserves the systematic configuration as-is
+
+        This normalization prevents redundant nominal case execution when other variations exist.
+
+        Returns:
+            EstimatorConfig: Estimator config with processed systematics dictionary.
+        """
         est = self.config.estimators[self.estimator]
         systematics = est.expands.systematics or {}
 
         with open_dict(est):  # type: ignore
-            """Account for different scenarios when using 'nominal' systematics case.
-
-            The checks to perform are:
-            1. Are there other systematics than just the nominal case?
-            2. Is the nominal case still in the Dict?
-            3. Is the nominal case just the default? -> Remove if others were provided
-
-            Note:
-                A more robust approach would be to completely rework the way the Law Tasks are built, bypassing
-                for example the SystematicsTask is no systematics are provided.
-            """
-            others_than_nominal = {k: v for k, v in systematics.items() if k != "nominal"}
             nominal_val = systematics.get("nominal") or SystematicConfig()
             nominal_is_default: bool = nominal_val == SystematicConfig()
 
@@ -64,6 +70,15 @@ class EstimatorTask(HydraMixin, law.Task):
 
     @property
     def input_model_paths(self) -> Dict[str, str]:
+        """Collect checkpoint paths from all trained folds across systematics and ensembles.
+
+        Traverses the full task hierarchy (systematic → ensemble → fold) to gather all model
+        checkpoint paths. Keys encode the systematic/ensemble/fold indices for reference.
+
+        Returns:
+            Dict[str, str]: Mapping of URL-encoded task indices to checkpoint paths.
+                Key format: "syst=<name>&ensem=<idx>&fold=<idx>"
+        """
         model_paths_dict: Dict[str, str] = {}
 
         for systematic_task in self.requires():
@@ -81,6 +96,11 @@ class EstimatorTask(HydraMixin, law.Task):
         return model_paths_dict
 
     def requires(self) -> List[SystematicTask]:
+        """Create SystematicTask instances for each systematic uncertainty.
+
+        Returns:
+            List[SystematicTask]: One task per systematic key in the estimator config.
+        """
         return [
             SystematicTask(
                 config_file=str(self.config_file),
@@ -93,6 +113,11 @@ class EstimatorTask(HydraMixin, law.Task):
         ]
 
     def output(self) -> Dict[str, Any]:
+        """Define output targets for aggregated estimator results.
+
+        Returns:
+            Dict[str, Any]: Dictionary with 'outputs' and 'input_models' file targets.
+        """
         base = law.LocalDirectoryTarget(self.abs_results_path)
         return {
             "outputs": base.child("estimator_result.json", type="f"),
