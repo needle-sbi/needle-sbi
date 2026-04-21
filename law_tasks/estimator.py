@@ -55,6 +55,7 @@ class EstimatorTask(HydraMixin, law.Task):
         systematics = est.expands.systematics or {}
 
         with open_dict(est):  # type: ignore
+            others_than_nominal = {k: v for k, v in systematics.items() if k != "nominal"}
             nominal_val = systematics.get("nominal") or SystematicConfig()
             nominal_is_default: bool = nominal_val == SystematicConfig()
 
