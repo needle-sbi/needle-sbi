@@ -63,9 +63,15 @@ class CombinedClassifier(L.LightningModule):
         )
         # Classification heads for each category
         self.classifier_2j = nn.Sequential(
-            nn.Linear(latent_dim, latent_dim), nn.GELU(), nn.Linear(latent_dim, 1)  # BCE output (logits)
+            nn.Linear(latent_dim, latent_dim),
+            nn.GELU(),
+            nn.Linear(latent_dim, 1),  # BCE output (logits)
         )
-        self.classifier_1j = nn.Sequential(nn.Linear(latent_dim, latent_dim), nn.GELU(), nn.Linear(latent_dim, 1))
+        self.classifier_1j = nn.Sequential(
+            nn.Linear(latent_dim, latent_dim),
+            nn.GELU(),
+            nn.Linear(latent_dim, 1),
+        )
 
     def forward(self, x: torch.Tensor, jet_category: Literal[1, 2]) -> torch.Tensor:
         """Compute logits for the requested jet category.

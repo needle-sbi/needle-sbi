@@ -68,6 +68,7 @@ class ClassifierDatamodule(L.LightningDataModule):
         parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
         metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
         batch_size: int = 1000,
+        device: str = None,
     ) -> None:
         super().__init__()
         self.root_dir = root_dir
@@ -77,6 +78,7 @@ class ClassifierDatamodule(L.LightningDataModule):
         self.batch_size = batch_size
         self.parquet_filename = parquet_filename
         self.metadata_filename = metadata_filename
+        self.device = device or "cuda" if torch.cuda.is_available() else "cpu"
 
     def setup(self, stage: Optional[str]) -> None:
         """Load NF models and prepare classifier training and validation data.
@@ -112,11 +114,11 @@ class ClassifierDatamodule(L.LightningDataModule):
             parquet_filename=self.parquet_filename,
             metadata_filename=self.metadata_filename,
         )
-        j2_data = j2_data.cpu()
-        j2_detlabel = j2_detlabel.cpu()
-        j1_data = j1_data.cpu()
-        j1_detlabel = j1_detlabel.cpu()
-        self.input_models.cpu()
+        j2_data = j2_data.to(self.device)
+        j2_detlabel = j2_detlabel.to(self.device)
+        j1_data = j1_data.to(self.device)
+        j1_detlabel = j1_detlabel.to(self.device)
+        self.input_models.to(self.device)
 
         # Extract features from the loaded models. For 1-jet models, indices 0-3 are used.
         # For 2-jet models, indices 4-7 are used.

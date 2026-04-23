@@ -1141,6 +1141,16 @@ wheels = [
 ]
 
 [[package]]
+name = "gallery"
+version = "0.1.0"
+source = { git = "https://gitlab.etp.kit.edu/kschmidt/web.git#e044b4ce60d8d4f010140a93d96b3e89790d2b93" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pytest" },
+    { name = "pyyaml" },
+]
+
+[[package]]
 name = "gitdb"
 version = "4.0.12"
 source = { registry = "https://pypi.org/simple" }
@@ -2174,6 +2184,7 @@ dependencies = [
     { name = "dask", extra = ["distributed"] },
     { name = "dask-awkward" },
     { name = "fair-universe-demo" },
+    { name = "gallery" },
     { name = "graphviz" },
     { name = "hydra-core" },
     { name = "ipykernel" },
@@ -2232,6 +2243,7 @@ requires-dist = [
     { name = "dask", extras = ["distributed"], specifier = ">=2025.2" },
     { name = "dask-awkward", specifier = ">=2025.2" },
     { name = "fair-universe-demo", editable = "examples/fair_universe_demo" },
+    { name = "gallery", git = "https://gitlab.etp.kit.edu/kschmidt/web.git" },
     { name = "graphviz", specifier = ">=0.21" },
     { name = "hydra-core", specifier = ">=1.3.2" },
     { name = "ipykernel", specifier = ">=6.29.5" },

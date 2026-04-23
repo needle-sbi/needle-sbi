@@ -4,14 +4,13 @@ Repository: https://github.com/FAIR-Universe/HEP-Challenge
 Adapted by: K. Schmidt
 """
 
-import inspect
 import json
 import os
-from dataclasses import dataclass
 from functools import cached_property, wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+import law
 import luigi
 import matplotlib.pyplot as plt
 import mplhep
@@ -23,39 +22,38 @@ from .eval import PredictResult
 
 
 class PlottingMixin(luigi.Task):
-    plot_save_dir: str
+    plot_save_dir: str = luigi.Parameter(
+        description="Path to the directory where to save the plots resulting from this Task",
+    )  # type: ignore
 
-    @dataclass
     class PlottingSettings:
-        format: str = "png"
+        formats: List[str] = ["pdf"]
 
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
         os.makedirs(os.path.abspath(self.plot_save_dir), exist_ok=True)
 
         return {
-            plot_name: luigi.LocalTarget(
-                Path(os.path.join(self.plot_save_dir, f"{plot_name}.{self.PlottingSettings.format}")).absolute()
+            f"{plot_name}.{fmt}": luigi.LocalTarget(
+                Path(os.path.join(self.plot_save_dir, f"{plot_name}.{fmt}")).absolute()
             )
             for plot_name in self.registered_plots.keys()
+            for fmt in self.PlottingSettings.formats
         }
 
     @staticmethod
     def set_needle_plot_style(fig: Figure) -> Figure:
-        ax = fig.axes[0]
-        mplhep.label.exp_label(
-            loc=0,
-            exp="NEEDLE",
-            ax=ax,
-            rlabel="FAIR Universe HiggsML",
-        )
+        for ax in fig.axes:
+            mplhep.label.exp_label(
+                loc=0,
+                exp="NEEDLE",
+                ax=ax,
+                rlabel="FAIR Universe HiggsML",
+            )
         plt.tight_layout()
         return fig
 
     @staticmethod
-    def plot(
-        *,
-        name: str = None,
-    ) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
+    def plot(*, name: str = None) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
         """This decorator does two things:
             1. Register the given function as "to-be-plotted" which means it is registered automatically
                 as a law Target, no need to explicitly write the output file.
@@ -94,9 +92,12 @@ class PlottingMixin(luigi.Task):
 
                 fig = self.set_needle_plot_style(fig)
                 name = getattr(func, "_plot_name")
-                save_path = self.output()[name].path
-                fig.savefig(save_path)
-                print(f"Saved plot '{name}' to '{save_path}'.")
+
+                for fmt in self.PlottingSettings.formats:
+                    save_path = self.output()[f"{name}.{fmt}"].path
+                    fig.savefig(save_path)
+                    print(f"Saved plot '{name}' to '{save_path}'.")
+
                 plt.close(fig)
                 return fig
 
@@ -107,15 +108,16 @@ class PlottingMixin(luigi.Task):
     @property
     def registered_plots(self) -> Dict[str, Callable[..., Figure]]:
         plots = {}
+        daughter = self.__class__.mro()[0]
 
-        for name, member in inspect.getmembers(type(self), predicate=callable):
+        for name, member in daughter.__dict__.items():
             if hasattr(member, "_plot_name"):
                 plot_name = getattr(member, "_plot_name")
 
                 if plot_name in plots:
                     raise ValueError(f"Duplicate plot names: {plot_name} for other function {member}")
 
-                plots[plot_name] = member
+                plots[plot_name] = getattr(self, name)
 
         return plots
 
@@ -136,14 +138,6 @@ class PlottingTask(PlottingMixin):
     plot_save_dir: str = luigi.Parameter(
         description="Path to the directory where to save the plots resulting from this Task",
     )  # type: ignore
-
-    @property
-    def registered_plots(self) -> Dict[str, Callable[..., Figure]]:
-        return super().registered_plots
-
-    @staticmethod
-    def plot(*, name: str | None = None) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
-        return PlottingMixin().plot(name=name)
 
     @cached_property
     def test_settings(self) -> Dict[str, Any]:
@@ -166,7 +160,7 @@ class PlottingTask(PlottingMixin):
 
         return _scores
 
-    @plot(name="ground_truth_vs_predicted_mu")
+    @PlottingMixin.plot(name="ground_truth_vs_predicted_mu")
     def visualize_scatter(
         self,
         ingestion_result_dict: Dict[int, PredictResult],
@@ -200,7 +194,7 @@ class PlottingTask(PlottingMixin):
         ax.set_ylabel(r"$\mu_{\text{predicted}}$)", loc="top")
         return fig
 
-    @plot(name="ground_truth_vs_predicted_mu_errorbars")
+    @PlottingMixin.plot(name="ground_truth_vs_predicted_mu_errorbars")
     def visualize_errorbars(
         self,
         ingestion_result_dict: Dict[int, PredictResult],
@@ -231,7 +225,7 @@ class PlottingTask(PlottingMixin):
         ax.set_xlim(*xlims)
 
         ax.set_xlabel(r"$\mu_{\text{true}}$", loc="right")
-        ax.set_ylabel(r"$\mu_{\text{predicted}}$)", loc="top")
+        ax.set_ylabel(r"$\mu_{\text{predicted}}$", loc="top")
         return fig
 
     def roc_curve_wrapper(

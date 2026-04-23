@@ -1,11 +1,9 @@
-import os
-from typing import List
+from typing import Dict, List
 
 import luigi
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from ml.utils.epoch_timer import timing
 
 from ..models.classifier_datamodule import ClassifierDatamodule
 from ..utils.selection import createJetData
@@ -282,27 +280,22 @@ class ValidationTask(PlottingMixin):
         plt.tight_layout()
         return fig
 
-    @timing
+    @property
+    def nf_ckpts(self) -> Dict[str, str]:
+        return HistogramTask.parse_snapshot(self.snapshot_path)[0]
+
+    @property
+    def nf_models(self) -> torch.nn.ModuleDict:
+        return ClassifierDatamodule.load_nf_models(self.nf_ckpts)
+
     def run(self) -> None:
-        """Load NF models from snapshot and generate validation plots for each model."""
-        # Parse snapshot to get NF models
-        nf_ckpts, _ = HistogramTask.parse_snapshot(self.snapshot_path)
-        nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts)
-
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        nf_models = nf_models.to(device).eval()
+        nf_models = self.nf_models.to(device).eval()
 
-        os.makedirs(self.plot_save_dir, exist_ok=True)
-
-        # Cache validation data by jet count to avoid reloading
         val_data_cache = {}
 
         # For each model, generate plots in a separate directory
         for model_name, nf_model in nf_models.items():
-            model_plot_dir = os.path.join(self.plot_save_dir, model_name)
-            os.makedirs(model_plot_dir, exist_ok=True)
-
-            # Extract jet count from model name (e.g., "nf_signal_1jet&c_0p5" -> 1 or 2)
             name_parts = model_name.split("&")[0]  # "nf_signal_1jet" or "nf_background_2jet"
             if "1jet" in name_parts:
                 num_jets = 1
@@ -311,7 +304,6 @@ class ValidationTask(PlottingMixin):
             else:
                 raise ValueError(f"Could not extract jet count from model name: {model_name}")
 
-            # Load validation data (cached to avoid reloading)
             if num_jets not in val_data_cache:
                 data, detlabel, _, _ = createJetData(
                     jet_num=num_jets,
@@ -319,24 +311,24 @@ class ValidationTask(PlottingMixin):
                     seed=78,
                     root_dir=self.root_dir,
                 )
-                val_data_cache[num_jets] = {"data": data.cpu(), "labels": detlabel.cpu()}
+                val_data_cache[num_jets] = {
+                    "data": data.cpu(),
+                    "labels": detlabel.cpu(),
+                }  # Data caching for same num_jets
 
             data = val_data_cache[num_jets]["data"]
             labels = val_data_cache[num_jets]["labels"]
 
-            # Split by signal (1) and background (0)
             signal_mask = labels == 1
             bg_mask = labels == 0
 
             signal_data = data[signal_mask]
             bg_data = data[bg_mask]
 
-            # Evaluate model on both signal and background
             with torch.no_grad():
                 signal_logprobs = nf_model(signal_data.to(device)).cpu().numpy()
                 bg_logprobs = nf_model(bg_data.to(device)).cpu().numpy()
 
-            # Create validation plots for this model
             self.plot_log_prob_distributions(
                 signal_logprobs,
                 bg_logprobs,
