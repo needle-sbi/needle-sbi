@@ -39,7 +39,6 @@ export _OLD_PS1="$PS1"
 # use resolved script dir so LAW_HOME is always correct
 export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
-export NEEDLE_ENV_ACTIVE=1
 
 # use absolute paths so PYTHONPATH works regardless of cwd
 for p in "preprocessor" "ml" "."; do
@@ -65,6 +64,7 @@ export PS1="($ENV_NAME):$PS1"
 _deactivate() {
     export PYTHONPATH="$_OLD_PYTHONPATH"
     export PS1="$_OLD_PS1"
+    export NEEDLE_ENV_ACTIVE=0
     unset NEEDLE_ENV_ACTIVE
     unset SCRIPT_DIR
     unset LAW_HOME
@@ -85,7 +85,10 @@ alias deactivate="_deactivate"
 alias needle_deactivate="_deactivate"
 alias needle_exit="_deactivate"
 
+echo -e "${_NEEDLE_GREEN}Activated $ENV_NAME environment. (Exit with 'exit', 'deactivate').${_NEEDLE_NC}"
+echo -e "${_NEEDLE_GREEN}For full reset in the same shell, use 'unset NEEDLE_ENV_ACTIVE' then re-source this script${_NEEDLE_NC}"
+
 # clean up colour vars so they don't pollute the users env
 unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC _NEEDLE_BLUE
 
-echo -e "\033[0;32mActivated $ENV_NAME environment. (Exit with 'exit' or 'deactivate')\033[0m"
+export NEEDLE_ENV_ACTIVE=1
