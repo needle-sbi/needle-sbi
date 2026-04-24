@@ -9,7 +9,7 @@ import torch
 from ..models.classifier_datamodule import ClassifierDatamodule
 from ..utils.selection import createJetData
 from .histogram import HistogramTask
-from .plot import PlottingMixin
+from .plotting_mixin import PlottingMixin
 
 
 class ValidationTask(PlottingMixin):
