@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from omegaconf import MISSING
-
 from ml.utils.dataclass import SerializableDataclass
+from omegaconf import MISSING
 
 
 @dataclass
@@ -79,6 +78,7 @@ class EstimatorConfig(SerializableDataclass):
 class DownstreamTaskConfig(SerializableDataclass):
     requires: Optional[List[str]] = None
     args: Optional[dict[str, Any]] = field(default_factory=dict)
+    expands: Optional[dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass

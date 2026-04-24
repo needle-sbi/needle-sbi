@@ -10,7 +10,6 @@ from functools import cached_property, wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-import law
 import luigi
 import matplotlib.pyplot as plt
 import mplhep
@@ -29,12 +28,23 @@ class PlottingMixin(luigi.Task):
     class PlottingSettings:
         formats: List[str] = ["pdf"]
 
+    @property
+    def plot_save_dir_override(self) -> str:
+        """Property used to override the output directory where to save the plots. Useful if you want
+        to have an individual directory for each family of plots. In the default implementation, this
+        method directly returns `plot_save_dir`.
+
+        Returns:
+            str: The plot used by the Mixin Task
+        """
+        return self.plot_save_dir
+
     def output(self) -> Dict[str, luigi.LocalTarget]:  # type: ignore
-        os.makedirs(os.path.abspath(self.plot_save_dir), exist_ok=True)
+        os.makedirs(os.path.abspath(self.plot_save_dir_override), exist_ok=True)
 
         return {
             f"{plot_name}.{fmt}": luigi.LocalTarget(
-                Path(os.path.join(self.plot_save_dir, f"{plot_name}.{fmt}")).absolute()
+                Path(os.path.join(self.plot_save_dir_override, f"{plot_name}.{fmt}")).absolute()
             )
             for plot_name in self.registered_plots.keys()
             for fmt in self.PlottingSettings.formats

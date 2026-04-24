@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List
 
 import luigi
@@ -13,7 +14,12 @@ from .plot import PlottingMixin
 
 class ValidationTask(PlottingMixin):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
-    root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
+    root_dir: str = luigi.Parameter(
+        description="Path to the directory containing the FAIR Universe Data"
+    )  # type: ignore
+    model_name: str = luigi.Parameter(
+        description="Name of the model to validate. Has to match the names in the snapshot.json file"
+    )  # type: ignore
 
     @PlottingMixin.plot(name="log_prob_distribution")
     def plot_log_prob_distributions(
@@ -288,72 +294,67 @@ class ValidationTask(PlottingMixin):
     def nf_models(self) -> torch.nn.ModuleDict:
         return ClassifierDatamodule.load_nf_models(self.nf_ckpts)
 
+    @property
+    def num_jets(self) -> int:
+        name_parts = self.model_name.split("&")[0]  # "nf_signal_1jet" or "nf_background_2jet"
+        if "1jet" in name_parts:
+            _num_jets = 1
+        elif "2jet" in name_parts:
+            _num_jets = 2
+        else:
+            raise ValueError(f"Could not extract jet count from model name: {self.model_name}")
+
+        return _num_jets
+
+    @property
+    def plot_save_dir_override(self) -> str:
+        return os.path.join(self.plot_save_dir, self.model_name)
+
     def run(self) -> None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        nf_models = self.nf_models.to(device).eval()
+        nf_model = self.nf_models[self.model_name].to(device).eval()
 
-        val_data_cache = {}
+        data, labels, _, _ = createJetData(
+            jet_num=self.num_jets,
+            useTestData=False,
+            seed=78,
+            root_dir=self.root_dir,
+        )
+        signal_mask = labels == 1
+        bg_mask = labels == 0
 
-        # For each model, generate plots in a separate directory
-        for model_name, nf_model in nf_models.items():
-            name_parts = model_name.split("&")[0]  # "nf_signal_1jet" or "nf_background_2jet"
-            if "1jet" in name_parts:
-                num_jets = 1
-            elif "2jet" in name_parts:
-                num_jets = 2
-            else:
-                raise ValueError(f"Could not extract jet count from model name: {model_name}")
+        signal_data = data[signal_mask]
+        bg_data = data[bg_mask]
 
-            if num_jets not in val_data_cache:
-                data, detlabel, _, _ = createJetData(
-                    jet_num=num_jets,
-                    useTestData=False,
-                    seed=78,
-                    root_dir=self.root_dir,
-                )
-                val_data_cache[num_jets] = {
-                    "data": data.cpu(),
-                    "labels": detlabel.cpu(),
-                }  # Data caching for same num_jets
+        with torch.no_grad():
+            signal_logprobs = nf_model(signal_data.to(device)).cpu().numpy()
+            bg_logprobs = nf_model(bg_data.to(device)).cpu().numpy()
 
-            data = val_data_cache[num_jets]["data"]
-            labels = val_data_cache[num_jets]["labels"]
+        self.plot_log_prob_distributions(
+            signal_logprobs,
+            bg_logprobs,
+        )
 
-            signal_mask = labels == 1
-            bg_mask = labels == 0
+        self.plot_log_prob_statistics(
+            signal_logprobs,
+            bg_logprobs,
+        )
 
-            signal_data = data[signal_mask]
-            bg_data = data[bg_mask]
+        self.plot_log_prob_vs_feature(
+            signal_data,
+            signal_logprobs,
+            bg_data,
+            bg_logprobs,
+            num_features=4,
+        )
 
-            with torch.no_grad():
-                signal_logprobs = nf_model(signal_data.to(device)).cpu().numpy()
-                bg_logprobs = nf_model(bg_data.to(device)).cpu().numpy()
+        self.plot_calibration_curve(
+            signal_logprobs,
+            bg_logprobs,
+        )
 
-            self.plot_log_prob_distributions(
-                signal_logprobs,
-                bg_logprobs,
-            )
-
-            self.plot_log_prob_statistics(
-                signal_logprobs,
-                bg_logprobs,
-            )
-
-            self.plot_log_prob_vs_feature(
-                signal_data,
-                signal_logprobs,
-                bg_data,
-                bg_logprobs,
-                num_features=4,
-            )
-
-            self.plot_calibration_curve(
-                signal_logprobs,
-                bg_logprobs,
-            )
-
-            self.plot_feature_distributions(
-                signal_data,
-                bg_data,
-                num_features=4,
-            )
+        self.plot_feature_distributions(
+            signal_data,
+            bg_data,
+            num_features=4,
+        )

@@ -1,20 +1,26 @@
 import os
 from functools import cached_property
+from itertools import product
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, NamedTuple
+from urllib.parse import urlencode
 
 import law
 import luigi
-from omegaconf import OmegaConf
-
 from law_tasks.mixins import CollectOutputMixin, HydraMixin
 from law_tasks.snapshot import SnapshotTask
+from omegaconf import DictConfig, OmegaConf
 from orchestrator.config import DownstreamTaskConfig
 from orchestrator.config_utils import hydra_instantiate
 from orchestrator.luigi_utils import convert_luigi_to_law_targets
 
 
-class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
+class BranchTuple(NamedTuple):
+    name: str
+    parameters: Dict[str, Any]
+
+
+class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
     """Task which wraps an external Task that should run after the main training was performed.
 
     The task is configured via the ``downstream_tasks`` key in the config.yaml file. Each entry
@@ -145,6 +151,10 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
         significant=False,
     )  # type: ignore
 
+    local_workflow_require_branches: bool = True
+    branch_map: Dict[int, BranchTuple]  # type: ignore
+    branch: int
+
     @property
     def downstream_config(self) -> DownstreamTaskConfig:
         """Get the configuration for this downstream task.
@@ -190,11 +200,14 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
 
         return os.path.abspath(self.results_path)  # type: ignore
 
-    def requires(self) -> Dict[str, SnapshotTask | law.Task]:
+    def workflow_requires(self) -> Dict[str, SnapshotTask | law.Task]:
         """Resolve dependencies for this downstream task.
 
         If no explicit dependencies are configured, requires SnapshotTask (the root training).
         If dependencies are specified, creates DownstreamTask instances for each dependency.
+
+        Using `workflow_requires` instead of `requires` simplifies the execution logic. All branches
+        of this Task will wait for the dependencies as if they were a single Task.
 
         Returns:
             Dict[str, law.Task]: Named dependencies. Keys are 'snapshot' or dependent task names.
@@ -225,7 +238,15 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
         Returns:
             Target or nested Target structure converted to Law format.
         """
-        return convert_luigi_to_law_targets(self.downstream_task.output())
+        targets = {}
+
+        for branch_id in self.branch_map.keys():
+            task = self.downstream_task()
+            luigi_output = task.output()
+            law_output = convert_luigi_to_law_targets(luigi_targets=luigi_output)
+            targets[branch_id] = law_output
+
+        return law.TargetCollection(targets)
 
     def input(self):
         """Convert the wrapped task's input from Luigi to Law format.
@@ -233,24 +254,65 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.Task):
         Returns:
             Target or nested Target structure converted to Law format.
         """
-        return convert_luigi_to_law_targets(self.downstream_task.input())
+        targets = {}
 
-    @cached_property
+        for branch_id in self.branch_map.keys():
+            task = self.downstream_task()
+
+            luigi_input = task.input()
+            law_input = convert_luigi_to_law_targets(luigi_input)
+
+            targets[branch_id] = law_input
+
+        return law.TargetCollection(targets)
+
+    def create_branch_map(self) -> Dict[int, BranchTuple]:  # type: ignore
+        expands = self.downstream_config.expands
+
+        if not expands:
+            return {0: BranchTuple(name="default", parameters={})}
+
+        keys = list(expands.keys())
+        values = list(expands.values())
+
+        branch_map = {}
+
+        for i, combination in enumerate(product(*values)):
+            params = dict(zip(keys, combination))
+            branch_name = urlencode(sorted(params.items()))
+            branch_map[i] = BranchTuple(name=branch_name, parameters=params)
+
+        return branch_map
+
     def downstream_task(self) -> luigi.Task:
         """Instantiate the wrapped external task from config.
 
         Uses Hydra to instantiate the task class specified in the config's _target_ field,
         passing all other config args and the snapshot_path as constructor arguments.
 
-        Cached to ensure the same task instance is reused.
-
         Returns:
             luigi.Task: Instantiated external task.
         """
+        base_args: DictConfig = OmegaConf.to_container(
+            self.downstream_config.args,
+            resolve=True,
+        )  # type: ignore
+        branch_args: Dict[str, Any] = self.branch_map[self.branch].parameters  # type: ignore
+
+        merged_args = DictConfig(
+            {
+                **base_args,
+                **branch_args,
+            }
+        )
+
         return hydra_instantiate(
-            OmegaConf.structured(self.downstream_config.args),
+            merged_args,
             snapshot_path=self.snapshot_path,
         )
 
     def run(self) -> None:
-        self.downstream_task.run()
+        if self.branch == -1:
+            return None
+        else:
+            self.downstream_task().run()

@@ -89,6 +89,17 @@ downstream_tasks:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.validation.ValidationTask
       root_dir: ${custom_settings.root_dir}
       plot_save_dir: "${results_path}/plots"
+    expands:
+      model_name: [
+        "nf_signal_1jet&c_0p5",
+        "nf_background_1jet&c_0p5",
+        "nf_signal_1jet&c_2p0",
+        "nf_background_1jet&c_2p0",
+        "nf_signal_2jet&c_0p5",
+        "nf_background_2jet&c_0p5",
+        "nf_signal_2jet&c_2p0",
+        "nf_background_2jet&c_2p0",
+      ]
   histogram:
     args:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.histogram.HistogramTask
