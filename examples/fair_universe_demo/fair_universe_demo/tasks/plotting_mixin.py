@@ -1,5 +1,7 @@
+import json
 import os
 from functools import wraps
+from logging import Logger
 from pathlib import Path
 from typing import Callable, Dict, List
 
@@ -7,6 +9,8 @@ import luigi
 import matplotlib.pyplot as plt
 import mplhep
 from matplotlib.figure import Figure
+
+logger = Logger("PlottingMixin")
 
 
 class PlottingMixin(luigi.Task):
@@ -161,3 +165,31 @@ class PlottingMixin(luigi.Task):
                 plots[plot_name] = getattr(self, name)
 
         return plots
+
+    def complete(self) -> bool:
+        """Override that checks that all registered plotting functions were ran and successfully produced
+        the corresponding output file.
+
+        Raises:
+            RuntimeError: If any output is missing. A detailed error message informs the user which plots.
+                were not produced_
+
+        Returns:
+            bool: True once all plots are confirmed, allowing the daughter Task to continue.
+        """
+        missing_plots = set()
+
+        for name, target in self.output().items():
+            if not target.exists():
+                missing_plots.add(Path(name).stem)
+
+        if missing_plots:
+            missing_plot_functions = {name: self.registered_plots[name].__name__ for name in missing_plots}
+            raise RuntimeError(
+                f"PlottingMixin Task '{self.__class__.__name__}' registered {len(self.registered_plots)} "
+                f"plots but only generated {len(self.registered_plots) - len(missing_plots)}. "
+                f"Missing plots were (name, func):\n{json.dumps(missing_plot_functions, indent=4)}\nEvery plotting "
+                "function has to be called inside the `run()` method of your luigi Task."
+            )
+
+        return True

@@ -167,37 +167,6 @@ class ValidationTask(PlottingMixin):
         plt.tight_layout()
         return fig
 
-    @PlottingMixin.plot(name="training_curves")
-    def plot_training_curves(
-        self,
-        train_losses: List[float],
-        val_losses: List[float],
-        title: str = "Training Curves",
-    ) -> plt.Figure:
-        """Plot training and validation loss curves.
-
-        Args:
-            train_losses: Training loss per epoch
-            val_losses: Validation loss per epoch
-            title: Plot title
-
-        Returns:
-            matplotlib Figure
-        """
-        fig, ax = plt.subplots(figsize=(10, 6))
-
-        epochs = np.arange(len(train_losses))
-        ax.plot(epochs, train_losses, label="Training Loss", linewidth=2)
-        ax.plot(epochs, val_losses, label="Validation Loss", linewidth=2)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.set_title(title)
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        return fig
-
     @PlottingMixin.plot(name="calibration_curve")
     def plot_calibration_curve(
         self,

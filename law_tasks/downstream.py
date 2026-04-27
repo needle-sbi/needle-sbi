@@ -2,7 +2,7 @@ import os
 from functools import cached_property
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, NamedTuple
+from typing import Any, Dict, List, NamedTuple
 from urllib.parse import urlencode
 
 import law
@@ -13,6 +13,9 @@ from omegaconf import DictConfig, OmegaConf
 from orchestrator.config import DownstreamTaskConfig
 from orchestrator.config_utils import hydra_instantiate
 from orchestrator.luigi_utils import convert_luigi_to_law_targets
+from preprocessor.utils.logging import ColorFormatter
+
+logger = ColorFormatter.get_logger("downstream")
 
 
 class BranchTuple(NamedTuple):
@@ -200,7 +203,7 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
 
         return os.path.abspath(self.results_path)  # type: ignore
 
-    def workflow_requires(self) -> Dict[str, SnapshotTask | law.Task]:
+    def requires(self) -> Dict[str, SnapshotTask | law.Task]:
         """Resolve dependencies for this downstream task.
 
         If no explicit dependencies are configured, requires SnapshotTask (the root training).
@@ -238,10 +241,14 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
         Returns:
             Target or nested Target structure converted to Law format.
         """
+        if self.is_branch():
+            task = self.downstream_task(self.branch)
+            return convert_luigi_to_law_targets(luigi_targets=task.output())
+
         targets = {}
 
         for branch_id in self.branch_map.keys():
-            task = self.downstream_task()
+            task = self.downstream_task(branch_id)
             luigi_output = task.output()
             law_output = convert_luigi_to_law_targets(luigi_targets=luigi_output)
             targets[branch_id] = law_output
@@ -254,10 +261,14 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
         Returns:
             Target or nested Target structure converted to Law format.
         """
+        if self.is_branch():
+            task = self.downstream_task(self.branch)
+            return convert_luigi_to_law_targets(task.input())
+
         targets = {}
 
         for branch_id in self.branch_map.keys():
-            task = self.downstream_task()
+            task = self.downstream_task(branch_id)
 
             luigi_input = task.input()
             law_input = convert_luigi_to_law_targets(luigi_input)
@@ -284,7 +295,7 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
 
         return branch_map
 
-    def downstream_task(self) -> luigi.Task:
+    def downstream_task(self, branch_id: int) -> luigi.Task:
         """Instantiate the wrapped external task from config.
 
         Uses Hydra to instantiate the task class specified in the config's _target_ field,
@@ -297,7 +308,7 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
             self.downstream_config.args,
             resolve=True,
         )  # type: ignore
-        branch_args: Dict[str, Any] = self.branch_map[self.branch].parameters  # type: ignore
+        branch_args: Dict[str, Any] = self.branch_map[branch_id].parameters  # type: ignore
 
         merged_args = DictConfig(
             {
@@ -312,7 +323,16 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
         )
 
     def run(self) -> None:
-        if self.branch == -1:
+        if self.is_workflow():
             return None
         else:
-            self.downstream_task().run()
+            self.downstream_task(branch_id=self.branch).run()
+
+    def workflow_complete(self) -> bool:  # type: ignore
+        for branch_id in self.branch_map.keys():
+            task = self.downstream_task(branch_id)
+
+            if not task.complete():
+                return False
+
+        return True
