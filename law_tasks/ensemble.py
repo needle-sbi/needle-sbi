@@ -64,30 +64,25 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
 
     def requires(self):
         """
-        Conditional requires based on execution mode.
-        - local: Returns FoldTask instances to be run in-process
-        - htcondor: Handled by LAW workflow machinery (not used)
+        Define task dependencies:
+        - For workflow branches: Create the specific FoldTask for this branch
+        - For workflow container: No requirements (LAW handles it)
         """
-        if self.workflow == "local":
-            return self._requires_local()
-        else:
-            # HTCondor workflow mode: LAW handles task creation via create_branch_map
-            return []
-    
-    def _requires_local(self):
-        """Local execution mode: explicitly create FoldTask instances"""
-        return [
-            FoldTask.req(
+        if self.is_branch():
+            # This is a branch task - create the specific FoldTask for this fold
+            fold_index = self.branch_data["fold_index"]
+            return FoldTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,  # Pass workflow mode through
+                workflow=self.workflow,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=self.ensemble,
                 fold_index=fold_index,
             )
-            for fold_index in range(self.estimator_config.expands.folds)
-        ]
+        else:
+            # This is the workflow container (branch=-1) - no direct requirements
+            return []
     
     # ========================================================================
     # HTCondor Workflow Methods (only used when workflow="htcondor")
@@ -95,14 +90,10 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     
     def create_branch_map(self):
         """
-        Define workflow branches for HTCondor mode.
-        Each branch corresponds to one FoldTask.
+        Define workflow branches - one per fold.
+        LAW workflow machinery always activates due to HTCondorWorkflow inheritance.
         """
-        if self.workflow == "local":
-            # Don't activate workflow mode - use standard requires() instead
-            return None
-        
-        # HTCondor mode: create one branch per fold
+        # Always return branch map since we inherit from HTCondorWorkflow
         return {
             fold_index: {"fold_index": fold_index}
             for fold_index in range(self.estimator_config.expands.folds)

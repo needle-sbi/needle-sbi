@@ -49,39 +49,32 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
 
     def requires(self) -> List[SystematicTask]:
         """
-        Conditional requires based on execution mode.
-        - local: Returns SystematicTask instances to be run in-process
-        - htcondor: Handled by LAW workflow machinery
+        Define task dependencies:
+        - For workflow branches: Create the specific SystematicTask for this branch
+        - For workflow container: No requirements (LAW handles it)
         """
-        if self.workflow == "local":
-            return self._requires_local()
-        else:
-            return []
-    
-    def _requires_local(self):
-        """Local execution mode: explicitly create SystematicTask instances"""
-        return [
-            SystematicTask.req(
+        if self.is_branch():
+            # This is a branch task - create the specific SystematicTask for this systematic
+            systematic_key = self.branch_data["systematic"]
+            return SystematicTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,  # Pass workflow mode through
+                workflow=self.workflow,
                 estimator=self.estimator,
                 systematic=systematic_key,
             )
-            for systematic_key in self.estimator_config.expands.systematics.keys()
-        ]
+        else:
+            # This is the workflow container (branch=-1) - no direct requirements
+            return []
     
     # ========================================================================
     # HTCondor Workflow Methods (only used when workflow="htcondor")
     # ========================================================================
     
     def create_branch_map(self):
-        """Define workflow branches for HTCondor mode (one per systematic)"""
-        if self.workflow == "local":
-            # Don't activate workflow mode - use standard requires() instead
-            return None
-        
-        # HTCondor mode: create one branch per systematic
+        """Define workflow branches - single branch per systematic"""
+        # Always return branch map since we inherit from HTCondorWorkflow
+        # In local mode, workflow machinery still runs but doesn't submit to HTCondor
         return {
             idx: {"systematic": syst_key}
             for idx, syst_key in enumerate(self.estimator_config.expands.systematics.keys())
@@ -103,6 +96,7 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     
     def htcondor_job_config(self, config, job_num, branches):
         """Configure HTCondor resources for SystematicTasks"""
+        # Only applies when workflow="htcondor" (LAW handles mode switching)
         config.custom_content.append(("request_cpus", "2"))
         config.custom_content.append(("request_memory", "16000"))
         config.custom_content.append(("request_runtime", "7200"))

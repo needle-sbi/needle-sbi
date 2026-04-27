@@ -60,43 +60,32 @@ class SystematicTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
 
     def requires(self):
         """
-        Conditional requires based on execution mode.
-        - local: Returns EnsembleTask instances to be run in-process
-        - htcondor: Handled by LAW workflow machinery
+        Define task dependencies:
+        - For workflow branches: Create the specific EnsembleTask for this branch
+        - For workflow container: No requirements (LAW handles it)
         """
-        if self.workflow == "local":
-            return self._requires_local()
-        else:
-            return []
-    
-    def _requires_local(self):
-        """Local execution mode: explicitly create EnsembleTask instances"""
-        num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
-        num_ensembles = max(1, num_ensembles)
-
-        return [
-            EnsembleTask.req(
+        if self.is_branch():
+            # This is a branch task - create the specific EnsembleTask for this ensemble
+            ensemble_index = self.branch_data["ensemble"]
+            return EnsembleTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,  # Pass workflow mode through
+                workflow=self.workflow,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,
             )
-            for ensemble_index in range(num_ensembles)
-        ]
+        else:
+            # This is the workflow container (branch=-1) - no direct requirements
+            return []
     
     # ========================================================================
     # HTCondor Workflow Methods (only used when workflow="htcondor")
     # ========================================================================
     
     def create_branch_map(self):
-        """Define workflow branches for HTCondor mode (one per ensemble)"""
-        if self.workflow == "local":
-            # Don't activate workflow mode - use standard requires() instead
-            return None
-        
-        # HTCondor mode: create one branch per ensemble
+        """Define workflow branches - one per ensemble"""
+        # Always return branch map since we inherit from HTCondorWorkflow
         num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
         num_ensembles = max(1, num_ensembles)
         return {
