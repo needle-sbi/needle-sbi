@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict
 
 import luigi
 import matplotlib.pyplot as plt
@@ -21,6 +21,8 @@ class ValidationTask(PlottingMixin):
         description="Name of the model to validate. Has to match the names in the snapshot.json file"
     )  # type: ignore
 
+    default_fig_size = (5, 4)
+
     @PlottingMixin.plot(name="log_prob_distribution")
     def plot_log_prob_distributions(
         self,
@@ -37,25 +39,26 @@ class ValidationTask(PlottingMixin):
         Returns:
             matplotlib Figure
         """
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        fig, axes = plt.subplots(1, 2, figsize=(2 * self.default_fig_size[0], 2 * self.default_fig_size[1]))
 
         # Histogram comparison
-        axes[0].hist(signal_logprobs, bins=50, alpha=0.6, label="Signal", density=True)
-        axes[0].hist(bg_logprobs, bins=50, alpha=0.6, label="Background", density=True)
+        bins = np.linspace(-10_000, 0, 50)
+        axes[0].hist(signal_logprobs, bins=bins, alpha=0.6, label="Signal", density=True)
+        axes[0].hist(bg_logprobs, bins=bins, alpha=0.6, label="Background", density=True)
         axes[0].set_xlabel("Log-Probability")
         axes[0].set_ylabel("Density")
         axes[0].legend()
-        axes[0].grid(True, alpha=0.3)
 
         # Quantile comparison
-        q_sig = np.quantile(signal_logprobs, np.linspace(0, 1, 100))
-        q_bg = np.quantile(bg_logprobs, np.linspace(0, 1, 100))
+        bins = np.linspace(0, 1, 100)
+        q_sig = np.quantile(signal_logprobs, bins)
+        q_bg = np.quantile(bg_logprobs, bins)
         axes[1].plot(q_sig, label="Signal", linewidth=2)
         axes[1].plot(q_bg, label="Background", linewidth=2)
         axes[1].set_xlabel("Quantile Index")
-        axes[1].set_ylabel("Log-Probability Value")
+        axes[1].set_ylabel("Log-Probability")
+        axes[1].set_yscale("symlog")
         axes[1].legend()
-        axes[1].grid(True, alpha=0.3)
 
         plt.tight_layout()
         return fig
@@ -198,14 +201,14 @@ class ValidationTask(PlottingMixin):
             sig_eff.append(np.mean(signal_logprobs > thresh))
             bg_acc.append(np.mean(bg_logprobs > thresh))
 
-        fig, ax = plt.subplots(figsize=(5, 4))
+        fig, ax = plt.subplots(figsize=self.default_fig_size)
         ax.plot(
             bg_acc,
             sig_eff,
             linewidth=2,
             marker="o",
             markersize=5,
-            label="Contrastive Normalizing Flow",
+            label="CNF",
         )
         ax.set_xlabel("Background Acceptance (false positive rate)")
         ax.set_ylabel("Signal Efficiency (true positive rate)")
@@ -237,7 +240,7 @@ class ValidationTask(PlottingMixin):
         Returns:
             matplotlib Figure
         """
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        fig, axes = plt.subplots(2, 2, figsize=(2 * self.default_fig_size[0], 2 * self.default_fig_size[1]))
         axes = axes.flatten()
 
         sig_data_np = signal_data.cpu().numpy()
@@ -248,9 +251,8 @@ class ValidationTask(PlottingMixin):
             axes[i].hist(bg_data_np[:, i], bins=50, alpha=0.6, label="Background", density=True)
             axes[i].set_xlabel(f"Feature {i}")
             axes[i].set_ylabel("Density")
-            axes[i].set_title(f"Feature {i} Distribution")
-            axes[i].legend()
-            axes[i].grid(True, alpha=0.3)
+            axes[i].legend(loc="lower right")
+            axes[i].set_yscale("symlog")
 
         plt.tight_layout()
         return fig

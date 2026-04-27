@@ -166,16 +166,24 @@ class PlottingMixin(luigi.Task):
 
         return plots
 
-    def complete(self) -> bool:
-        """Override that checks that all registered plotting functions were ran and successfully produced
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        daughter_run = cls.run
+
+        @wraps(daughter_run)
+        def wrap_daughter_run(self):
+            daughter_run(self)
+            self._validate_plot_exist_after_run()
+
+        cls.run = wrap_daughter_run
+
+    def _validate_plot_exist_after_run(self) -> None:
+        """Method that checks that all registered plotting functions were ran and successfully produced
         the corresponding output file.
 
         Raises:
-            RuntimeError: If any output is missing. A detailed error message informs the user which plots.
-                were not produced_
-
-        Returns:
-            bool: True once all plots are confirmed, allowing the daughter Task to continue.
+            RuntimeError: If any output is missing. A detailed error message informs the user which plots
+                were not produced
         """
         missing_plots = set()
 
@@ -191,5 +199,3 @@ class PlottingMixin(luigi.Task):
                 f"Missing plots were (name, func):\n{json.dumps(missing_plot_functions, indent=4)}\nEvery plotting "
                 "function has to be called inside the `run()` method of your luigi Task."
             )
-
-        return True
