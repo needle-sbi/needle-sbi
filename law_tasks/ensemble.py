@@ -20,25 +20,14 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("ensemble")
 
 
-class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
+class EnsembleTask(law.Task, HydraMixin):
     """
-    Ensemble task that can run in two modes:
-    - local: Creates and runs FoldTasks in-process (current behavior)
-    - htcondor: Submits each FoldTask as a separate HTCondor job (workflow mode)
-    
-    Inherits from HTCondorWorkflow to enable workflow features, but they are
-    only activated when workflow="htcondor".
+    Ensemble task that runs multiple FoldTasks.
     """
     rel_results_path = law.Parameter(
         description="Directory where the ensemble training results will be saved.",
         default="runs",
         significant=False,
-    )  # type: ignore
-    workflow = luigi.ChoiceParameter(
-        default="local",
-        choices=["local", "htcondor"],
-        significant=False,
-        description="Execution mode: local (run in-process) or htcondor (submit to cluster)"
     )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
@@ -62,76 +51,53 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     def estimator_config(self) -> EstimatorConfig:
         return self.config.estimators[self.estimator]
 
+    def create_branch_map(self):
+        """Define workflow branches - one per fold"""
+        return {
+            fold_index: {"fold_index": fold_index}
+            for fold_index in range(self.estimator_config.expands.folds)
+        }
+
     def requires(self):
-        """
-        Define task dependencies:
-        - For workflow branches: Create the specific FoldTask for this branch
-        - For workflow container: No requirements (LAW handles it)
-        """
+        """Workflow requires nothing; branches require FoldTask"""
         if self.is_branch():
-            # This is a branch task - create the specific FoldTask for this fold
+            # Branch task: require the specific FoldTask
             fold_index = self.branch_data["fold_index"]
             return FoldTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=self.ensemble,
                 fold_index=fold_index,
             )
-        else:
-            # This is the workflow container (branch=-1) - no direct requirements
-            return []
-    
-    # ========================================================================
-    # HTCondor Workflow Methods (only used when workflow="htcondor")
-    # ========================================================================
-    
-    def create_branch_map(self):
-        """
-        Define workflow branches - one per fold.
-        LAW workflow machinery always activates due to HTCondorWorkflow inheritance.
-        """
-        # Always return branch map since we inherit from HTCondorWorkflow
-        return {
-            fold_index: {"fold_index": fold_index}
-            for fold_index in range(self.estimator_config.expands.folds)
-        }
-    
-    def workflow_requires(self):
-        """Define workflow-level requirements (used by HTCondorWorkflow)"""
-        # No requirements at workflow level
-        return {}
-    
+        # Workflow container: no requirements
+        return []
+
     def htcondor_output_directory(self):
-        """Directory for HTCondor job logs and submission files"""
+        """Directory for HTCondor job logs"""
         return law.LocalDirectoryTarget(
-            f".law/htcondor/{self.task_family}/"
-            f"{self.estimator}_{self.systematic}_ens{self.ensemble}"
+            os.path.join(os.getcwd(), ".law", "htcondor", self.task_family,
+                        f"{self.estimator}_{self.systematic}_ens{self.ensemble}")
         )
     
     def htcondor_bootstrap_file(self):
-        """Bootstrap script to set up environment on remote nodes"""
-        # Use the workspace setup.sh
+        """Bootstrap script for remote environment setup"""
         return law.util.rel_path(__file__, "../../setup.sh")
     
     def htcondor_job_config(self, config, job_num, branches):
-        """Configure HTCondor job submission parameters for FoldTasks"""
+        """Configure HTCondor resources"""
         config.custom_content.append(("request_cpus", "2"))
-        config.custom_content.append(("request_memory", "16000"))  # MB
-        config.custom_content.append(("request_runtime", "7200"))  # seconds
+        config.custom_content.append(("request_memory", "16000"))
+        config.custom_content.append(("request_runtime", "7200"))
         config.custom_content.append(("request_GPUs", "0"))
         config.custom_content.append(("getenv", "True"))
         config.custom_content.append(("universe", "vanilla"))
-        
-        # Set environment variable for data path
         config.custom_content.append((
             "+Environment",
             '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/'
             'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
         ))
-        
         return config
 
     #def output(self) -> Dict[str, Any]:
@@ -139,7 +105,21 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     #    return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/ensemble_results.json")}
     
     def output(self) -> Dict[str, Any]:
-        # Create hierarchical directory structure
+        if self.is_branch():
+            # Branch output: individual fold result
+            ensemble_dir = os.path.join(
+                str(self.abs_results_path),
+                self.estimator,
+                self.systematic,
+                f"ensemble_{self.ensemble}",
+            )
+            os.makedirs(ensemble_dir, exist_ok=True)
+            return {
+                "outputs": law.LocalFileTarget(
+                    os.path.join(ensemble_dir, f"fold_{self.branch}.json")
+                )
+            }
+        # Workflow output: collection of all branch outputs
         ensemble_dir = os.path.join(
             str(self.abs_results_path),
             self.estimator,
@@ -147,28 +127,27 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
             f"ensemble_{self.ensemble}",
         )
         os.makedirs(ensemble_dir, exist_ok=True)
-        return {
-            "outputs": law.LocalFileTarget(str(ensemble_dir+"/ensemble_results.json"))
-        }
+        return law.SiblingFileCollection(
+            law.LocalFileTarget(
+                os.path.join(ensemble_dir, "fold_{branch}.json")
+            )
+        )
     
     def run(self):
-        # List of fold outputs that are ensemble inputs by constructions
-        fold_outputs = self.input()
+        # Only branches run - workflow just coordinates
+        if not self.is_branch():
+            raise Exception("Workflow container should not run")
         
-        # Store the individual fold results
-        fold_results = []
-        for fold_idx, fold_output in enumerate(fold_outputs):
-            # Load FoldResults from each fold's output - i.e. ensemble inputs
-            fold_result = FoldResults.from_json(fold_output["outputs"].path)
-            fold_results.append(fold_result)
-
-        logger.info(f"Loaded {len(fold_results)} fold results for ensemble {self.ensemble}")
+        # Branch task: get result from its single FoldTask
+        fold_output = self.input()
+        fold_result = FoldResults.from_json(fold_output["outputs"].path)
         
-        # Create EnsembleResults with the folds list populated
-        ensemble_results = EnsembleResults(
-            folds=fold_results,  
-        )
-        # Save the SerializableDataclass method
+        logger.info(f"Loaded fold {self.branch} result for ensemble {self.ensemble}")
+        
+        # Create EnsembleResults with single fold
+        ensemble_results = EnsembleResults(folds=[fold_result])
+        
+        # Save the result
         ensemble_results.to_json(self.output()["outputs"].path)
-        logger.info(f"Saved ensemble results to {self.output()['outputs'].path}")
+        logger.info(f"Saved ensemble fold {self.branch} results to {self.output()['outputs'].path}")
         #EnsembleResults().to_json(self.output()["outputs"].path)

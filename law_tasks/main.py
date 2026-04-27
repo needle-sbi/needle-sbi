@@ -21,26 +21,15 @@ from law_tasks.snapshot import SnapshotTask
 
 class MainTask(law.WrapperTask, HydraMixin):
     """
-    Main orchestration task for NEEDLE pipeline. 
+    Main orchestration task for NEEDLE pipeline.
 
     Usage:
-        # Local execution (current behavior)
         law run MainTask --config-file conf/config.yaml
-        
-        # HTCondor execution (submit FoldTasks to cluster)
-        law run MainTask --config-file conf/config.yaml --workflow htcondor
     """
-    
-    workflow = luigi.ChoiceParameter(
-        default="local",
-        choices=["local", "htcondor"],
-        significant=False,
-        description="Execution mode: local (in-process) or htcondor (distributed)"
-    )  # type: ignore
     
     def requires(self):
         """
-        Required tasks for `MainTasks`. 
+        Required tasks for MainTask.
 
         Current requirements:
             └─ SnapshotTask (create snapshot of DAG in .json format)
@@ -49,5 +38,4 @@ class MainTask(law.WrapperTask, HydraMixin):
             SnapshotTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,  # Pass workflow mode through
             )]

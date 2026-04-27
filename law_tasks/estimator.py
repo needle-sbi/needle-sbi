@@ -17,22 +17,15 @@ from preprocessor.utils.logging import ColorFormatter
 logger = ColorFormatter.get_logger("estimator")
 
 
-class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
+class EstimatorTask(law.Task, HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
     """
-    Estimator task that can run in two modes:
-    - local: Creates and runs SystematicTasks in-process
-    - htcondor: Submits each SystematicTask as a separate HTCondor job
-    """
+    Estimator task that runs SystematicTasks.    
+    By default runs as HTCondor workflow (submits branches to cluster).
+    Use --EstimatorTask-workflow local to run branches locally.    """
     rel_results_path: str = law.Parameter(
         description="Directory where the estimator results will be saved.",
         default="runs/estimator",
         significant=False,
-    )  # type: ignore
-    workflow = luigi.ChoiceParameter(
-        default="local",
-        choices=["local", "htcondor"],
-        significant=False,
-        description="Execution mode: local (run in-process) or htcondor (submit to cluster)"
     )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
@@ -47,47 +40,31 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     def estimator_config(self) -> EstimatorConfig:
         return self.config.estimators[self.estimator]
 
-    def requires(self) -> List[SystematicTask]:
-        """
-        Define task dependencies:
-        - For workflow branches: Create the specific SystematicTask for this branch
-        - For workflow container: No requirements (LAW handles it)
-        """
-        if self.is_branch():
-            # This is a branch task - create the specific SystematicTask for this systematic
-            systematic_key = self.branch_data["systematic"]
-            return SystematicTask.req(
-                self,
-                config_file=self.config_file,
-                workflow=self.workflow,
-                estimator=self.estimator,
-                systematic=systematic_key,
-            )
-        else:
-            # This is the workflow container (branch=-1) - no direct requirements
-            return []
-    
-    # ========================================================================
-    # HTCondor Workflow Methods (only used when workflow="htcondor")
-    # ========================================================================
-    
     def create_branch_map(self):
-        """Define workflow branches - single branch per systematic"""
-        # Always return branch map since we inherit from HTCondorWorkflow
-        # In local mode, workflow machinery still runs but doesn't submit to HTCondor
+        """Define workflow branches - one per systematic"""
         return {
             idx: {"systematic": syst_key}
             for idx, syst_key in enumerate(self.estimator_config.expands.systematics.keys())
         }
     
-    def workflow_requires(self):
-        """Workflow-level requirements"""
-        return {}
-    
+    def requires(self):
+        """Workflow requires nothing; branches require SystematicTask"""
+        if self.is_branch():
+            # Branch task: require the specific SystematicTask
+            systematic_key = self.branch_data["systematic"]
+            return SystematicTask.req(
+                self,
+                config_file=self.config_file,
+                estimator=self.estimator,
+                systematic=systematic_key,
+            )
+        # Workflow container: no requirements
+        return []
+
     def htcondor_output_directory(self):
         """Directory for HTCondor job logs"""
         return law.LocalDirectoryTarget(
-            f".law/htcondor/{self.task_family}/{self.estimator}"
+            os.path.join(os.getcwd(), ".law", "htcondor", self.task_family, self.estimator)
         )
     
     def htcondor_bootstrap_file(self):
@@ -95,8 +72,7 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
         return law.util.rel_path(__file__, "../../setup.sh")
     
     def htcondor_job_config(self, config, job_num, branches):
-        """Configure HTCondor resources for SystematicTasks"""
-        # Only applies when workflow="htcondor" (LAW handles mode switching)
+        """Configure HTCondor resources"""
         config.custom_content.append(("request_cpus", "2"))
         config.custom_content.append(("request_memory", "16000"))
         config.custom_content.append(("request_runtime", "7200"))
@@ -109,16 +85,33 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
             'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
         ))
         return config
-
+    
     def output(self) -> Dict[str, Any]:
-        os.makedirs(self.abs_results_path, exist_ok=True)
-        return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/estimator_outputs.json")}
+        if self.is_branch():
+            # Branch output: individual systematic result
+            os.makedirs(self.abs_results_path, exist_ok=True)
+            return {
+                "outputs": law.LocalFileTarget(
+                    f"{self.abs_results_path}/estimator_{self.estimator}_syst_{self.branch}.json"
+                )
+            }
+        # Workflow output: collection of all branches
+        return law.SiblingFileCollection(
+            law.LocalFileTarget(
+                f"{self.abs_results_path}/estimator_{self.estimator}_syst_{{branch}}.json"
+            )
+        )
 
     def run(self):
+        # Only branches run - workflow just coordinates
+        if not self.is_branch():
+            raise Exception("Workflow container should not run")
+        
+        # Branch task: collect results from its single SystematicTask
         systematic_results = EstimatorResults()
-
-        for fold_outputs in self.input():
-            fold_result = SystematicResults.from_json(fold_outputs["outputs"].path)
-            systematic_results.systematics.append(fold_result)
+        
+        fold_outputs = self.input()
+        fold_result = SystematicResults.from_json(fold_outputs["outputs"].path)
+        systematic_results.systematics.append(fold_result)
 
         systematic_results.to_json(self.output()["outputs"].path)

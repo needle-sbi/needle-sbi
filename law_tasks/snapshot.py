@@ -29,8 +29,6 @@ class SnapshotTask(law.Task, HydraMixin):
     """
     Creates a complete snapshot of the trained ensemble DAG.
     This snapshot can be used for evaluation without re-running training.
-    
-    Passes workflow mode through to all child tasks.
     """
 
     rel_results_path = law.Parameter(
@@ -38,12 +36,6 @@ class SnapshotTask(law.Task, HydraMixin):
         default="runs",
         significant=False,
     )
-    workflow = luigi.ChoiceParameter(
-        default="local",
-        choices=["local", "htcondor"],
-        significant=False,
-        description="Execution mode to pass through to child tasks"
-    )  # type: ignore
 
     def requires(self):
         """Require all EstimatorTasks to ensure training is completed"""
@@ -51,7 +43,6 @@ class SnapshotTask(law.Task, HydraMixin):
             EstimatorTask.req(
                 self,
                 config_file=self.config_file,
-                workflow=self.workflow,  # Pass workflow mode through
                 estimator=estimator_key,
             )
             for estimator_key in self.config.estimators.keys()
