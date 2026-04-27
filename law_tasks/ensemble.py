@@ -20,9 +20,12 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("ensemble")
 
 
-class EnsembleTask(law.Task, HydraMixin):
+class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
     """
     Ensemble task that runs multiple FoldTasks.
+    
+    By default runs as HTCondor workflow (submits branches to cluster).
+    Use --EnsembleTask-workflow local to run branches locally.
     """
     rel_results_path = law.Parameter(
         description="Directory where the ensemble training results will be saved.",

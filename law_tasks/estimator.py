@@ -17,7 +17,7 @@ from preprocessor.utils.logging import ColorFormatter
 logger = ColorFormatter.get_logger("estimator")
 
 
-class EstimatorTask(law.Task, HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
+class EstimatorTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
     """
     Estimator task that runs SystematicTasks.    
     By default runs as HTCondor workflow (submits branches to cluster).

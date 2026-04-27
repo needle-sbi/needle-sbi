@@ -20,7 +20,7 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("systematic")
 
 
-class SystematicTask(law.Task, HydraMixin):
+class SystematicTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
     """
     Systematic task that runs multiple EnsembleTasks.    
     By default runs as HTCondor workflow (submits branches to cluster).
