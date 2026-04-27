@@ -99,6 +99,7 @@ python_version = "3.12"
 check_untyped_defs = true
 disallow_untyped_defs = true
 ignore_missing_imports = false
+plugins = ["luigi.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["dask.*", "dask_awkward.*"]
