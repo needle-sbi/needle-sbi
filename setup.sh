@@ -85,6 +85,8 @@ alias deactivate="_deactivate"
 alias needle_deactivate="_deactivate"
 alias needle_exit="_deactivate"
 
+bash "tui/plain_text/welcome_message.sh"
+
 echo -e "${_NEEDLE_GREEN}Activated the $ENV_NAME environment. (Exit with 'exit', 'deactivate' or 'needle_exit').${_NEEDLE_NC}"
 echo -e "${_NEEDLE_GREEN}For a full reset in the same shell, use 'unset NEEDLE_ENV_ACTIVE' then re-source this script.${_NEEDLE_NC}"
 
