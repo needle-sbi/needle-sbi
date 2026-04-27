@@ -98,6 +98,11 @@ class EnsembleTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
         Define workflow branches for HTCondor mode.
         Each branch corresponds to one FoldTask.
         """
+        if self.workflow == "local":
+            # Don't activate workflow mode - use standard requires() instead
+            return None
+        
+        # HTCondor mode: create one branch per fold
         return {
             fold_index: {"fold_index": fold_index}
             for fold_index in range(self.estimator_config.expands.folds)

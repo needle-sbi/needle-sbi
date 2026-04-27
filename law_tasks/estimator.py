@@ -77,6 +77,11 @@ class EstimatorTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
     
     def create_branch_map(self):
         """Define workflow branches for HTCondor mode (one per systematic)"""
+        if self.workflow == "local":
+            # Don't activate workflow mode - use standard requires() instead
+            return None
+        
+        # HTCondor mode: create one branch per systematic
         return {
             idx: {"systematic": syst_key}
             for idx, syst_key in enumerate(self.estimator_config.expands.systematics.keys())
