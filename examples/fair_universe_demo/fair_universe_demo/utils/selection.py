@@ -12,8 +12,6 @@ from .systematics import get_bootstrapped_dataset, systematics
 
 logger = logging.getLogger(__name__)
 
-USE_PUBLIC_DATASET: bool = False
-
 
 def filterbyjet(jet_num: int, data_vis: Dict[str, Any] | pd.DataFrame):
     """

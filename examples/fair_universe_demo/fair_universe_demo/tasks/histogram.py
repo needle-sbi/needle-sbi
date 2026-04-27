@@ -86,6 +86,7 @@ class HistogramTask(luigi.Task):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     json_save_path: str = luigi.Parameter(description="Path to the output histogram file (.json)")  # type: ignore
     root_dir: str = luigi.Parameter(description="Path to the directory containing the FAIR Universe Data")  # type: ignore
+    bins: int = luigi.IntParameter(description="Number of entries to use per dimension", default=200)  # type: ignore
 
     @cached_property
     def loaded_data(self):
@@ -150,15 +151,14 @@ class HistogramTask(luigi.Task):
     def create_histogram(self):
         jes_arr = np.linspace(0.9, 1.1, 10)
         tes_arr = np.linspace(0.9, 1.1, 10)
-        bins = np.linspace(0, 1, num=200)
 
+        bins = np.linspace(0, 1, num=self.bins)
         data = load_train_set_data(root_dir=self.root_dir)
-
         args_list = [(i, j, bins, self.snapshot_path) for j in tes_arr for i in jes_arr]
 
         hist_dict_class = {}
-        progress_bar = tqdm(total=len(args_list), desc="Histogram entries")
         futures = []
+        progress_bar = tqdm(total=len(args_list), desc="Histogram entries")
 
         with ProcessPoolExecutor(
             max_workers=5,
