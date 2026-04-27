@@ -53,7 +53,7 @@ class MainTask(HydraMixin, law.WrapperTask):
         Returns:
             List[EstimatorTask]: Tasks for each estimator key in the config.
         """
-        cache_config_file = os.path.join(self.results_path, "config.yaml")
+        cache_config_file = os.path.join(self.abs_results_path, "config.yaml")
         self.config._resolved = True
 
         with open(cache_config_file, "w") as f:

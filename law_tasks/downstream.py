@@ -7,9 +7,10 @@ from urllib.parse import urlencode
 
 import law
 import luigi
+from omegaconf import DictConfig, OmegaConf
+
 from law_tasks.mixins import CollectOutputMixin, HydraMixin
 from law_tasks.snapshot import SnapshotTask
-from omegaconf import DictConfig, OmegaConf
 from orchestrator.config import DownstreamTaskConfig
 from orchestrator.config_utils import hydra_instantiate
 from orchestrator.luigi_utils import convert_luigi_to_law_targets
@@ -190,18 +191,25 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
         return snapshot.output()["dag_snapshot"].path  # type: ignore
 
     @property
-    def abs_results_path(self) -> Path:
-        """Get the absolute path to the results directory.
+    def downstream_results_path(self) -> str:
+        """Override for downstream analysis trees with shared training.
 
-        Uses config-specified path if available, otherwise uses the CLI parameter.
+        Usage: set the `results_path_downstream` key in the config to override the results path for
+        all DownstreamTasks. SnapshotTask and other upstream Tasks will still use the regular value
+        of `results_path`.
 
         Returns:
-            Path: Absolute path to results directory.
+            str: In order of priority, `config.results_path_downstream`, `results_path` (luigi CLI arg)
+                or `config.results_path` same as upstream Tasks.
         """
-        if self.config.results_path:
-            self.results_path = self.config.results_path
+        if self.config.results_path_downstream:
+            return self.config.results_path_downstream
 
-        return os.path.abspath(self.results_path)  # type: ignore
+        if self.results_path:
+            return self.results_path
+
+        else:
+            return self.config.results_path or self.results_path
 
     def requires(self) -> Dict[str, SnapshotTask | law.Task]:
         """Resolve dependencies for this downstream task.
@@ -227,7 +235,7 @@ class DownstreamTask(CollectOutputMixin, HydraMixin, law.LocalWorkflow):
         if self.downstream_config.requires:
             for downstream_dep in self.downstream_config.requires:
                 req[downstream_dep] = DownstreamTask(
-                    results_path=self.results_path,
+                    results_path=self.downstream_results_path,
                     downstream=downstream_dep,
                     config_file=self.config_file,
                     hydra_overrides=self.hydra_overrides,
