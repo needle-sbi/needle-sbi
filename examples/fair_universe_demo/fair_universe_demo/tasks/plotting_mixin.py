@@ -8,6 +8,7 @@ from typing import Callable, Dict, List
 import luigi
 import matplotlib.pyplot as plt
 import mplhep
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 logger = Logger("PlottingMixin")
@@ -78,8 +79,14 @@ class PlottingMixin(luigi.Task):
         }
 
     @staticmethod
-    def set_needle_plot_style(fig: Figure) -> Figure:
-        for ax in fig.axes:
+    def set_needle_plot_style(fig: Figure, axes: Axes | List[Axes] | None = None) -> Figure:
+        if axes is None:
+            axes = fig.axes  # type: ignore
+
+        if not isinstance(axes, List):
+            axes = [axes]
+
+        for ax in axes:
             mplhep.label.exp_label(
                 loc=0,
                 exp="NEEDLE",
@@ -90,7 +97,11 @@ class PlottingMixin(luigi.Task):
         return fig
 
     @staticmethod
-    def plot(*, name: str = None) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
+    def plot(
+        *,
+        name: str = None,
+        add_needle_plot_style: bool = True,
+    ) -> Callable[[Callable[..., Figure]], Callable[..., Figure]]:
         """This decorator does two things:
             1. Register the given function as "to-be-plotted" which means it is registered automatically
                 as a law Target, no need to explicitly write the output file.
@@ -127,7 +138,7 @@ class PlottingMixin(luigi.Task):
                 if not isinstance(fig, Figure):
                     raise TypeError(f"Function {func.__name__} must return matplotlib.figure.Figure")
 
-                fig = self.set_needle_plot_style(fig)
+                fig = self.set_needle_plot_style(fig) if add_needle_plot_style else fig
                 name = getattr(func, "_plot_name")
 
                 for fmt in self.PlottingSettings.formats:

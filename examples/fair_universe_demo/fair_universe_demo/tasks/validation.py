@@ -1,15 +1,20 @@
 import os
-from typing import Dict
+from logging import Logger
+from typing import Dict, List
 
 import luigi
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from matplotlib.axes import Axes
+from matplotlib.colors import LogNorm
 
 from ..models.classifier_datamodule import ClassifierDatamodule
 from ..utils.selection import createJetData
 from .histogram import HistogramTask
 from .plotting_mixin import PlottingMixin
+
+logger = Logger("validation")
 
 
 class ValidationTask(PlottingMixin):
@@ -39,15 +44,15 @@ class ValidationTask(PlottingMixin):
         Returns:
             matplotlib Figure
         """
-        fig, axes = plt.subplots(1, 2, figsize=(2 * self.default_fig_size[0], 2 * self.default_fig_size[1]))
+        fig, axes = plt.subplots(1, 2, figsize=(2 * self.default_fig_size[0], self.default_fig_size[1]))
 
         # Histogram comparison
-        bins = np.linspace(-10_000, 0, 50)
-        axes[0].hist(signal_logprobs, bins=bins, alpha=0.6, label="Signal", density=True)
-        axes[0].hist(bg_logprobs, bins=bins, alpha=0.6, label="Background", density=True)
+        bins = np.linspace(-10_000, 0, 50 + 1)
+        axes[0].hist(signal_logprobs, bins=bins, label="Signal", histtype="step")
+        axes[0].hist(bg_logprobs, bins=bins, label="Background", histtype="step")
         axes[0].set_xlabel("Log-Probability")
-        axes[0].set_ylabel("Density")
-        axes[0].legend()
+        axes[0].set_ylabel(f"Density / [{(bins[1] - bins[0]):.2f}]")
+        axes[0].legend(loc="upper left")
 
         # Quantile comparison
         bins = np.linspace(0, 1, 100)
@@ -57,8 +62,7 @@ class ValidationTask(PlottingMixin):
         axes[1].plot(q_bg, label="Background", linewidth=2)
         axes[1].set_xlabel("Quantile Index")
         axes[1].set_ylabel("Log-Probability")
-        axes[1].set_yscale("symlog")
-        axes[1].legend()
+        axes[1].legend(loc="lower right")
 
         plt.tight_layout()
         return fig
@@ -131,14 +135,13 @@ class ValidationTask(PlottingMixin):
         plt.tight_layout()
         return fig
 
-    @PlottingMixin.plot(name="log_prob_vs_feature")
+    @PlottingMixin.plot(name="log_prob_vs_feature", add_needle_plot_style=False)
     def plot_log_prob_vs_feature(
         self,
-        signal_data: torch.Tensor,
+        signal_data: np.ndarray,
         signal_logprobs: np.ndarray,
-        bg_data: torch.Tensor,
+        bg_data: np.ndarray,
         bg_logprobs: np.ndarray,
-        num_features: int = 4,
     ) -> plt.Figure:
         """Scatter plots of log-prob vs individual features.
 
@@ -152,22 +155,86 @@ class ValidationTask(PlottingMixin):
         Returns:
             matplotlib Figure
         """
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        axes = axes.flatten()
+        fig, axes = plt.subplots(4, 2, figsize=(10, 16))
 
-        sig_data_np = signal_data.cpu().numpy()
-        bg_data_np = bg_data.cpu().numpy()
+        y_min, y_max = (-100, 20)
 
-        for i in range(min(num_features, 4)):
-            axes[i].scatter(sig_data_np[:, i], signal_logprobs, alpha=0.3, s=5, label="Signal")
-            axes[i].scatter(bg_data_np[:, i], bg_logprobs, alpha=0.3, s=5, label="Background")
-            axes[i].set_xlabel(f"Feature {i}")
-            axes[i].set_ylabel("Log-Probability")
-            axes[i].set_title(f"Log-Prob vs Feature {i}")
-            axes[i].legend()
-            axes[i].grid(True, alpha=0.3)
+        sig_mask = (signal_logprobs >= y_min) & (signal_logprobs <= y_max)
+        bg_mask = (bg_logprobs >= y_min) & (bg_logprobs <= y_max)
 
-        plt.tight_layout()
+        if sig_mask.any() and bg_mask.any():
+            sig_data_filtered = signal_data[sig_mask]
+            sig_logprobs_filtered = signal_logprobs[sig_mask]
+            bg_data_filtered = bg_data[bg_mask]
+            bg_logprobs_filtered = bg_logprobs[bg_mask]
+        else:
+            sig_data_filtered = signal_data
+            sig_logprobs_filtered = signal_logprobs
+            bg_data_filtered = bg_data
+            bg_logprobs_filtered = bg_logprobs
+            y_min = min(sig_logprobs_filtered.min(), bg_logprobs_filtered.min())
+            y_max = max(sig_logprobs_filtered.max(), bg_logprobs_filtered.max())
+
+        vmin = 1  # Avoid log(0)
+        vmax_sig = 0
+        vmax_bg = 0
+
+        for i in range(4):
+            h_sig, _, _ = np.histogram2d(
+                sig_data_filtered[:, i],
+                sig_logprobs_filtered,
+                bins=50,
+                range=[[sig_data_filtered[:, i].min(), sig_data_filtered[:, i].max()], [y_min, y_max]],
+            )
+            h_bg, _, _ = np.histogram2d(
+                bg_data_filtered[:, i],
+                bg_logprobs_filtered,
+                bins=50,
+                range=[[bg_data_filtered[:, i].min(), bg_data_filtered[:, i].max()], [y_min, y_max]],
+            )
+            vmax_sig = max(vmax_sig, h_sig.max())
+            vmax_bg = max(vmax_bg, h_bg.max())
+
+        for i in range(4):
+            # Signal heatmap (left)
+            x_min_sig, x_max_sig = sig_data_filtered[:, i].min(), sig_data_filtered[:, i].max()
+            h_sig, xedges, yedges = np.histogram2d(
+                sig_data_filtered[:, i], sig_logprobs_filtered, bins=50, range=[[x_min_sig, x_max_sig], [y_min, y_max]]
+            )
+            im_sig = axes[i, 0].imshow(
+                h_sig.T,
+                origin="lower",
+                aspect="auto",
+                cmap="Blues",
+                extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                norm=LogNorm(vmin=vmin, vmax=vmax_sig),
+            )
+            axes[i, 0].set_xlabel(f"Feature {i}", fontsize=10)
+            axes[i, 0].set_ylabel("Log-Probability", fontsize=10)
+            axes[i, 0].set_ylim(y_min, y_max)
+            cbar_sig = plt.colorbar(im_sig, ax=axes[i, 0])
+            cbar_sig.set_label("Count (log scale)", fontsize=9)
+
+            # Background heatmap (right)
+            x_min_bg, x_max_bg = bg_data_filtered[:, i].min(), bg_data_filtered[:, i].max()
+            h_bg, xedges, yedges = np.histogram2d(
+                bg_data_filtered[:, i], bg_logprobs_filtered, bins=50, range=[[x_min_bg, x_max_bg], [y_min, y_max]]
+            )
+            im_bg = axes[i, 1].imshow(
+                h_bg.T,
+                origin="lower",
+                aspect="auto",
+                cmap="Reds",
+                extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                norm=LogNorm(vmin=vmin, vmax=vmax_bg),
+            )
+            axes[i, 1].set_xlabel(f"Feature {i}", fontsize=10)
+            axes[i, 1].set_ylabel("Log-Probability", fontsize=10)
+            axes[i, 1].set_ylim(y_min, y_max)
+            cbar_bg = plt.colorbar(im_bg, ax=axes[i, 1])
+            cbar_bg.set_label("Count (log scale)", fontsize=9)
+
+        fig = PlottingMixin.set_needle_plot_style(fig, axes=axes.flatten().tolist())
         return fig
 
     @PlottingMixin.plot(name="calibration_curve")
@@ -312,11 +379,10 @@ class ValidationTask(PlottingMixin):
         )
 
         self.plot_log_prob_vs_feature(
-            signal_data,
+            signal_data.cpu().numpy(),
             signal_logprobs,
-            bg_data,
+            bg_data.cpu().numpy(),
             bg_logprobs,
-            num_features=4,
         )
 
         self.plot_calibration_curve(
