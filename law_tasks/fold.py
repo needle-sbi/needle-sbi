@@ -29,6 +29,12 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
         default="runs",
         significant=False,
     )
+    workflow = luigi.ChoiceParameter(
+        default="local",
+        choices=["local", "htcondor"],
+        significant=False,
+        description="Execution mode: local (run in-process) or htcondor (submit to cluster)"
+    )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
         significant=True,

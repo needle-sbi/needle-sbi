@@ -527,17 +527,32 @@ queue 1
             # Setup output directory
             output_dir = f"runs/{param_set['network_size_name']}_e{param_set['num_ensembles']}_f{param_set['folds']}_b{param_set['batch_size']}"
             
-            # Build LAW command
+            # Build LAW command for HTCondor workflow execution
+            # Each task in the hierarchy needs --TaskName-workflow htcondor
             law_cmd = [
                 "law", "run", "MainTask",
                 "--config-file", str(config_paths['main']),
                 "--SnapshotTask-rel-results-path", output_dir,
-                "--workflow", "htcondor",  # Enable remote execution
-                "--FoldTask-htcondor-request-cpus", "2",
-                "--FoldTask-htcondor-request-memory", "32GB",
-                "--FoldTask-max-runtime", "120",
+                
+                # Enable HTCondor workflow at all levels
+                "--MainTask-workflow", "htcondor",
+                "--SnapshotTask-workflow", "htcondor",
+                "--EstimatorTask-workflow", "htcondor",
+                "--SystematicTask-workflow", "htcondor",
+                "--EnsembleTask-workflow", "htcondor",
+                "--FoldTask-workflow", "htcondor",  # Pass through for consistency
+                
+                # HTCondor resource requests for workflow tasks
+                "--EnsembleTask-htcondor-request-cpus", "2",
+                "--EnsembleTask-htcondor-request-memory", "16000",
+                "--SystematicTask-htcondor-request-cpus", "2",
+                "--SystematicTask-htcondor-request-memory", "16000",
+                "--EstimatorTask-htcondor-request-cpus", "2",
+                "--EstimatorTask-htcondor-request-memory", "16000",
+                
+                # Workflow settings
                 "--poll-interval", "30",
-                "--parallel-jobs", "50",  # Submit up to 50 FoldTasks at once
+                "--parallel-jobs", "50",  # Submit up to 50 jobs concurrently
                 "--log-level", "INFO",
             ]
             

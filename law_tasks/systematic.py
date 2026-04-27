@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Dict
 
 import law
+import luigi
+
+# Load HTCondor contrib for workflow support
+law.contrib.load("htcondor")
 
 from law_tasks.ensemble import EnsembleTask
 from law_tasks.mixins import HydraMixin
@@ -16,12 +20,23 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("systematic")
 
 
-class SystematicTask(law.Task, HydraMixin):
+class SystematicTask(law.htcondor.HTCondorWorkflow, law.Task, HydraMixin):
+    """
+    Systematic task that can run in two modes:
+    - local: Creates and runs EnsembleTasks in-process
+    - htcondor: Submits each EnsembleTask as a separate HTCondor job
+    """
     rel_results_path = law.Parameter(
         description="Directory where the systematic results will be saved.",
         default="runs/systematic",  # TODO
         significant=False,
     )
+    workflow = luigi.ChoiceParameter(
+        default="local",
+        choices=["local", "htcondor"],
+        significant=False,
+        description="Execution mode: local (run in-process) or htcondor (submit to cluster)"
+    )  # type: ignore
     estimator: str = law.Parameter(
         description="Name of the estimator (must be included in config).",
         significant=True,
@@ -44,6 +59,18 @@ class SystematicTask(law.Task, HydraMixin):
         return self.config.estimators[self.estimator].expands.systematics[self.systematic]
 
     def requires(self):
+        """
+        Conditional requires based on execution mode.
+        - local: Returns EnsembleTask instances to be run in-process
+        - htcondor: Handled by LAW workflow machinery
+        """
+        if self.workflow == "local":
+            return self._requires_local()
+        else:
+            return []
+    
+    def _requires_local(self):
+        """Local execution mode: explicitly create EnsembleTask instances"""
         num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
         num_ensembles = max(1, num_ensembles)
 
@@ -51,12 +78,55 @@ class SystematicTask(law.Task, HydraMixin):
             EnsembleTask.req(
                 self,
                 config_file=self.config_file,
+                workflow=self.workflow,  # Pass workflow mode through
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,
             )
             for ensemble_index in range(num_ensembles)
         ]
+    
+    # ========================================================================
+    # HTCondor Workflow Methods (only used when workflow="htcondor")
+    # ========================================================================
+    
+    def create_branch_map(self):
+        """Define workflow branches for HTCondor mode (one per ensemble)"""
+        num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
+        num_ensembles = max(1, num_ensembles)
+        return {
+            ensemble_index: {"ensemble": ensemble_index}
+            for ensemble_index in range(num_ensembles)
+        }
+    
+    def workflow_requires(self):
+        """Workflow-level requirements"""
+        return {}
+    
+    def htcondor_output_directory(self):
+        """Directory for HTCondor job logs"""
+        return law.LocalDirectoryTarget(
+            f".law/htcondor/{self.task_family}/{self.estimator}_{self.systematic}"
+        )
+    
+    def htcondor_bootstrap_file(self):
+        """Bootstrap script for remote environment setup"""
+        return law.util.rel_path(__file__, "../../setup.sh")
+    
+    def htcondor_job_config(self, config, job_num, branches):
+        """Configure HTCondor resources for EnsembleTasks"""
+        config.custom_content.append(("request_cpus", "2"))
+        config.custom_content.append(("request_memory", "16000"))
+        config.custom_content.append(("request_runtime", "7200"))
+        config.custom_content.append(("request_GPUs", "0"))
+        config.custom_content.append(("getenv", "True"))
+        config.custom_content.append(("universe", "vanilla"))
+        config.custom_content.append((
+            "+Environment",
+            '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/'
+            'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
+        ))
+        return config
 
     def output(self) -> Dict[str, Any]:
         os.makedirs(self.abs_results_path, exist_ok=True)
