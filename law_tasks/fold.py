@@ -113,36 +113,59 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
     #    )
 
     def run(self):
-        model_config = self.systematic_config.model_override
-        datamodule_config = self.systematic_config.datamodule_override
-        dataset_config = self.systematic_config.dataset_override
-        trainer_config = self.systematic_config.trainer_override
+        # Add explicit error logging for HTCondor debugging
+        import traceback
+        import sys
+        import datetime
+        
+        error_log_path = Path(self.results_path) / f"fold_{self.fold_index}_error.log"
+        error_log_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            model_config = self.systematic_config.model_override
+            datamodule_config = self.systematic_config.datamodule_override
+            dataset_config = self.systematic_config.dataset_override
+            trainer_config = self.systematic_config.trainer_override
 
-        model: lightning.LightningModule = hydra.utils.instantiate(
-            model_config,
-            dataset_config=dataset_config,
-        )
-        data_module: lightning.LightningDataModule = hydra.utils.instantiate(
-            datamodule_config,
-            dataset_config=dataset_config,
-            fold_index=self.fold_index,
-            n_folds=self.estimator_config.expands.folds,
-        )
-                
-        # Create logger directly with correct paths
-        mlflow_dir = Path(self.output()["dir"].path) / "mlflow"
-        mlflow_dir.mkdir(parents=True, exist_ok=True)
-        mlflow_logger = MLFlowLogger(
-            experiment_name=f"{self.estimator}_{self.systematic}_ens{self.ensemble}_fold{self.fold_index}",
-            save_dir=str(mlflow_dir),  #str(self.output()["dir"].path),  # Use dir, not logs
-            log_model=False,
-        )
-        # Now train
-        trainer: lightning.Trainer = hydra.utils.instantiate(
-            trainer_config,
-            logger=mlflow_logger,
-        )
-        trainer.fit(model=model, datamodule=data_module)
+            model: lightning.LightningModule = hydra.utils.instantiate(
+                model_config,
+                dataset_config=dataset_config,
+            )
+            data_module: lightning.LightningDataModule = hydra.utils.instantiate(
+                datamodule_config,
+                dataset_config=dataset_config,
+                fold_index=self.fold_index,
+                n_folds=self.estimator_config.expands.folds,
+            )
+                    
+            # Create logger directly with correct paths
+            mlflow_dir = Path(self.output()["dir"].path) / "mlflow"
+            mlflow_dir.mkdir(parents=True, exist_ok=True)
+            mlflow_logger = MLFlowLogger(
+                experiment_name=f"{self.estimator}_{self.systematic}_ens{self.ensemble}_fold{self.fold_index}",
+                save_dir=str(mlflow_dir),  #str(self.output()["dir"].path),  # Use dir, not logs
+                log_model=False,
+            )
+            # Now train
+            trainer: lightning.Trainer = hydra.utils.instantiate(
+                trainer_config,
+                logger=mlflow_logger,
+            )
+            trainer.fit(model=model, datamodule=data_module)
+        except Exception as e:
+            # Log the error to a file we control
+            with open(error_log_path, 'w') as f:
+                f.write(f"FoldTask {self.fold_index} failed at {datetime.datetime.now()}\n")
+                f.write(f"Error: {str(e)}\n\n")
+                f.write("Traceback:\n")
+                f.write(traceback.format_exc())
+                f.write("\n\nEnvironment:\n")
+                f.write(f"Python: {sys.version}\n")
+                f.write(f"CWD: {os.getcwd()}\n")
+                f.write(f"HOSTNAME: {os.environ.get('HOSTNAME', 'unknown')}\n")
+                f.write(f"LAW_HTCONDOR_JOB_NUMBER: {os.environ.get('LAW_HTCONDOR_JOB_NUMBER', 'not set')}\n")
+            logger.error(f"Fold {self.fold_index} failed - error logged to {error_log_path}")
+            raise  # Re-raise to let LAW know the task failed
 
         # Save checkpoint to the output target
         checkpoint_path = Path(self.output()["ckpt"].path)
