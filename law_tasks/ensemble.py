@@ -86,7 +86,10 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
     
     def htcondor_bootstrap_file(self):
         """Bootstrap script for remote environment setup"""
-        return law.util.rel_path(__file__, "../../setup.sh")
+        # Get absolute path to setup.sh in workspace root
+        task_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.dirname(task_dir)
+        return os.path.join(workspace_root, "setup.sh")
     
     def htcondor_job_config(self, config, job_num, branches):
         """Configure HTCondor resources"""
