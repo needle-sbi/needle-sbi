@@ -1,6 +1,8 @@
 custom_settings:
   use_test_data: false
   root_dir: ${if:${custom_settings.use_test_data}, "examples/fair_universe_demo/test_data", "${oc.env:FAIR_UNIVERSE_DATA}"}
+  nominal: true
+  test_settings_json: ${if:${custom_settings.nominal}, "test_settings_nominal.json", "test_settings.json"}
 
 results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_fixed_normalization"}
 results_path_downstream: "${results_path}/stat_only_from_test_settings"
@@ -106,7 +108,6 @@ downstream_tasks:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.histogram.HistogramTask
       root_dir: ${custom_settings.root_dir}
       json_save_path: "${results_path_downstream}/hist.json"
-      stat_only: true
   neyman:
     requires: ["histogram"]
     args:
@@ -122,7 +123,7 @@ downstream_tasks:
       hist_path: "${results_path_downstream}/hist.json"
       root_dir: "${custom_settings.root_dir}"
       neyman_path: "${results_path_downstream}/neyman.json"
-      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo/conf/${custom_settings.test_settings_json}"
       output_path: "${results_path_downstream}/eval.json"
   score:
     requires: ["eval"]
@@ -130,13 +131,13 @@ downstream_tasks:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.score.ScoreTask
       predict_path: "${results_path_downstream}/eval.json"
       output_dir: "${results_path_downstream}/scores/"
-      test_settings_path: "examples/fair_universe_demo/conf/test_settings.json"
+      test_settings_path: "examples/fair_universe_demo/conf/${custom_settings.test_settings_json}"
   plot:
     requires: ["score"]
     args:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot.PlottingTask
       root_dir: "${custom_settings.root_dir}"
-      cached_test_settings_file: "${results_path_downstream}/test_settings.json"
+      cached_test_settings_file: "${results_path_downstream}/${custom_settings.test_settings_json}"
       ingestion_results_path: "${results_path_downstream}/eval.json"
       score_path: "${results_path_downstream}/scores/"
       plot_save_dir: "${results_path_downstream}/plots"

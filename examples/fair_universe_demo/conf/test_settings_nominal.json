@@ -1,11 +1,11 @@
 {
     "systematics": {
-        "tes": true,
-        "jes": true,
-        "soft_met": true,
-        "ttbar_scale": true,
-        "diboson_scale": true,
-        "bkg_scale": true
+        "tes": false,
+        "jes": false,
+        "soft_met": false,
+        "ttbar_scale": false,
+        "diboson_scale": false,
+        "bkg_scale": false
     },
     "num_pseudo_experiments": 20,
     "num_of_sets": 10,

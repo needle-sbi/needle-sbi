@@ -129,7 +129,7 @@ class NeymanTask(PlottingMixin):
                 mu = self._compute_neyman_entry(seed=seed, frac=frac)
 
                 MLE_ratio_arr[frac].append(mu)
-                tqdm.write(f"Estimated mu: {mu}, with mu_true {frac}")
+                tqdm.write(f"Estimated mu: {mu:5f}, with mu_true {frac:5f}")
 
         with open(self.output_path, "w") as f:
             json.dump(MLE_ratio_arr, f)
