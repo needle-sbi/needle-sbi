@@ -14,6 +14,7 @@ import torch
 from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
 from ..tasks.histogram import HistogramTask
+from ..utils.selection import Data
 from .selection import createJetData, return1j2j
 from .stats import (
     compute_mu_nuan_2NP_class,
@@ -31,11 +32,44 @@ def predict(
     hist_path: str,
     neyman_path: str,
     snapshot_path: str,
-    root_dir: str,
+    root_dir: str | None = None,
+    data: Data | None = None,
     device: str = None,
     predict_num_events: int = 0,
     nuissance_parameters: List[float | None] = None,
 ) -> Dict:
+    """
+    Run prediction pipeline for parameter estimation or event classification.
+
+    Args:
+        mu: Signal strength parameter.
+        hist_path: Path to histogram data file in JSON format.
+        neyman_path: Path to Neyman construction bias correction data.
+        snapshot_path: Path to model checkpoint snapshot.
+        root_dir: Directory containing FAIR Universe ROOT data files. Either this or `data` must be provided.
+        data: Preloaded FAIR Universe data. Either this or `root_dir` must be provided.
+        device: Compute device ('cuda' or 'cpu'). Defaults to 'cuda' if available, else 'cpu'.
+        predict_num_events: Number of events for classifier evaluation. If 0, runs in mu estimation mode.
+        nuissance_parameters: Nuissance parameter values for signal generation.
+            Defaults to [1.0, 1.0, 1.0, 1.0, 1.0, 0.0].
+
+    Returns:
+        Dictionary containing:
+            - "mu": Input signal strength parameter.
+            - If predict_num_events == 0 (estimation mode):
+                - "real_mu": Estimated mu value
+                - "mu_hat": MLE point estimate
+                - "p16", "p84": Confidence interval bounds
+                - "delta_mu_hat": Half-width of confidence interval
+            - If predict_num_events > 0 (classification mode):
+                - "scores_2j": Classifier scores for 2-jet events
+                - "labels_2j": Labels for 2-jet events
+                - "scores_1j": Classifier scores for 1-jet events
+                - "labels_1j": Labels for 1-jet events
+
+    Raises:
+        ValueError: If neither `data` nor `root_dir` is provided.
+    """
     if nuissance_parameters is None:
         nuissance_parameters = [1.0, 1.0, 1.0, 1.0, 1.0, 0.0]
 
@@ -65,16 +99,30 @@ def predict(
     class_model_load = (
         CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"]).to(device).eval().to(torch.float32)
     )
+    seed = 31415
 
-    alljet_data, _ = createJetData(  # type: ignore
-        "all",
-        True,
-        set_mu=mu,
-        seed=31245,
-        n_param=nuissance_parameters,
-        useRand=True,
-        root_dir=root_dir,
-    )
+    if data:
+        alljet_data, _ = createJetData(
+            "all",
+            True,
+            set_mu=mu,
+            seed=seed,
+            n_param=nuissance_parameters,
+            useRand=True,
+            loaded_data=data,
+        )
+    elif root_dir:
+        alljet_data, _ = createJetData(
+            "all",
+            True,
+            set_mu=mu,
+            seed=seed,
+            n_param=nuissance_parameters,
+            useRand=True,
+            root_dir=root_dir,
+        )
+    else:
+        raise ValueError("Either set the argument `data` or `root_dir` to load the FAIR Universe Data")
 
     results: Dict[str, Any] = {"mu": mu}
 
@@ -84,11 +132,12 @@ def predict(
 
         # Compute the MLE mu using the provided classifier and fitted splines.
         mu = compute_mu_nuan_2NP_class(
-            data_2j,
-            data_1j,
-            class_model_load,
-            bin_splines_S_class,
-            bin_splines_BG_class,
+            test_data_2j=data_2j,
+            test_data_1j=data_1j,
+            dnn_model=class_model_load,
+            bin_splines_S=bin_splines_S_class,
+            bin_splines_BG=bin_splines_BG_class,
+            eval_device=device,
         )
         mu_MLE, mu_lower, mu_upper = get_confidence_interval(mu, std_corrected_interp, a, b)
 

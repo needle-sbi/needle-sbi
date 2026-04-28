@@ -6,8 +6,10 @@ Adapted by K. Schmidt
 
 import ast
 import json
+import logging
 import os
 import re
+import warnings
 from typing import Tuple
 
 import numpy as np
@@ -16,6 +18,8 @@ from scipy.interpolate import SmoothBivariateSpline, interp1d
 from scipy.optimize import curve_fit, minimize
 from tabulate import tabulate
 from tqdm import tqdm
+
+logger = logging.Logger("stats")
 
 ROOT_DIR = os.getcwd()
 
@@ -64,6 +68,7 @@ def compute_mu_nuan_2NP_class(
     bin_splines_S,
     bin_splines_BG,
     eval_device: str = "cpu",
+    verbose: bool = False,
 ):
     """
     Perform a simultaneous MLE of the global signal fraction `f_s`
@@ -145,21 +150,22 @@ def compute_mu_nuan_2NP_class(
     opt_result = minimize(neg_log_likelihood, x0=initial_params, method="L-BFGS-B", bounds=param_bounds)
     f_s_hat, nu1_hat, nu2_hat = opt_result.x
 
-    tqdm.write(
-        tabulate(
-            [
-                ["f_s", f_s_hat],
-                ["nu1", nu1_hat],
-                ["nu2", nu2_hat],
-            ],
-            headers=["Parameter", "Estimated"],
-            tablefmt="rounded_outline",
-            floatfmt=".6g",
+    if verbose:
+        tqdm.write(
+            tabulate(
+                [
+                    ["f_s", f_s_hat],
+                    ["nu1", nu1_hat],
+                    ["nu2", nu2_hat],
+                ],
+                headers=["Parameter", "Estimated"],
+                tablefmt="rounded_outline",
+                floatfmt=".6g",
+            )
         )
-    )
-    tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
+        tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
 
-    return f_s_hat / 0.002
+    return f_s_hat  # NOTE Was / 0.002 but I dont know why exactly
 
 
 def fit_2D_splines_bin_by_bin_from_dict(param_hist_dict, s=0, kx=3, ky=3):
@@ -216,14 +222,15 @@ def fit_2D_splines_bin_by_bin_from_dict(param_hist_dict, s=0, kx=3, ky=3):
 
     # 2) Fit a 2D spline per bin
     bin_splines = []
-    for b in range(nbins):
-        # z-values for bin b across all M points
-        zvals = hist_array[:, b]
+    with warnings.catch_warnings(action="ignore"):
+        for b in range(nbins):
+            # z-values for bin b across all M points
+            zvals = hist_array[:, b]
 
-        # Fit a bivariate spline, z = f(x,y)
-        # *Note*: SmoothBivariateSpline expects 1D arrays x, y, z (scattered points).
-        spline = SmoothBivariateSpline(xvals, yvals, zvals, kx=kx, ky=ky, s=s)
-        bin_splines.append(spline)
+            # Fit a bivariate spline, z = f(x,y)
+            # *Note*: SmoothBivariateSpline expects 1D arrays x, y, z (scattered points).
+            spline = SmoothBivariateSpline(xvals, yvals, zvals, kx=kx, ky=ky, s=s)
+            bin_splines.append(spline)
 
     return bin_splines
 
@@ -301,12 +308,19 @@ def compute_posterior(mu_obs, mu_real_range, std_corrected_interp, a, b):
     mu_obs_corrected = inverse_bias_func(mu_obs, a, b)
     likelihood = np.exp(-0.5 * ((mu_obs_corrected - mu_real_range) / std_corrected_interp(mu_real_range)) ** 2)
     posterior = likelihood
-    posterior /= np.trapz(posterior, mu_real_range)
+
+    if np.any([np.isclose(mu_real, 0) for mu_real in mu_real_range]):
+        raise RuntimeError(f"Found divide by zero in 'mu_real_range': {mu_real_range}")
+    try:
+        with warnings.catch_warnings(action="error"):
+            posterior /= np.trapezoid(posterior, mu_real_range)
+    except RuntimeWarning as e:
+        raise RuntimeWarning(f"{e}\nFor posterior:\n{posterior}\nand 'mu_real_range':\n{mu_real_range}")
     return mu_obs_corrected, posterior
 
 
 def get_confidence_interval(mu_obs, std_corrected_interp, a, b):
-    mu_real_range = np.linspace(0, 3, 1000)
+    mu_real_range = np.linspace(0.00001, 3, 1000)
     mu_obs_corrected, posterior = compute_posterior(mu_obs, mu_real_range, std_corrected_interp, a, b)
     cdf = np.cumsum(posterior)
     cdf /= cdf[-1]

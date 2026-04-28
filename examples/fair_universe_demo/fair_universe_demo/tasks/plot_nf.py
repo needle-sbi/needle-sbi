@@ -1,14 +1,14 @@
 import os
 from logging import Logger
-from typing import Dict, List
+from typing import Dict
 
 import luigi
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from matplotlib.axes import Axes
 from matplotlib.colors import LogNorm
 
+from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
 from ..utils.selection import createJetData
 from .histogram import HistogramTask
@@ -17,7 +17,7 @@ from .plotting_mixin import PlottingMixin
 logger = Logger("validation")
 
 
-class ValidationTask(PlottingMixin):
+class NormalizingFlowValidationTask(PlottingMixin):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     root_dir: str = luigi.Parameter(
         description="Path to the directory containing the FAIR Universe Data"
@@ -47,11 +47,12 @@ class ValidationTask(PlottingMixin):
         fig, axes = plt.subplots(1, 2, figsize=(2 * self.default_fig_size[0], self.default_fig_size[1]))
 
         # Histogram comparison
-        bins = np.linspace(-10_000, 0, 50 + 1)
+        bins = np.linspace(-40, 20, 60 + 1)
         axes[0].hist(signal_logprobs, bins=bins, label="Signal", histtype="step")
         axes[0].hist(bg_logprobs, bins=bins, label="Background", histtype="step")
         axes[0].set_xlabel("Log-Probability")
-        axes[0].set_ylabel(f"Density / [{(bins[1] - bins[0]):.2f}]")
+        axes[0].set_ylabel(f"Density / [{(bins[1] - bins[0]):.0f}]")
+        axes[0].set_yscale("log")
         axes[0].legend(loc="upper left")
 
         # Quantile comparison
@@ -62,7 +63,9 @@ class ValidationTask(PlottingMixin):
         axes[1].plot(q_bg, label="Background", linewidth=2)
         axes[1].set_xlabel("Quantile Index")
         axes[1].set_ylabel("Log-Probability")
-        axes[1].legend(loc="lower right")
+        axes[1].set_yscale("symlog")
+        axes[1].legend(loc="upper left")
+        axes[1].set_xlim(0, 100)
 
         plt.tight_layout()
         return fig
@@ -197,42 +200,48 @@ class ValidationTask(PlottingMixin):
 
         for i in range(4):
             # Signal heatmap (left)
+            signal_axis = axes[i, 0]
             x_min_sig, x_max_sig = sig_data_filtered[:, i].min(), sig_data_filtered[:, i].max()
             h_sig, xedges, yedges = np.histogram2d(
                 sig_data_filtered[:, i], sig_logprobs_filtered, bins=50, range=[[x_min_sig, x_max_sig], [y_min, y_max]]
             )
-            im_sig = axes[i, 0].imshow(
+            im_sig = signal_axis.imshow(
                 h_sig.T,
                 origin="lower",
                 aspect="auto",
                 cmap="Blues",
                 extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
                 norm=LogNorm(vmin=vmin, vmax=vmax_sig),
+                label="Signal",
             )
-            axes[i, 0].set_xlabel(f"Feature {i}", fontsize=10)
-            axes[i, 0].set_ylabel("Log-Probability", fontsize=10)
-            axes[i, 0].set_ylim(y_min, y_max)
-            cbar_sig = plt.colorbar(im_sig, ax=axes[i, 0])
+            signal_axis.set_xlabel(f"Feature {i}", fontsize=10)
+            signal_axis.set_ylabel("Log-Probability", fontsize=10)
+            signal_axis.set_ylim(y_min, y_max)
+            cbar_sig = plt.colorbar(im_sig, ax=signal_axis)
             cbar_sig.set_label("Count (log scale)", fontsize=9)
+            signal_axis.legend(loc="lower right")
 
             # Background heatmap (right)
+            background_axis = axes[i, 1]
             x_min_bg, x_max_bg = bg_data_filtered[:, i].min(), bg_data_filtered[:, i].max()
             h_bg, xedges, yedges = np.histogram2d(
                 bg_data_filtered[:, i], bg_logprobs_filtered, bins=50, range=[[x_min_bg, x_max_bg], [y_min, y_max]]
             )
-            im_bg = axes[i, 1].imshow(
+            im_bg = background_axis.imshow(
                 h_bg.T,
                 origin="lower",
                 aspect="auto",
                 cmap="Reds",
                 extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
                 norm=LogNorm(vmin=vmin, vmax=vmax_bg),
+                label="Background",
             )
-            axes[i, 1].set_xlabel(f"Feature {i}", fontsize=10)
-            axes[i, 1].set_ylabel("Log-Probability", fontsize=10)
-            axes[i, 1].set_ylim(y_min, y_max)
-            cbar_bg = plt.colorbar(im_bg, ax=axes[i, 1])
+            background_axis.set_xlabel(f"Feature {i}", fontsize=10)
+            background_axis.set_ylabel("Log-Probability", fontsize=10)
+            background_axis.set_ylim(y_min, y_max)
+            cbar_bg = plt.colorbar(im_bg, ax=background_axis)
             cbar_bg.set_label("Count (log scale)", fontsize=9)
+            background_axis.legend(loc="lower right")
 
         fig = PlottingMixin.set_needle_plot_style(fig, axes=axes.flatten().tolist())
         return fig
@@ -242,7 +251,7 @@ class ValidationTask(PlottingMixin):
         self,
         signal_logprobs: np.ndarray,
         bg_logprobs: np.ndarray,
-        num_bins: int = 20,
+        num_bins: int = 100,
     ) -> plt.Figure:
         """Plot ROC-like calibration: signal efficiency vs background rejection.
 
@@ -256,8 +265,8 @@ class ValidationTask(PlottingMixin):
             matplotlib Figure
         """
         thresholds = np.linspace(
-            min(signal_logprobs.min(), bg_logprobs.min()),
-            max(signal_logprobs.max(), bg_logprobs.max()),
+            -50,
+            15,
             num_bins,
         )
 
@@ -282,6 +291,15 @@ class ValidationTask(PlottingMixin):
         ax.grid(True, alpha=0.3)
         ax.set_xlim(*[0, 1])
         ax.set_ylim(*[0, 1])
+
+        ax.text(
+            0.5,
+            0.20,
+            f"Bins: {num_bins}\nThreshold: ({thresholds.min()}, {thresholds.max()})",
+            transform=ax.transAxes,
+            ha="left",
+            va="bottom",
+        )
 
         # Diagonal reference line
         ax.plot([0, 1], [0, 1], "k--", alpha=0.3, linewidth=1, label="Random classifier")
@@ -314,12 +332,12 @@ class ValidationTask(PlottingMixin):
         bg_data_np = bg_data.cpu().numpy()
 
         for i in range(min(num_features, 4)):
-            axes[i].hist(sig_data_np[:, i], bins=50, alpha=0.6, label="Signal", density=True)
-            axes[i].hist(bg_data_np[:, i], bins=50, alpha=0.6, label="Background", density=True)
+            axes[i].hist(
+                [sig_data_np[:, i], bg_data_np[:, i]], bins=50, label=["Signal", "Background"], histtype="step"
+            )
             axes[i].set_xlabel(f"Feature {i}")
-            axes[i].set_ylabel("Density")
+            axes[i].set_ylabel("Counts")
             axes[i].legend(loc="lower right")
-            axes[i].set_yscale("symlog")
 
         plt.tight_layout()
         return fig
@@ -327,6 +345,11 @@ class ValidationTask(PlottingMixin):
     @property
     def nf_ckpts(self) -> Dict[str, str]:
         return HistogramTask.parse_snapshot(self.snapshot_path)[0]
+
+    @property
+    def classifier(self) -> CombinedClassifier:
+        ckpt = HistogramTask.parse_snapshot(self.snapshot_path)[1]
+        return CombinedClassifier.load_from_checkpoint(ckpt["classifier"])
 
     @property
     def nf_models(self) -> torch.nn.ModuleDict:
@@ -395,3 +418,5 @@ class ValidationTask(PlottingMixin):
             bg_data,
             num_features=4,
         )
+
+        self.upload_plots_to_webpage(os.getenv("NEEDLE_WEB_DIR"))

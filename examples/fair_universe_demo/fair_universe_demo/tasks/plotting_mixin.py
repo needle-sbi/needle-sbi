@@ -5,6 +5,7 @@ from logging import Logger
 from pathlib import Path
 from typing import Callable, Dict, List
 
+import gallery
 import luigi
 import matplotlib.pyplot as plt
 import mplhep
@@ -94,6 +95,25 @@ class PlottingMixin(luigi.Task):
                 rlabel="FAIR Universe HiggsML",
             )
         plt.tight_layout()
+        return fig
+
+    @staticmethod
+    def text(text: str, fig: Figure, axes: Axes | List[Axes] | None = None) -> Figure:
+        if axes is None:
+            axes = fig.axes
+
+        if not isinstance(axes, List):
+            axes = [axes]
+
+        for axis in axes:
+            axis.text(
+                0.05,
+                0.95,
+                text,
+                transform=axis.transAxes,
+                ha="left",
+                va="top",
+            )
         return fig
 
     @staticmethod
@@ -210,3 +230,20 @@ class PlottingMixin(luigi.Task):
                 f"Missing plots were (name, func):\n{json.dumps(missing_plot_functions, indent=4)}\nEvery plotting "
                 "function has to be called inside the `run()` method of your luigi Task."
             )
+
+    def upload_plots_to_webpage(
+        self,
+        web_dir: str | None,
+    ) -> None:
+        if not web_dir:
+            return None
+
+        name = Path(self.plot_save_dir).stem
+        source = gallery.GallerySource(
+            name,
+            path=self.plot_save_dir,
+        )
+        gallery.generate(
+            web_folder=web_dir,
+            sources=[source],
+        )

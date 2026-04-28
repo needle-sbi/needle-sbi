@@ -90,6 +90,7 @@ def load_train_set_data(
     )
     data.load_train_set()
     data.load_test_set()
+    data.print_dataset_info()
     return data
 
 

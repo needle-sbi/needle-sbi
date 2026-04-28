@@ -142,7 +142,7 @@ class EvalTask(luigi.Task):
                 hist_path=self.hist_path,
                 neyman_path=self.neyman_path,
                 snapshot_path=self.snapshot_path,
-                root_dir=self.root_dir,
+                data=self.data,
                 nuissance_parameters=[
                     tes,
                     jes,
@@ -155,6 +155,7 @@ class EvalTask(luigi.Task):
             )
             predicted_dict = {}
             predicted_dict.update(model_prediction)
+            predicted_dict["mu_true"] = set_mu
             predicted_dict["test_set_index"] = test_set_index
 
             logger.debug(f"Predicted: {predicted_dict}")
@@ -164,35 +165,17 @@ class EvalTask(luigi.Task):
 
             self.results_dict[set_index].append(predicted_dict)
 
-    def compute_result(self):
-        for key in self.results_dict.keys():
-            set_result = self.results_dict[key]
-            set_result.sort(key=lambda x: x["test_set_index"])
-            mu_hats, delta_mu_hats, p16, p84 = [], [], [], []
-
-            for test_set_dict in set_result:
-                mu_hats.append(test_set_dict["mu_hat"])
-                delta_mu_hats.append(test_set_dict["delta_mu_hat"])
-                p16.append(test_set_dict["p16"])
-                p84.append(test_set_dict["p84"])
-
-            ingestion_result_dict: PredictResult = {
-                "mu_hat": mu_hats,
-                "delta_mu_hat": delta_mu_hats,
-                "p16": p16,
-                "p84": p84,
-            }
-            self.results_dict[key] = ingestion_result_dict
-
     def save_result(self):
         results_dict_serializable = {int(key): val for key, val in self.results_dict.items()}
+        result_path = self.output()["eval"].path
 
-        with open(self.output()["eval"].path, "w") as f:
+        with open(result_path, "w") as f:
             f.write(json.dumps(results_dict_serializable, indent=4))
+
+        logger.info(f"Saved evaluation result to '{result_path}'")
 
     @timing
     def run(self) -> None:
         self.prepare()
         self.predict_submission()
-        self.compute_result()
         self.save_result()

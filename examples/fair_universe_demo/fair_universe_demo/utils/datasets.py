@@ -122,6 +122,11 @@ class Data:
 
         self.test_size = test_size
 
+    def print_dataset_info(self):
+        logger.info(f"Total number of events: {self.total_rows}")
+        logger.info(f"Number of training samples: {self.train_size}")
+        logger.info(f"Number of testing samples: {self.test_size}")
+
     def load_train_set(self, train_size: int = None, selected_indices: List[int] | np.ndarray = None):
         """Load the training subset from the parquet dataset.
 
@@ -168,6 +173,7 @@ class Data:
             )  # type: ignore
 
         selected_train_indices = np.sort(selected_indices) + self.test_size  # type: ignore
+        self.train_size = len(selected_train_indices)
         self.__train_set = self.__load_data(selected_train_indices)
 
         # Balancing the weights

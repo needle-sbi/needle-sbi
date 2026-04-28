@@ -26,11 +26,10 @@ from ..utils.stats import (
     string_to_tuple_str,
 )
 from .histogram import HistogramTask
-from .plot import PlottingMixin
+from .plot_results import PlottingMixin
 
 
 class NeymanTask(PlottingMixin):
-    plot_save_dir: str = luigi.Parameter(description="Path to the directory where to save the validation plots")  # type: ignore
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
     hist_path: str = luigi.Parameter(description="Path to the histogram file (.json)")  # type: ignore
     output_path: str = luigi.Parameter(description="Path to the output file (.json)")  # type: ignore
@@ -60,13 +59,12 @@ class NeymanTask(PlottingMixin):
             torch.save(data_1j, f"{tmp_dir}/data_1j")
             torch.save(data_2j, f"{tmp_dir}/data_2j")
 
-        alljet_data, _ = createJetData(  # type: ignore
+        alljet_data, _ = createJetData(
             jet_num="all",
             useTestData=True,
             loaded_data=self.loaded_data,
             set_mu=frac,
             seed=seed,
-            n_param=[1, 1, 1, 1, 1, 0],
             useRand=True,
             root_dir=self.root_dir,
         )
@@ -121,7 +119,7 @@ class NeymanTask(PlottingMixin):
         frac_array = np.linspace(0.1, 3.2, 10)
         N_sample = 50
 
-        for frac in tqdm(frac_array, "Mu", position=0, leave=False):
+        for frac in tqdm(frac_array, "Mu", position=0, leave=True):
             MLE_ratio_arr[frac] = []
             seed_array = np.random.randint(100_000, size=N_sample)
 

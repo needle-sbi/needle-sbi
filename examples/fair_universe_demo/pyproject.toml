@@ -20,6 +20,7 @@ dependencies = [
     "graphviz>=0.21",
     "plotly>=6.6.0",
     "pre-commit>=4.1.0",
+    "mplhep>=0.4.1",
 ]
 
 [build-system]

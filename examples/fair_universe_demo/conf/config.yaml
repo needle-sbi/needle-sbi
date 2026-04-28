@@ -5,7 +5,7 @@ custom_settings:
   test_settings_json: ${if:${custom_settings.nominal}, "test_settings_nominal.json", "test_settings.json"}
 
 results_path: ${if:${custom_settings.use_test_data}, "runs/fair_universe_demo_test", "runs/fair_universe_demo_fixed_normalization"}
-results_path_downstream: "${results_path}/stat_only_from_test_settings"
+results_path_downstream: "${results_path}/stat_only_histogram_mu_one"
 
 estimators:
   nf_signal_1jet:
@@ -87,11 +87,11 @@ estimators:
     trainer: classifier
 
 downstream_tasks:
-  validation:
+  validation_nf:
     args:
-      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.validation.ValidationTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot_nf.NormalizingFlowValidationTask
       root_dir: ${custom_settings.root_dir}
-      plot_save_dir: "${results_path}/plots"
+      plot_save_dir: "${results_path_downstream}/plots"
     expands:
       model_name: [
         "nf_signal_1jet&c_0p5",
@@ -103,6 +103,13 @@ downstream_tasks:
         "nf_signal_2jet&c_2p0",
         "nf_background_2jet&c_2p0",
       ]
+  validation_classifier:
+    args:
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot_classifier.ClassifierValidationTask
+      root_dir: ${custom_settings.root_dir}
+      plot_save_dir: "${results_path_downstream}/plots/classifier"
+    expands:
+      num_jets: [1, 2]
   histogram:
     args:
       _target_: examples.fair_universe_demo.fair_universe_demo.tasks.histogram.HistogramTask
@@ -133,9 +140,9 @@ downstream_tasks:
       output_dir: "${results_path_downstream}/scores/"
       test_settings_path: "examples/fair_universe_demo/conf/${custom_settings.test_settings_json}"
   plot:
-    requires: ["score"]
+    requires: ["score", "validation_nf", "validation_classifier"]
     args:
-      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot.PlottingTask
+      _target_: examples.fair_universe_demo.fair_universe_demo.tasks.plot_results.PlottingTask
       root_dir: "${custom_settings.root_dir}"
       cached_test_settings_file: "${results_path_downstream}/${custom_settings.test_settings_json}"
       ingestion_results_path: "${results_path_downstream}/eval.json"

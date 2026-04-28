@@ -3,8 +3,8 @@ Original authors: FAIR-Universe HiggsML Challenge
 Repository: https://github.com/FAIR-Universe/HEP-Challenge
 Adapted by: K. Schmidt
 """
-
 import json
+import os
 from functools import cached_property
 from typing import Any, Dict, List
 
@@ -169,3 +169,5 @@ class PlottingTask(PlottingMixin):
             ingestion_result_dict=self.ingestion_results,
             ground_truth_mu=self.test_settings["ground_truth_mus"],
         )
+
+        self.upload_plots_to_webpage(os.getenv("NEEDLE_WEB_DIR"))
