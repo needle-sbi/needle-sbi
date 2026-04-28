@@ -19,10 +19,36 @@ if [[ -n "$ZSH_EVAL_CONTEXT" ]] && [[ "$ZSH_EVAL_CONTEXT" != *:file* ]]; then
     exit 1
 fi
 
-# Check if LAW package is available
+# resolve script dir (needed later for LAW_HOME)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
+
+# Check if running in remote HTCondor job (LAW sets these variables)
+if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
+    echo -e "${_NEEDLE_BLUE}Running in remote HTCondor context, activating virtual environment...${_NEEDLE_NC}"
+    # Try to activate venv if it exists
+    if [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
+        source "$SCRIPT_DIR/.venv/bin/activate"
+    elif [[ -f "$SCRIPT_DIR/../.venv/bin/activate" ]]; then
+        source "$SCRIPT_DIR/../.venv/bin/activate"
+    else
+        echo -e "${_NEEDLE_ORANGE}Warning: Virtual environment not found, assuming packages are available system-wide${_NEEDLE_NC}"
+    fi
+else
+    # Local execution - activate venv if not already active
+    if [[ -z "$VIRTUAL_ENV" ]] && [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
+        echo -e "${_NEEDLE_BLUE}Activating virtual environment...${_NEEDLE_NC}"
+        source "$SCRIPT_DIR/.venv/bin/activate"
+    fi
+fi
+
+# Check if LAW package is available (only fail for local, warn for remote)
 if ! command -v law &> /dev/null; then
-    echo -e "${_NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${_NEEDLE_NC}"
-    return 1
+    if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
+        echo -e "${_NEEDLE_ORANGE}Warning: LAW not found, but continuing for remote execution${_NEEDLE_NC}"
+    else
+        echo -e "${_NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${_NEEDLE_NC}"
+        return 1
+    fi
 fi
 
 # Check if the script was already sourced
@@ -30,9 +56,6 @@ if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
     echo -e "${_NEEDLE_GREEN}$ENV_NAME environment is already active.${_NEEDLE_NC}"
     return 0
 fi
-
-# resolve script dir instead of relying on pwd (bash/zsh compatible)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
 
 # save current values so deactivate can restore them
 export _OLD_PYTHONPATH="$PYTHONPATH"
