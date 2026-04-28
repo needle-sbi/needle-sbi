@@ -107,7 +107,7 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         # Configure log transfer - capture stdout/stderr
         config.custom_content.append(("should_transfer_files", "YES"))
         config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
-        config.custom_content.append(("transfer_output_files", """))
+        config.custom_content.append(("transfer_output_files", ""))
         return config
 
     #def output(self) -> Dict[str, Any]:
