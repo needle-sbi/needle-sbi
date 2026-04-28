@@ -91,6 +91,14 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         workspace_root = os.path.dirname(task_dir)
         return os.path.join(workspace_root, "setup.sh")
     
+    def htcondor_input_files(self):
+        """Files/directories to transfer to worker node"""
+        # Transfer the entire conf/ directory so Hydra can find configs
+        workspace_root = os.getcwd()
+        return {
+            "conf": os.path.join(workspace_root, "conf"),
+        }
+    
     def htcondor_job_config(self, config, job_num, branches):
         """Configure HTCondor resources and logging"""
         config.custom_content.append(("request_cpus", "2"))
@@ -111,13 +119,6 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         config.stderr = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.err")
         
         return config
-        config.custom_content.append(("universe", "vanilla"))
-        config.custom_content.append((
-            "+Environment",
-            '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/'
-            'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
-        ))
-        # Configure log transfer - capture stdout/stderr
         config.custom_content.append(("should_transfer_files", "YES"))
         config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
         config.custom_content.append(("transfer_output_files", ""))

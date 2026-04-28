@@ -89,6 +89,13 @@ class SystematicTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflo
         workspace_root = os.path.dirname(task_dir)
         return os.path.join(workspace_root, "setup.sh")
     
+    def htcondor_input_files(self):
+        """Files/directories to transfer to worker node"""
+        workspace_root = os.getcwd()
+        return {
+            "conf": os.path.join(workspace_root, "conf"),
+        }
+    
     def htcondor_job_config(self, config, job_num, branches):
         """Configure HTCondor resources"""
         config.custom_content.append(("request_cpus", "2"))
