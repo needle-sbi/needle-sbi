@@ -43,10 +43,10 @@ def _compute_histogram_entry(args):
     classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
     classifier = classifier.to(device).eval().to(torch.float32)
 
-    alljet_data, _ = createJetData(  # type: ignore
+    alljet_data, _ = createJetData(
         jet_num="all",
         useTestData=True,
-        set_mu=1000,
+        set_mu=1,
         seed=0,
         n_param=n_params,
         useRand=False,
