@@ -87,6 +87,10 @@ class EstimatorTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow
             '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/'
             'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
         ))
+        # Configure log transfer - capture stdout/stderr
+        config.custom_content.append(("should_transfer_files", "YES"))
+        config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
+        config.custom_content.append(("transfer_output_files", """))
         return config
     
     def output(self) -> Dict[str, Any]:
