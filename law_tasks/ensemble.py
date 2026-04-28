@@ -92,12 +92,25 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         return os.path.join(workspace_root, "setup.sh")
     
     def htcondor_job_config(self, config, job_num, branches):
-        """Configure HTCondor resources"""
+        """Configure HTCondor resources and logging"""
         config.custom_content.append(("request_cpus", "2"))
         config.custom_content.append(("request_memory", "16000"))
         config.custom_content.append(("request_runtime", "7200"))
         config.custom_content.append(("request_GPUs", "0"))
         config.custom_content.append(("getenv", "True"))
+        
+        # Configure log files for debugging
+        log_dir = self.htcondor_output_directory().path
+        config.custom_content.append(("should_transfer_files", "YES"))
+        config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
+        
+        # Set actual log files instead of /dev/null
+        branch_name = "_".join(str(b) for b in branches)
+        config.log = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.log")
+        config.stdout = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.out")
+        config.stderr = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.err")
+        
+        return config
         config.custom_content.append(("universe", "vanilla"))
         config.custom_content.append((
             "+Environment",

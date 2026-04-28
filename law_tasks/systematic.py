@@ -106,6 +106,14 @@ class SystematicTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflo
         config.custom_content.append(("should_transfer_files", "YES"))
         config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
         config.custom_content.append(("transfer_output_files", ""))
+        
+        # Set actual log files instead of /dev/null
+        log_dir = self.htcondor_output_directory().path
+        branch_name = "_".join(str(b) for b in branches)
+        config.log = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.log")
+        config.stdout = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.out")
+        config.stderr = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.err")
+        
         return config
 
     def output(self) -> Dict[str, Any]:
