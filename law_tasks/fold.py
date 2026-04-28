@@ -118,8 +118,10 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
         import sys
         import datetime
         
-        error_log_path = Path(self.results_path) / f"fold_{self.fold_index}_error.log"
-        error_log_path.parent.mkdir(parents=True, exist_ok=True)
+        # Write error log to the fold output directory (absolute path)
+        fold_dir = Path(self.output()["dir"].path)
+        fold_dir.mkdir(parents=True, exist_ok=True)
+        error_log_path = fold_dir / "error.log"
         
         try:
             model_config = self.systematic_config.model_override
@@ -154,16 +156,24 @@ class FoldTask(law.Task, TrainingBase, HydraMixin):
             trainer.fit(model=model, datamodule=data_module)
         except Exception as e:
             # Log the error to a file we control
-            with open(error_log_path, 'w') as f:
-                f.write(f"FoldTask {self.fold_index} failed at {datetime.datetime.now()}\n")
-                f.write(f"Error: {str(e)}\n\n")
-                f.write("Traceback:\n")
-                f.write(traceback.format_exc())
-                f.write("\n\nEnvironment:\n")
-                f.write(f"Python: {sys.version}\n")
-                f.write(f"CWD: {os.getcwd()}\n")
-                f.write(f"HOSTNAME: {os.environ.get('HOSTNAME', 'unknown')}\n")
-                f.write(f"LAW_HTCONDOR_JOB_NUMBER: {os.environ.get('LAW_HTCONDOR_JOB_NUMBER', 'not set')}\n")
+            try:
+                with open(error_log_path, 'w') as f:
+                    f.write(f"FoldTask {self.fold_index} failed at {datetime.datetime.now()}\n")
+                    f.write(f"Error: {str(e)}\n\n")
+                    f.write("Traceback:\n")
+                    f.write(traceback.format_exc())
+                    f.write("\n\nEnvironment:\n")
+                    f.write(f"Python: {sys.version}\n")
+                    f.write(f"CWD: {os.getcwd()}\n")
+                    f.write(f"Output dir: {fold_dir}\n")
+                    f.write(f"Error log: {error_log_path}\n")
+                    f.write(f"HOSTNAME: {os.environ.get('HOSTNAME', 'unknown')}\n")
+                    f.write(f"LAW_HTCONDOR_JOB_NUMBER: {os.environ.get('LAW_HTCONDOR_JOB_NUMBER', 'not set')}\n")
+            except Exception as log_error:
+                # If we can't write the log, at least print to stderr
+                print(f"CRITICAL: Failed to write error log: {log_error}", file=sys.stderr)
+                print(f"Original error: {e}", file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
             logger.error(f"Fold {self.fold_index} failed - error logged to {error_log_path}")
             raise  # Re-raise to let LAW know the task failed
 
