@@ -34,7 +34,22 @@ class EstimatorTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        """Get absolute path to results directory.
+        
+        Uses __file__ to find workspace root so it works correctly on HTCondor
+        worker nodes where cwd is the scratch directory.
+        """
+        results_path = Path(self.rel_results_path)
+        
+        if results_path.is_absolute():
+            return results_path
+        
+        # Resolve relative to workspace root using module location
+        estimator_file = Path(__file__)  # law_tasks/estimator.py
+        law_tasks_dir = estimator_file.parent  # law_tasks/
+        workspace_root = law_tasks_dir.parent  # orchestrator/
+        
+        return (workspace_root / results_path).resolve()
 
     @property
     def estimator_config(self) -> EstimatorConfig:
