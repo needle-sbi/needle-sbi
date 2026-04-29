@@ -97,12 +97,8 @@ class SystematicTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflo
         config.custom_content.append(("request_GPUs", "0"))
         config.custom_content.append(("getenv", "True"))
         config.custom_content.append(("universe", "vanilla"))
-        config.custom_content.append((
-            "+Environment",
-            '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/'
-            'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
-        ))
         
+        # Note: FAIR_UNIVERSE_DATA is exported in setup.sh
         # Note: Do NOT set transfer_input_files - it breaks LAW's internal file transfer
         
         # Configure log transfer - capture stdout/stderr

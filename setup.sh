@@ -65,6 +65,9 @@ export LAW_HOME="$SCRIPT_DIR"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
 export NEEDLE_ENV_ACTIVE=1
 
+# Export FAIR_UNIVERSE_DATA path for dataset access
+export FAIR_UNIVERSE_DATA="/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"
+
 # use absolute paths so PYTHONPATH works regardless of cwd
 for p in "preprocessor" "ml" "."; do
     abs_p="$LAW_HOME/$p"
@@ -92,6 +95,7 @@ deactivate() {
     unset NEEDLE_ENV_ACTIVE
     unset LAW_HOME
     unset LAW_CONFIG_FILE
+    unset FAIR_UNIVERSE_DATA
     unset _OLD_PYTHONPATH
     unset _OLD_PS1
     unset -f deactivate
