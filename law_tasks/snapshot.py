@@ -36,6 +36,11 @@ class SnapshotTask(law.Task, HydraMixin):
         default="runs",
         significant=False,
     )
+    use_htcondor: bool = law.Parameter(
+        description="Whether to use HTCondor for EnsembleTasks (passed down the chain).",
+        default=False,
+        significant=False,
+    )  # type: ignore
 
     def requires(self):
         """Require all EstimatorTasks to ensure training is completed"""
@@ -44,6 +49,7 @@ class SnapshotTask(law.Task, HydraMixin):
                 self,
                 config_file=self.config_file,
                 estimator=estimator_key,
+                use_htcondor=self.use_htcondor,
             )
             for estimator_key in self.config.estimators.keys()
         ]

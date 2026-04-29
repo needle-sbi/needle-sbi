@@ -24,8 +24,14 @@ class MainTask(law.WrapperTask, HydraMixin):
     Main orchestration task for NEEDLE pipeline.
 
     Usage:
-        law run MainTask --config-file conf/config.yaml
+        law run MainTask --config-file conf/config.yaml [--use-htcondor True]
     """
+    
+    use_htcondor: bool = law.Parameter(
+        description="Whether to use HTCondor for EnsembleTasks.",
+        default=False,
+        significant=False,
+    )  # type: ignore
     
     def requires(self):
         """
@@ -38,4 +44,5 @@ class MainTask(law.WrapperTask, HydraMixin):
             SnapshotTask.req(
                 self,
                 config_file=self.config_file,
+                use_htcondor=self.use_htcondor,
             )]
