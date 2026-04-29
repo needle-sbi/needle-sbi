@@ -33,6 +33,11 @@ class EstimatorTask(HydraMixin, law.LocalWorkflow):
         description="Name of the estimator (must be included in config).",
         significant=True,
     )  # type: ignore
+    use_htcondor: bool = law.Parameter(
+        description="Whether to use HTCondor for EnsembleTasks (passed down the chain).",
+        default=False,
+        significant=False,
+    )  # type: ignore
 
     @property
     def abs_results_path(self) -> Path:
@@ -73,8 +78,7 @@ class EstimatorTask(HydraMixin, law.LocalWorkflow):
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
-                systematic=systematic_key,
-            )
+                systematic=systematic_key,                use_htcondor=self.use_htcondor,            )
         # Workflow container: no requirements
         return []
     

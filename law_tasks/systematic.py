@@ -40,6 +40,11 @@ class SystematicTask(HydraMixin, law.LocalWorkflow):
         description="Name of the systematic uncertainty.",
         significant=True,
     )  # type: ignore
+    use_htcondor: bool = law.Parameter(
+        description="Whether to use HTCondor for EnsembleTasks (passed down the chain).",
+        default=False,
+        significant=False,
+    )  # type: ignore
 
     @property
     def abs_results_path(self) -> Path:
@@ -88,6 +93,7 @@ class SystematicTask(HydraMixin, law.LocalWorkflow):
                 estimator=self.estimator,
                 systematic=self.systematic,
                 ensemble=ensemble_index,
+                workflow="htcondor" if self.use_htcondor else "local",
             )
         # Workflow container: no requirements
         return []

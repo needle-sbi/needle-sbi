@@ -24,8 +24,8 @@ class EnsembleTask(HydraMixin, law.LocalWorkflow, law.htcondor.HTCondorWorkflow)
     """
     Ensemble task that runs multiple FoldTasks.
     
-    Defaults to HTCondor workflow (rightmost parent).
-    Use --EnsembleTask-workflow local for local testing.
+    LocalWorkflow is first → local is the default.
+    Pass workflow='htcondor' when creating via .req() to use HTCondor.
     """
     
     rel_results_path = law.Parameter(
