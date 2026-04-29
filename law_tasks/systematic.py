@@ -20,12 +20,12 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("systematic")
 
 
-class SystematicTask(HydraMixin, law.LocalWorkflow):
+class SystematicTask(HydraMixin, law.Task):
     """
     Systematic task that coordinates EnsembleTasks.
     
-    Runs locally to coordinate ensemble branches. The actual training
-    happens in FoldTasks which are submitted to HTCondor by EnsembleTask.
+    Plain task (not a workflow) that requires all EnsembleTasks for this systematic.
+    This allows EnsembleTasks to run in parallel and submit to HTCondor.
     """
     rel_results_path = law.Parameter(
         description="Directory where the systematic results will be saved.",
@@ -73,21 +73,12 @@ class SystematicTask(HydraMixin, law.LocalWorkflow):
     def systematic_config(self) -> SystematicConfig:
         return self.config.estimators[self.estimator].expands.systematics[self.systematic]
 
-    def create_branch_map(self):
-        """Define workflow branches - one per ensemble"""
+    def requires(self):
+        """Require all EnsembleTasks for this systematic"""
         num_ensembles: int = self.estimator_config.expands.ensembles.num_ensembles or 1
         num_ensembles = max(1, num_ensembles)
-        return {
-            ensemble_index: {"ensemble": ensemble_index}
-            for ensemble_index in range(num_ensembles)
-        }
-
-    def requires(self):
-        """Workflow requires nothing; branches require EnsembleTask"""
-        if self.is_branch():
-            # Branch task: require the specific EnsembleTask
-            ensemble_index = self.branch_data["ensemble"]
-            return EnsembleTask.req(
+        return [
+            EnsembleTask.req(
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
@@ -95,35 +86,22 @@ class SystematicTask(HydraMixin, law.LocalWorkflow):
                 ensemble=ensemble_index,
                 workflow="htcondor" if self.use_htcondor else "local",
             )
-        # Workflow container: no requirements
-        return []
+            for ensemble_index in range(num_ensembles)
+        ]
 
     def output(self) -> Dict[str, Any]:
-        if self.is_branch():
-            # Branch output: individual ensemble result
-            os.makedirs(self.abs_results_path, exist_ok=True)
-            return {
-                "outputs": law.LocalDirectoryTarget(
-                    f"{self.abs_results_path}/systematic_{self.estimator}_{self.systematic}_ens_{self.branch}.json"
-                )
-            }
-        # Workflow output: collection of all branches
-        return law.SiblingFileCollection(
-            law.LocalDirectoryTarget(
-                f"{self.abs_results_path}/systematic_{self.estimator}_{self.systematic}_ens_{{branch}}.json"
-            )
+        os.makedirs(self.abs_results_path, exist_ok=True)
+        return law.LocalFileTarget(
+            f"{self.abs_results_path}/systematic_{self.estimator}_{self.systematic}.json"
         )
 
     def run(self):
-        # Only branches run - workflow just coordinates
-        if not self.is_branch():
-            raise Exception("Workflow container should not run")
-        
-        # Branch task: collect result from its single EnsembleTask
+        """Collect results from all EnsembleTasks"""
         systematic_results = SystematicResults()
         
-        ensemble_outputs = self.input()
-        ensemble_result = EnsembleResults.from_json(ensemble_outputs["outputs"].path)
-        systematic_results.ensembles.append(ensemble_result)
+        # Input is a list of EnsembleTask outputs
+        for ensemble_output in self.input():
+            ensemble_result = EnsembleResults.from_json(ensemble_output.path)
+            systematic_results.ensembles.append(ensemble_result)
 
-        systematic_results.to_json(self.output()["outputs"].path)
+        systematic_results.to_json(self.output().path)

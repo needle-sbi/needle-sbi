@@ -17,12 +17,12 @@ from preprocessor.utils.logging import ColorFormatter
 logger = ColorFormatter.get_logger("estimator")
 
 
-class EstimatorTask(HydraMixin, law.LocalWorkflow):
+class EstimatorTask(HydraMixin, law.Task):
     """
     Estimator task that coordinates SystematicTasks.
     
-    Runs locally to coordinate systematic branches. The actual training
-    happens in FoldTasks which are submitted to HTCondor by EnsembleTask.
+    Plain task (not a workflow) that requires all SystematicTasks for this estimator.
+    This allows SystematicTasks to run in parallel, and they trigger EnsembleTask workflows.
     """
     rel_results_path: str = law.Parameter(
         description="Directory where the estimator results will be saved.",
@@ -61,53 +61,33 @@ class EstimatorTask(HydraMixin, law.LocalWorkflow):
     @property
     def estimator_config(self) -> EstimatorConfig:
         return self.config.estimators[self.estimator]
-
-    def create_branch_map(self):
-        """Define workflow branches - one per systematic"""
-        return {
-            idx: {"systematic": syst_key}
-            for idx, syst_key in enumerate(self.estimator_config.expands.systematics.keys())
-        }
     
     def requires(self):
-        """Workflow requires nothing; branches require SystematicTask"""
-        if self.is_branch():
-            # Branch task: require the specific SystematicTask
-            systematic_key = self.branch_data["systematic"]
-            return SystematicTask.req(
+        """Require all SystematicTasks for this estimator"""
+        return [
+            SystematicTask.req(
                 self,
                 config_file=self.config_file,
                 estimator=self.estimator,
-                systematic=systematic_key,                use_htcondor=self.use_htcondor,            )
-        # Workflow container: no requirements
-        return []
+                systematic=systematic_key,
+                use_htcondor=self.use_htcondor,
+            )
+            for systematic_key in self.estimator_config.expands.systematics.keys()
+        ]
     
     def output(self) -> Dict[str, Any]:
-        if self.is_branch():
-            # Branch output: individual systematic result
-            os.makedirs(self.abs_results_path, exist_ok=True)
-            return {
-                "outputs": law.LocalFileTarget(
-                    f"{self.abs_results_path}/estimator_{self.estimator}_syst_{self.branch}.json"
-                )
-            }
-        # Workflow output: collection of all branches
-        return law.SiblingFileCollection(
-            law.LocalFileTarget(
-                f"{self.abs_results_path}/estimator_{self.estimator}_syst_{{branch}}.json"
-            )
+        os.makedirs(self.abs_results_path, exist_ok=True)
+        return law.LocalFileTarget(
+            f"{self.abs_results_path}/estimator_{self.estimator}.json"
         )
 
     def run(self):
-        # Only branches run - workflow just coordinates
-        if not self.is_branch():
-            raise Exception("Workflow container should not run")
+        """Collect results from all SystematicTasks"""
+        estimator_results = EstimatorResults()
         
-        # Branch task: collect results from its single SystematicTask
-        systematic_results = EstimatorResults()
-        
-        fold_outputs = self.input()
-        fold_result = SystematicResults.from_json(fold_outputs["outputs"].path)
-        systematic_results.systematics.append(fold_result)
+        # Input is a list of SystematicTask outputs
+        for systematic_output in self.input():
+            systematic_result = SystematicResults.from_json(systematic_output.path)
+            estimator_results.systematics.append(systematic_result)
 
-        systematic_results.to_json(self.output()["outputs"].path)
+        estimator_results.to_json(self.output().path)
