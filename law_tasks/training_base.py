@@ -20,7 +20,23 @@ class TrainingBase:
 
     @property
     def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # type: ignore
+        """Get absolute path to results directory.
+        
+        Uses __file__ to find workspace root so it works correctly on HTCondor
+        worker nodes where cwd is the scratch directory.
+        """
+        results_path = Path(self.rel_results_path)  # type: ignore
+        
+        # If already absolute, use as-is
+        if results_path.is_absolute():
+            return results_path
+        
+        # Resolve relative to workspace root using module location
+        training_base_file = Path(__file__)  # law_tasks/training_base.py
+        law_tasks_dir = training_base_file.parent  # law_tasks/
+        workspace_root = law_tasks_dir.parent  # orchestrator/
+        
+        return (workspace_root / results_path).resolve()
 
     def output(self) -> Dict[str, Any]:
         if not os.path.isdir(self.abs_results_path):
