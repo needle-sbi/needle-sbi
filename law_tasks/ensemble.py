@@ -99,10 +99,8 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         config.custom_content.append(("request_GPUs", "0"))
         config.custom_content.append(("getenv", "True"))
         
-        # Transfer the conf/ directory explicitly
-        workspace_root = os.getcwd()
-        conf_dir = os.path.join(workspace_root, "conf")
-        config.custom_content.append(("transfer_input_files", conf_dir))
+        # Note: Do NOT set transfer_input_files - it breaks LAW's internal file transfer
+        # The /data/dust filesystem is shared across worker nodes
         
         # Configure log files for debugging
         log_dir = self.htcondor_output_directory().path

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import law
@@ -53,7 +54,13 @@ class HydraMixin:
         if hasattr(self, "_config"):
             return self._config
 
-        config_file = Path(str(self.config_file)).resolve()
+        config_file = Path(str(self.config_file))
+        # Resolve to absolute path if relative
+        if not config_file.is_absolute():
+            # Use absolute path from current working directory (workspace root)
+            config_file = Path(os.getcwd()) / config_file
+        
+        config_file = config_file.resolve()
         self._config = initialize_hydra_config(
             config_dir=str(config_file.parent),
             config_name=str(config_file.stem),

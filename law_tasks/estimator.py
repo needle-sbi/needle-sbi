@@ -88,12 +88,8 @@ class EstimatorTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow
             'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
         ))
         
-        # Transfer the conf/ directory explicitly
-        workspace_root = os.getcwd()
-        conf_dir = os.path.join(workspace_root, "conf")
-        config.custom_content.append(("transfer_input_files", conf_dir))
+        # Note: Do NOT set transfer_input_files - it breaks LAW's internal file transfer
         
-        # Configure log transfer - capture stdout/stderr
         config.custom_content.append(("should_transfer_files", "YES"))
         config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
         config.custom_content.append(("transfer_output_files", ""))

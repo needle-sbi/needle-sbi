@@ -103,10 +103,7 @@ class SystematicTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflo
             'UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
         ))
         
-        # Transfer the conf/ directory explicitly
-        workspace_root = os.getcwd()
-        conf_dir = os.path.join(workspace_root, "conf")
-        config.custom_content.append(("transfer_input_files", conf_dir))
+        # Note: Do NOT set transfer_input_files - it breaks LAW's internal file transfer
         
         # Configure log transfer - capture stdout/stderr
         config.custom_content.append(("should_transfer_files", "YES"))
