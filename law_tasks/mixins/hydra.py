@@ -55,10 +55,15 @@ class HydraMixin:
             return self._config
 
         config_file = Path(str(self.config_file))
-        # Resolve to absolute path if relative
+        
+        # If path is not absolute, resolve it relative to the workspace root
+        # The workspace root is the parent of the law_tasks directory
         if not config_file.is_absolute():
-            # Use absolute path from current working directory (workspace root)
-            config_file = Path(os.getcwd()) / config_file
+            # Use __file__ from this module to find workspace root
+            mixins_dir = Path(__file__).parent  # law_tasks/mixins/
+            law_tasks_dir = mixins_dir.parent    # law_tasks/
+            workspace_root = law_tasks_dir.parent  # orchestrator/
+            config_file = workspace_root / config_file
         
         config_file = config_file.resolve()
         self._config = initialize_hydra_config(
