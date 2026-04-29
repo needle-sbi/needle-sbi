@@ -24,9 +24,10 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
     """
     Ensemble task that runs multiple FoldTasks.
     
-    Runs as local workflow by default.
-    Use --EnsembleTask-workflow htcondor to submit branches to cluster.
+    Runs locally by default (LocalWorkflow is rightmost parent).
+    Use --EnsembleTask-workflow htcondor to submit to cluster.
     """
+    
     rel_results_path = law.Parameter(
         description="Directory where the ensemble training results will be saved.",
         default="runs",
