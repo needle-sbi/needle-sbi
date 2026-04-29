@@ -99,6 +99,12 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         config.custom_content.append(("request_GPUs", "0"))
         config.custom_content.append(("getenv", "True"))
         
+        # Export FAIR_UNIVERSE_DATA environment variable for dataset access
+        config.custom_content.append((
+            "+Environment",
+            '"FAIR_UNIVERSE_DATA=/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"'
+        ))
+        
         # Note: Do NOT set transfer_input_files - it breaks LAW's internal file transfer
         # The /data/dust filesystem is shared across worker nodes
         
@@ -113,10 +119,6 @@ class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow)
         config.stdout = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.out")
         config.stderr = os.path.join(log_dir, f"job_{job_num}_br{branch_name}.err")
         
-        return config
-        config.custom_content.append(("should_transfer_files", "YES"))
-        config.custom_content.append(("when_to_transfer_output", "ON_EXIT"))
-        config.custom_content.append(("transfer_output_files", ""))
         return config
 
     #def output(self) -> Dict[str, Any]:
