@@ -20,12 +20,12 @@ from preprocessor.utils import ColorFormatter
 logger = ColorFormatter.get_logger("ensemble")
 
 
-class EnsembleTask(HydraMixin, law.htcondor.HTCondorWorkflow, law.LocalWorkflow):
+class EnsembleTask(HydraMixin, law.LocalWorkflow, law.htcondor.HTCondorWorkflow):
     """
     Ensemble task that runs multiple FoldTasks.
     
-    Runs locally by default (LocalWorkflow is rightmost parent).
-    Use --EnsembleTask-workflow htcondor to submit to cluster.
+    Defaults to HTCondor workflow (rightmost parent).
+    Use --EnsembleTask-workflow local for local testing.
     """
     
     rel_results_path = law.Parameter(
