@@ -50,8 +50,14 @@ class NeymanTask(PlottingMixin):
 
     @cached_property
     def f_s_nominal(self) -> float:
-        """Return the true signal fraction for the nominal mu=1 case"""
-        return self._get_sig_to_bkg_ratio(seed=0, mu_true=1)[0]
+        """Return the true signal fraction for the nominal mu=1 case.
+
+        uses the label-derived ratio with index 1, not the fitted f_s_hat (index 0)
+        
+        normalising predicted mu by true nominal makes calibration robust to
+        fit bias at mu=1 and to single-seed statistical fluctuation.
+        """
+        return self._get_sig_to_bkg_ratio(seed=0, mu_true=1)[1]
 
     def _get_sig_to_bkg_ratio(
         self,
@@ -147,10 +153,13 @@ class NeymanTask(PlottingMixin):
         mle_ratio_dict: Dict[str, List[float]],
     ) -> Figure:
         x = np.array([float(k) for k in mle_ratio_dict.keys()])
-        y = np.array([v[0] for v in mle_ratio_dict.values()])
+        # need to avg over seeds instead of taking only first seed
+        y = np.array([np.mean(v) for v in mle_ratio_dict.values()])
+        yerr = np.array([np.std(v) for v in mle_ratio_dict.values()])
 
         fig, ax = plt.subplots(figsize=(5, 4))
-        plt.scatter(x, y)
+        # to see uncertainty from the seeds
+        plt.errorbar(x, y, yerr=yerr, fmt="o", capsize=3)
         plt.plot([x.min(), x.max()], [x.min(), x.max()], "k--", label="Ideal")
 
         plt.xlabel(r"$\mu_\text{true}$")
@@ -165,10 +174,12 @@ class NeymanTask(PlottingMixin):
         num_signal_dict: Dict[str, List[float]],
     ) -> Figure:
         x = np.array([float(k) for k in num_signal_dict.keys()])
-        y = np.array([v[0] for v in num_signal_dict.values()])
+        y = np.array([np.mean(v) for v in num_signal_dict.values()])
+        yerr = np.array([np.std(v) for v in num_signal_dict.values()])
 
         fig, ax = plt.subplots(figsize=(5, 4))
-        plt.scatter(x, y)
+        # to see uncertainty from the seeds
+        plt.errorbar(x, y, yerr=yerr, fmt="o", capsize=3)
 
         plt.xlabel(r"$\mu_\text{true}$")
         plt.ylabel(r"$N_\text{signal}$ (2j)")
