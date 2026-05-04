@@ -71,7 +71,7 @@ Some caveats:
     DAG execution.
  - When using dask functions like `dask.map_partitions`, you are not guaranteed to get the information
     about how many events are in each partition. This can make it difficult to slice arrays in this way.
-    See more in the section about KFold slicing. 
+    See more in the section about KFold slicing.
 
 Useful methods:
  - The events per partition are accessible from the array using `array.divisions`. This is a cumulative
@@ -101,13 +101,13 @@ functions. Requires a little bit of getting used to it.
 
 Slicing is tricky since we want it to be exact. Just picking 80% of the partitions will not do since
 partitions are usually not all of the same size. Slicing like `array[0:8000]` for a 10k event array
-would work but then at compute time, all the array must be read into memory and then sliced. This 
+would work but then at compute time, all the array must be read into memory and then sliced. This
 is fine from a memory standpoint since dask takes care of not loading more partitions than fit into
 memory. The issue is the IO, since you read a lot of unnecessary data that you might not use in the
 end.
 
-The padded IterableDatasets found in `ml/data` make use of partitions to efficiently distribute the 
-data between torch or dask workers. Slicing then occurs by handling the `array.divisions` metadata 
+The padded IterableDatasets found in `ml/data` make use of partitions to efficiently distribute the
+data between torch or dask workers. Slicing then occurs by handling the `array.divisions` metadata
 object beforehand and determining which partitions have to be slicing and at which event.
 
 Steps:

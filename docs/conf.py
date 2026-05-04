@@ -61,6 +61,12 @@ html_theme_options = {
     "footer_end": ["last-updated"],
 }
 
+templates_path = ["_templates"]
+
+html_sidebars = {
+    "**": ["sidebar-nav-all.html"],
+}
+
 html_title = f"{project} v{version}"
 html_short_title = project
 html_static_path = ["_static"]

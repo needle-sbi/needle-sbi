@@ -10,20 +10,32 @@
 ::::{grid} 2
 :gutter: 3
 
-:::{grid-item-card} Guides
-:link: introduction
+:::{grid-item-card} Setup
+:link: setup/index
 :link-type: doc
 
-Narrative documentation covering the architecture, data handling with
-dask-awkward, LAW task design, and Lightning/Hydra integration.
+Installation, environment variables, running your first task, and troubleshooting.
+:::
+
+:::{grid-item-card} Concepts
+:link: concepts/task_hierarchy
+:link-type: doc
+
+The task DAG, Hydra config system, and how to write downstream analysis tasks.
+:::
+
+:::{grid-item-card} Examples
+:link: examples/index
+:link-type: doc
+
+End-to-end example: FAIR Universe HiggsML demo with normalizing flows and classification.
 :::
 
 :::{grid-item-card} API Reference
-:link: api/orchestrator
+:link: api/index
 :link-type: doc
 
-Auto-generated reference for all public modules in the orchestrator,
-law_tasks, ml, and preprocessor packages.
+Auto-generated reference for all public modules.
 :::
 
 ::::
@@ -32,13 +44,32 @@ law_tasks, ml, and preprocessor packages.
 
 ```{toctree}
 :maxdepth: 2
-:caption: Guides
+:caption: Getting Started
 :hidden:
 
+setup/index
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Concepts
+:hidden:
+
+concepts/task_hierarchy
+concepts/law_tasks
+concepts/lightning_and_hydra_integration
+concepts/hydra_config
+concepts/downstream_tasks
 introduction
-dask_awkward
-law_tasks
-lightning_and_hydra_integration
+concepts/dask_awkward
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: Examples
+:hidden:
+
+examples/index
 ```
 
 ```{toctree}
@@ -46,8 +77,5 @@ lightning_and_hydra_integration
 :caption: API Reference
 :hidden:
 
-api/orchestrator
-api/law_tasks
-api/ml
-api/preprocessor
+api/index
 ```

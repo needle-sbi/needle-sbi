@@ -27,12 +27,11 @@ write python classes called Tasks that implement methods describing how to run y
 the requirements of each Task can be added as an attribute to your class. This makes it very easy to
 write modular workflow in a Directed Acyclic Graph (DAG). These workflows start with a WrapperTask (also
 called the main Task), which lists a set of required Tasks that have to be run before that Task is
-marked as complete. 
+marked as complete.
 
 A Task is counted as complete if:
  1. All its requirements are complete. So all the Tasks that this Task depends on are marked as complete.
-    This implies are recursive check that works up the DAG until it finds a Tasks that is not yet
-    complete.
+    This implies a recursive check that works up the DAG until it finds a Task that is not yet complete.
  2. All its outputs exist. Output files or folders are defined using the `output()` method. The outputs
     have to be created during the execution of the Task.
 
@@ -45,7 +44,7 @@ A Task might require:
  1. Other Tasks using the `req()` method in law, or `requires()` in luigi. These are just other Tasks
     with associated parameters.
  2. Input files. In Law, `input()` provides a way to access the outputs of the required Tasks for this
-    Task to use. Basically, you defined `outputs()` with each output file having a fixed name and you
+    Task to use. Basically, you define `output()` with each output file having a fixed name and you
     access these names in the next Task using the `input()` method with that same name. If that file
     does not exist or the name is wrong, Law will raise an `Unfulfilled dependencies at RunTime` Error
     and tell you which files it expected.
@@ -62,7 +61,7 @@ import law
 import luigi
 
 
-class FoldTask(law.Task):  # inherit from the law.Task 
+class FoldTask(law.Task):  # inherit from the law.Task
     fold_index = luigi.IntParameter(  # CLI parameter
         description="K-Fold index",
         significant=True,  # whether the name of Task should include fold_index=...
@@ -79,15 +78,15 @@ class FoldTask(law.Task):  # inherit from the law.Task
         results = ...
         self.output()["outputs"].touch()  # create the directory automatically
         results.to_json(self.output()["outputs"].path)  # save the results where law expects them
-``` 
+```
 
 There are some details to explain:
- - There is no fixed format for your outputs, these just have to me an Iterable of paths that law can
-    check the existence of. The paths must however be absolute paths. Relatives paths will be declared
+ - There is no fixed format for your outputs, these just have to be an Iterable of paths that law can
+    check the existence of. The paths must however be absolute paths. Relative paths will be declared
     as missing or cannot be found.
  - Your Task might run successfully if it finishes its `run()` method, but it could still be that the
-    outputs are missing. Usually this is not the case but for debugging purposes you should where the
-    files were saved if it happened at all.
+    outputs are missing. Usually this is not the case but for debugging purposes you should check where
+    the files were saved if it happened at all.
  - **Parameter** are command line arguments that can be set by you using the `--fold_index 1` flag for
     example (with the name of the parameter). You can override them in python of course. You can also
     set a default value or store the default in the `law.cfg` file. Lot of options here.
@@ -96,7 +95,8 @@ More info can be found in the relevant docs for law or luigi.
 
 ## Example with requirements
 
-Lets go for a Task that requires five copies of the previous FoldTask which each a different law Parameter.
+Lets go for a Task that requires five copies of the previous FoldTask each with a different law Parameter.
+In NEEDLE, `EnsembleTask` reads the number of folds from the Hydra config via the `HydraMixin`:
 
 ```python
 """
@@ -107,44 +107,67 @@ from pathlib import Path
 from typing import Any, Dict
 
 import law
+import luigi
 
 from law_tasks.fold import FoldTask
-from orchestrator.results import FoldResults, EnsembleResults  # some dataclasses with JSON serialization
+from law_tasks.mixins import HydraMixin
+from orchestrator.config import EstimatorConfig
+from orchestrator.results import FoldResults, EnsembleResults  # dataclasses with JSON serialization
 
 
-class EnsembleTask(law.Task, HydraMixin):
-    rel_results_path = law.Parameter(
-        description="Directory where the ensemble training results will be saved.",
-        default="runs/ensembles",
-        significant=False,  # Will not be shown in the console since its not descriptive
+class EnsembleTask(HydraMixin, law.Task):
+    results_path: str = law.Parameter(
+        description="Root directory where results are saved.",
+        significant=False,
     )
+    estimator: str = law.Parameter(
+        description="Name of the estimator (must be included in config).",
+        significant=True,
+    )
+    systematic: str = law.Parameter(
+        description="Name of the systematic uncertainty.",
+        significant=True,
+    )
+    ensemble: int = luigi.IntParameter(default=0, significant=True)
 
     @property
-    def abs_results_path(self) -> Path:
-        return os.path.abspath(self.rel_results_path)  # Example for how to handle path Parameters
+    def estimator_config(self) -> EstimatorConfig:
+        return self.config.estimators[self.estimator]
 
     def requires(self):
         return [
-            FoldTask.req(  # Call the `req()` method of the Task you want to require
-                self,
-                fold_index=i,  # Define its parameter if needed
+            FoldTask(
+                config_file=self.config_file,
+                hydra_overrides=self.hydra_overrides,
+                estimator=self.estimator,
+                systematic=self.systematic,
+                ensemble=self.ensemble,
+                fold_index=fold_index,
+                results_path=self.results_path,
             )
-            for i in range(self.config.n_folds)
-        ]  # Iterable of Tasks. Can also be a dict
+            for fold_index in range(self.estimator_config.expands.folds)
+        ]  # n_folds is read from config.estimators[estimator].expands.folds
 
     def output(self) -> Dict[str, Any]:
-        os.makedirs(self.abs_results_path, exist_ok=True)  # Make sure the directory exists
-        return {"outputs": law.LocalFileTarget(f"{self.abs_results_path}/ensemble_results.json")}
+        base = law.LocalDirectoryTarget(os.path.abspath(self.results_path))
+        return {"outputs": base.child("ensemble_results.json", type="f")}
 
     def run(self):
-        ensemble_results = EnsembleResults()
+        fold_results = [
+            FoldResults.from_json(fold_output["outputs"].path)  # load each fold's output
+            for fold_output in self.input()
+        ]
+        EnsembleResults(folds=fold_results).to_json(self.output()["outputs"].path)
+```
 
-        for fold_outputs in self.input():
-            fold_result = FoldResults.from_json(fold_outputs["outputs"].path)  # load input
-            ensemble_results.folds.append(fold_result)  # do stuff
-
-        ensemble_results.to_json(self.output()["outputs"].path)  # save to correct file
-``` 
+Key points:
+ - **`HydraMixin` must come before `law.Task`** in the MRO. It adds the `config_file` and
+    `hydra_overrides` parameters plus the `config` property that lazily loads and caches the
+    parsed Hydra config.
+ - The number of folds is not a hard-coded parameter but is read from
+    `self.estimator_config.expands.folds`, which is resolved from the YAML config at runtime.
+ - All parameters that identify the parent task (`config_file`, `hydra_overrides`, `estimator`,
+    `systematic`, `ensemble`) are forwarded explicitly when constructing `FoldTask` instances.
 
 ## More on Law
 
@@ -152,4 +175,5 @@ You can customize a lot how the Tasks are to be run. Adding the `law.htcondor.HT
 allows you to run that Task on a batch system automatically. You still have to configure some HTCondor
 stuff but you can define that per Task, depending on your requirements.
 
-
+For a complete working example of this pattern in a real HEP analysis pipeline, see the
+[FAIR Universe demo](../examples/index.md).
