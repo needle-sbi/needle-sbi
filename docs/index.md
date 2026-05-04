@@ -25,7 +25,7 @@ The task DAG, Hydra config system, and how to write downstream analysis tasks.
 :::
 
 :::{grid-item-card} Examples
-:link: examples/index
+:link: examples/fair_universe_demo/index
 :link-type: doc
 
 End-to-end example: FAIR Universe HiggsML demo with normalizing flows and classification.
@@ -62,14 +62,6 @@ concepts/hydra_config
 concepts/downstream_tasks
 introduction
 concepts/dask_awkward
-```
-
-```{toctree}
-:maxdepth: 2
-:caption: Examples
-:hidden:
-
-examples/index
 ```
 
 ```{toctree}

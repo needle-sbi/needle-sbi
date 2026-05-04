@@ -1,4 +1,4 @@
-# FAIR Universe Demo — Overview and Physics Context
+# Overview and Physics Context
 
 ## What this demo does
 
