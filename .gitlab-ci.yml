@@ -42,8 +42,10 @@ test_singularity_images:
 pages:
   stage: docs
   image: python:3.12-slim
-  script:
+  before_script:
+    - apt-get update && apt-get install -y git
     - pip install uv
+  script:
     - uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
     - mv docs/_build/html public
   artifacts:
