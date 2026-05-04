@@ -56,19 +56,23 @@ def string_to_tuple_str(s: str) -> Tuple | None:
         return None
 
 
-def prior_theta(theta, mu_theta=1.0, sigma_theta=0.01) -> float:
+def prior_theta(
+    theta,
+    mu_theta=1.0,
+    sigma_theta=0.01,
+) -> float:
     """Gaussian prior on theta."""
     return 1.0 / (np.sqrt(2 * np.pi) * sigma_theta) * np.exp(-0.5 * ((theta - mu_theta) / sigma_theta) ** 2)
 
 
-def compute_mu_nuan_2NP_class(
+def compute_signal_fraction(
     test_data_2j,
     test_data_1j,
     dnn_model,
     bin_splines_S,
     bin_splines_BG,
     eval_device: str = "cpu",
-    verbose: bool = False,
+    verbose: bool = True,
 ):
     """
     Perform a simultaneous MLE of the global signal fraction `f_s`
@@ -112,10 +116,10 @@ def compute_mu_nuan_2NP_class(
         f_s, nu1, nu2 = params
 
         # Check bounds (L-BFGS-B also will do this, but let's be explicit).
-        if not (0 <= f_s <= 1):
+        if not (param_bounds[0][0] <= f_s <= param_bounds[0][1]):
             return np.inf
         # Suppose we allow nu1, nu2, nu3 in [-3, 3], or whichever range is appropriate.
-        if abs(nu1) > 1.1 or abs(nu2) > 1.1:
+        if abs(nu1) > 3 or abs(nu2) > 3:
             return np.inf
 
         # 3a) Morph signal and background histograms at (nu1, nu2, nu3).
@@ -128,8 +132,8 @@ def compute_mu_nuan_2NP_class(
         # Negative log-likelihood
         nll = np.sum(E - hist_data * np.log(E))
 
-        p1 = prior_theta(nu1, mu_theta=1, sigma_theta=0.01)
-        p2 = prior_theta(nu2, mu_theta=1, sigma_theta=0.01)
+        p1 = prior_theta(nu1)
+        p2 = prior_theta(nu2)
         prior_val = p1 * p2  # assume independence
 
         nll_prior = -np.log(prior_val + 1e-40)  # add small epsilon to avoid log(0)
@@ -139,12 +143,12 @@ def compute_mu_nuan_2NP_class(
     # -- 4) Minimize the NLL
     param_bounds = [
         (0, 1),  # f_s in [0, 1]
-        (0.9, 1.1),  # nu1 in [-3, 3]
-        (0.9, 1.1),  # nu2 in [-3, 3]
+        (-3, 3),  # nu1 in [-3, 3]
+        (-3, 3),  # nu2 in [-3, 3]
     ]
 
     # Initial guess
-    initial_params = [0.002, 1, 1]  # f_s ~ 1%, all NPs ~ 0
+    initial_params = [0.001, 1, 1]  # f_s ~ 1%, all NPs ~ 0
 
     # We'll use L-BFGS-B
     opt_result = minimize(neg_log_likelihood, x0=initial_params, method="L-BFGS-B", bounds=param_bounds)
@@ -154,18 +158,17 @@ def compute_mu_nuan_2NP_class(
         tqdm.write(
             tabulate(
                 [
-                    ["f_s", f_s_hat],
+                    [f"f_s", f_s_hat],
                     ["nu1", nu1_hat],
                     ["nu2", nu2_hat],
                 ],
                 headers=["Parameter", "Estimated"],
-                tablefmt="rounded_outline",
                 floatfmt=".6g",
             )
         )
         tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
 
-    return f_s_hat  # NOTE Was / 0.002 but I dont know why exactly
+    return float(f_s_hat)
 
 
 def fit_2D_splines_bin_by_bin_from_dict(param_hist_dict, s=0, kx=3, ky=3):

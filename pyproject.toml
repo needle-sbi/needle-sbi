@@ -43,6 +43,7 @@ dependencies = [
     "ipython>=9.0.2",
     "fair-universe-demo",
     "gallery",
+    "termplotlib>=0.3.9",
 ]
 
 [dependency-groups]
