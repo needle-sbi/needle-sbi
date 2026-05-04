@@ -19,8 +19,8 @@ import numpy as np
 from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
+from ..utils.dataset_sharing import fetch_dataset
 from ..utils.eval import predict
-from ..utils.selection import load_train_set_data
 
 logger = Logger("eval")
 
@@ -76,10 +76,10 @@ class EvalTask(luigi.Task):
         }
 
     def prepare(self) -> None:
-        self.data = load_train_set_data(self.root_dir)
+        self.data = fetch_dataset(self.root_dir)
 
     def predict_submission(self, initial_seed: int = DEFAULT_INGESTION_SEED):
-        logger.info("Calling predict method of submitted model with seed: %s", initial_seed)
+        logger.info(f"Calling predict method of submitted model with seed: {initial_seed}")
 
         dict_systematics = self.test_settings["systematics"]
         num_pseudo_experiments = self.test_settings["num_pseudo_experiments"]
@@ -105,37 +105,38 @@ class EvalTask(luigi.Task):
 
             random_state = np.random.RandomState(seed)
 
-            if dict_systematics["tes"]:
-                tes = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
-            else:
-                tes = 1.0
+            tes = (
+                np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+                if dict_systematics["tes"]
+                else 1.0
+            )
+            jes = (
+                np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
+                if dict_systematics["jes"]
+                else 1.0
+            )
+            soft_met = (
+                np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
+                if dict_systematics["soft_met"]
+                else 0.0
+            )
+            ttbar_scale = (
+                np.clip(random_state.normal(loc=1.0, scale=0.02), a_min=0.8, a_max=1.2)
+                if dict_systematics["ttbar_scale"]
+                else None
+            )
+            diboson_scale = (
+                np.clip(random_state.normal(loc=1.0, scale=0.25), a_min=0.0, a_max=2.0)
+                if dict_systematics["diboson_scale"]
+                else None
+            )
+            bkg_scale = (
+                np.clip(random_state.normal(loc=1.0, scale=0.001), a_min=0.99, a_max=1.01)
+                if dict_systematics["bkg_scale"]
+                else None
+            )
 
-            if dict_systematics["jes"]:
-                jes = np.clip(random_state.normal(loc=1.0, scale=0.01), a_min=0.9, a_max=1.1)
-            else:
-                jes = 1.0
-
-            if dict_systematics["soft_met"]:
-                soft_met = np.clip(random_state.lognormal(mean=0.0, sigma=1.0), a_min=0.0, a_max=5.0)
-            else:
-                soft_met = 0.0
-
-            if dict_systematics["ttbar_scale"]:
-                ttbar_scale = np.clip(random_state.normal(loc=1.0, scale=0.02), a_min=0.8, a_max=1.2)
-            else:
-                ttbar_scale = None
-
-            if dict_systematics["diboson_scale"]:
-                diboson_scale = np.clip(random_state.normal(loc=1.0, scale=0.25), a_min=0.0, a_max=2.0)
-            else:
-                diboson_scale = None
-
-            if dict_systematics["bkg_scale"]:
-                bkg_scale = np.clip(random_state.normal(loc=1.0, scale=0.001), a_min=0.99, a_max=1.01)
-            else:
-                bkg_scale = None
-
-            logger.debug(f"set_index: {set_index} - test_set_index: {test_set_index} - seed: {seed}")
+            logger.debug(f"Set_index: {set_index} - test_set_index: {test_set_index} - seed: {seed}")
 
             model_prediction = predict(
                 mu=set_mu,
@@ -156,9 +157,9 @@ class EvalTask(luigi.Task):
             predicted_dict = {}
             predicted_dict.update(model_prediction)
             predicted_dict["mu_true"] = set_mu
-            predicted_dict["test_set_index"] = test_set_index
+            predicted_dict["test_set_index"] = float(test_set_index)
 
-            logger.debug(f"Predicted: {predicted_dict}")
+            logger.info(f"Predicted: {predicted_dict}")
 
             if set_index not in self.results_dict:
                 self.results_dict[set_index] = []
@@ -169,8 +170,10 @@ class EvalTask(luigi.Task):
         results_dict_serializable = {int(key): val for key, val in self.results_dict.items()}
         result_path = self.output()["eval"].path
 
+        dump = json.dumps(results_dict_serializable, indent=4)
+
         with open(result_path, "w") as f:
-            f.write(json.dumps(results_dict_serializable, indent=4))
+            f.write(dump)
 
         logger.info(f"Saved evaluation result to '{result_path}'")
 

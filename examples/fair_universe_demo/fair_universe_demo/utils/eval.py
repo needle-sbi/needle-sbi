@@ -17,7 +17,7 @@ from ..tasks.histogram import HistogramTask
 from ..utils.selection import Data
 from .selection import createJetData, return1j2j
 from .stats import (
-    compute_mu_nuan_2NP_class,
+    compute_signal_fraction,
     fit_2D_splines_bin_by_bin_from_dict,
     get_confidence_interval,
     load_bias_data,
@@ -131,7 +131,7 @@ def predict(
         data_2j, data_1j, label_2j, label_1j = return1j2j(alljet_data, models, device=device)
 
         # Compute the MLE mu using the provided classifier and fitted splines.
-        mu = compute_mu_nuan_2NP_class(
+        mu = compute_signal_fraction(  # FIX Technically return is f_s_hat not mu
             test_data_2j=data_2j,
             test_data_1j=data_1j,
             dnn_model=class_model_load,
@@ -144,10 +144,10 @@ def predict(
         results.update(
             {
                 "real_mu": mu,
-                "mu_hat": mu_MLE,
-                "p16": mu_lower,
-                "p84": mu_upper,
-                "delta_mu_hat": abs(mu_upper - mu_lower) / 2,
+                "mu_hat": float(mu_MLE),
+                "p16": float(mu_lower),
+                "p84": float(mu_upper),
+                "delta_mu_hat": float(abs(mu_upper - mu_lower) / 2),
             }
         )
 
