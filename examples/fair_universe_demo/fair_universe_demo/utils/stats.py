@@ -59,29 +59,10 @@ def string_to_tuple_str(s: str) -> Tuple | None:
 def prior_theta(
     theta,
     mu_theta=1.0,
-    sigma_theta=0.05,
+    sigma_theta=0.01,
 ) -> float:
     """Gaussian prior on theta."""
     return 1.0 / (np.sqrt(2 * np.pi) * sigma_theta) * np.exp(-0.5 * ((theta - mu_theta) / sigma_theta) ** 2)
-
-# TODO: same as above pretty much so one needs to be removed
-def neg_log_prior_theta(theta: float, mu_theta: float = 1.0, sigma_theta: float = 0.05) -> float:
-    """Negative log of a Gaussian prior.
-
-    The 0.5 * log(2*pi) constant is dropped since it doesn't affect the minimum.
-    """
-    return 0.5 * ((theta - mu_theta) / sigma_theta) ** 2 + np.log(sigma_theta)
-
-
-def _grid_bounds_from_splines(bin_splines) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Read the x,y training extent off any one bin spline.
-
-    SmoothBivariateSpline.get_knots() returns the knot grid where its 
-    min/max bound the region where the fit was actually constrained by data. 
-    Outside that box the spline extrapolates and the optim. can find bad minima.
-    """
-    tx, ty = bin_splines[0].get_knots()
-    return (float(tx.min()), float(tx.max())), (float(ty.min()), float(ty.max()))
 
 
 def compute_signal_fraction(
@@ -91,8 +72,6 @@ def compute_signal_fraction(
     bin_splines_S,
     bin_splines_BG,
     eval_device: str = "cpu",
-    nuisance_priors: tuple[tuple[float, float], tuple[float, float]] = ((1.0, 0.05), (1.0, 0.05)),
-    initial_f_s: float = 0.001,
     verbose: bool = True,
 ):
     """
@@ -131,39 +110,45 @@ def compute_signal_fraction(
 
     N_total = len(total_score)
 
-    # derive nuisance bounds from the spline training grid. This prevents the
-    # optimiser from escaping into extrapolated (nu1, nu2), where the
-    # morphed templates are unphysical and produce bad minima
-    nu1_bounds, nu2_bounds = _grid_bounds_from_splines(bin_splines_S)
-    (mu1, sig1), (mu2, sig2) = nuisance_priors
-
-    param_bounds = [
-        (1e-6, 1.0),   # strictly positive lower bound to avoid log(0)
-        nu1_bounds,
-        nu2_bounds,
-    ]
-
+    # -- 3) Define the negative log-likelihood
     def neg_log_likelihood(params):
+        # params = (f_s, nu1, nu2, nu3)
         f_s, nu1, nu2 = params
 
+        # Check bounds (L-BFGS-B also will do this, but let's be explicit).
         if not (param_bounds[0][0] <= f_s <= param_bounds[0][1]):
             return np.inf
-        if not (nu1_bounds[0] <= nu1 <= nu1_bounds[1]):
-            return np.inf
-        if not (nu2_bounds[0] <= nu2 <= nu2_bounds[1]):
+        # Suppose we allow nu1, nu2, nu3 in [-3, 3], or whichever range is appropriate.
+        if abs(nu1) > 3 or abs(nu2) > 3:
             return np.inf
 
+        # 3a) Morph signal and background histograms at (nu1, nu2, nu3).
         S = morph_histogram_2D_spline([nu1, nu2], bin_splines_S)
         B = morph_histogram_2D_spline([nu1, nu2], bin_splines_BG)
 
         E = N_total * (f_s * S + (1 - f_s) * B) * bin_widths
+        # Avoid zeros in E to prevent log(0)
         E = np.clip(E, a_min=1e-10, a_max=None)
+        # Negative log-likelihood
         nll = np.sum(E - hist_data * np.log(E))
 
-        nll_prior = neg_log_prior_theta(nu1, mu1, sig1) + neg_log_prior_theta(nu2, mu2, sig2)
+        p1 = prior_theta(nu1)
+        p2 = prior_theta(nu2)
+        prior_val = p1 * p2  # assume independence
+
+        nll_prior = -np.log(prior_val + 1e-40)  # add small epsilon to avoid log(0)
+
         return nll + nll_prior
 
-    initial_params = [initial_f_s, mu1, mu2]
+    # -- 4) Minimize the NLL
+    param_bounds = [
+        (0, 1),  # f_s in [0, 1]
+        (-3, 3),  # nu1 in [-3, 3]
+        (-3, 3),  # nu2 in [-3, 3]
+    ]
+
+    # Initial guess
+    initial_params = [0.001, 1, 1]  # f_s ~ 1%, all NPs ~ 0
 
     # We'll use L-BFGS-B
     opt_result = minimize(neg_log_likelihood, x0=initial_params, method="L-BFGS-B", bounds=param_bounds)
@@ -182,12 +167,6 @@ def compute_signal_fraction(
             )
         )
         tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
-
-    edge_tol = 1e-3
-    if abs(nu1_hat - nu1_bounds[0]) < edge_tol or abs(nu1_hat - nu1_bounds[1]) < edge_tol:
-        logger.warning(f"nu1 hit bound {nu1_bounds} at {nu1_hat:.6f}")
-    if abs(nu2_hat - nu2_bounds[0]) < edge_tol or abs(nu2_hat - nu2_bounds[1]) < edge_tol:
-        logger.warning(f"nu2 hit bound {nu2_bounds} at {nu2_hat:.6f}")
 
     return float(f_s_hat)
 
