@@ -67,7 +67,7 @@ class Data:
         Parameters:
             input_dir (str): The directory path of the input data.
         """
-        train_data_file = os.path.join(input_dir, parquet_filename)
+        self.train_data_file = os.path.join(input_dir, parquet_filename)
         croissant_file = os.path.join(input_dir, metadata_filename)
 
         try:
@@ -90,15 +90,15 @@ class Data:
 
             if not self.cache_parquet_file.exists():
                 logger.info(
-                    f"Caching input file '{train_data_file}' to '{self.cache_parquet_file} for faster access. "
+                    f"Caching input file '{self.train_data_file}' to '{self.cache_parquet_file} for faster access. "
                     "Disable by setting `Data(cache_parquet_file=...)` to None or False"
                 )
-                copy2(train_data_file, self.cache_parquet_file)
+                copy2(self.train_data_file, self.cache_parquet_file)
 
-            train_data_file = self.cache_parquet_file
+            self.train_data_file = self.cache_parquet_file
 
-        logger.info(f"Opening file {train_data_file}")
-        self.parquet_file = pq.ParquetFile(train_data_file)
+        logger.info(f"Opening file {self.train_data_file}")
+        parquet_file = pq.ParquetFile(self.train_data_file)
 
         # Step 1: Determine the total number of rows
         if "total_rows" in self.metadata:
@@ -106,7 +106,7 @@ class Data:
         else:
             # If total_rows is not in metadata, calculate it from the row groups
             self.total_rows = sum(
-                self.parquet_file.metadata.row_group(i).num_rows for i in range(self.parquet_file.num_row_groups)
+                parquet_file.metadata.row_group(i).num_rows for i in range(parquet_file.num_row_groups)
             )
 
         if test_size is not None:
@@ -187,17 +187,18 @@ class Data:
         Returns:
             pd.DataFrame: DataFrame containing the selected rows.
         """
+        parquet_file = pq.ParquetFile(self.train_data_file)
         current_row = 0
         sampled_df = pd.DataFrame()
 
         chunks = []
         for row_group_index in tqdm(
-            range(self.parquet_file.num_row_groups),
-            total=self.parquet_file.num_row_groups,
+            range(parquet_file.num_row_groups),
+            total=parquet_file.num_row_groups,
             unit="row_groups",
             desc="Loading data from parquet file",
         ):
-            row_group = self.parquet_file.read_row_group(row_group_index).to_pandas()
+            row_group = parquet_file.read_row_group(row_group_index).to_pandas()
             row_group_size = len(row_group)
             within_group_indices = (
                 selected_indices[(selected_indices >= current_row) & (selected_indices < current_row + row_group_size)]

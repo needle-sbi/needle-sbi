@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from .datasets import Data
+from .dataset import Data
 from .systematics import get_bootstrapped_dataset, systematics
 
 logger = logging.getLogger(__name__)
@@ -83,6 +83,16 @@ def load_train_set_data(
     parquet_filename: str = "FAIR_Universe_HiggsML_data.parquet",
     metadata_filename: str = "FAIR_Universe_HiggsML_data_metadata.json",
 ) -> Data:
+    """Eagerly load the dataset from disk
+
+    Args:
+        root_dir (str): _description_
+        parquet_filename (str, optional): Name of the data file. Defaults to "FAIR_Universe_HiggsML_data.parquet".
+        metadata_filename (str, optional): Name of the metadata file. Defaults to "FAIR_Universe_HiggsML_data_metadata.json".
+
+    Returns:
+        Data: The dataset with train and test partitions loaded into memory
+    """
     data = Data(
         input_dir=root_dir,
         parquet_filename=parquet_filename,
@@ -516,8 +526,7 @@ class Dataset1j2j(Dataset):
 def return1j2j(
     alljet_data: Dict[str, torch.Tensor] | pd.DataFrame,
     models: torch.nn.ModuleDict,
-    cut: bool = False,
-    nevents: int = 10,
+    nevents: int = -1,
     device: str = "cpu",
 ) -> Tuple[torch.Tensor, ...]:
     """
@@ -581,7 +590,7 @@ def return1j2j(
         if col_idx in log_indices_1j:
             data_1j[:, col_idx] = torch.log(data_1j[:, col_idx])
 
-    if cut:
+    if nevents > 0:
         data_1j = data_1j[:nevents]
         data_2j = data_2j[:nevents]
         label_2j = label_2j[:nevents]
