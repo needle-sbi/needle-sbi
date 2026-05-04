@@ -46,6 +46,7 @@ pages:
     - apt-get update && apt-get install -y git
     - pip install uv
   script:
+    - uv sync --group docs
     - uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
     - mv docs/_build/html public
   artifacts:
