@@ -1,6 +1,7 @@
 stages:
   - build
   - test
+  - docs
 
 variables:
   SIF_DEV_NAME: "needle.sif"
@@ -36,3 +37,17 @@ test_singularity_images:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH == "main"'
+
+
+pages:
+  stage: docs
+  image: python:3.12-slim
+  script:
+    - pip install uv
+    - uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
+    - mv docs/_build/html public
+  artifacts:
+    paths:
+      - public
+  only:
+    - branches
