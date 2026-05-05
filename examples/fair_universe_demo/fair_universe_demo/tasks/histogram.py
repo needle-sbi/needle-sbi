@@ -124,7 +124,25 @@ class HistogramTask(luigi.Task):
             Tuple[Dict[str, str], Dict[str, str]]: A tuple containing the normalizing flow checkpoint
             mapping and a dictionary with the classifier checkpoint path.
         """
-        with open(filepath, "r") as f:
+        snapshot_path = Path(filepath)
+
+        def resolve_checkpoint_path(checkpoint_path: str) -> str:
+            path = Path(checkpoint_path)
+            if path.exists():
+                return str(path)
+
+            # Snapshots can be moved between machines while preserving the run
+            # directory layout. Rebase stale absolute paths onto this snapshot.
+            parts = path.parts
+            if snapshot_path.parent.name in parts:
+                run_dir_idx = parts.index(snapshot_path.parent.name)
+                candidate = snapshot_path.parent.joinpath(*parts[run_dir_idx + 1 :])
+                if candidate.exists():
+                    return str(candidate)
+
+            return checkpoint_path
+
+        with open(snapshot_path, "r") as f:
             snapshot = json.load(f)
 
         nodes: Dict[str, Any] = snapshot["nodes"]
@@ -140,10 +158,10 @@ class HistogramTask(luigi.Task):
             estimator_name: str = name_dict["est"][0]
 
             if estimator_name.startswith("nf"):
-                nf_nodes[name] = node["checkpoint_path"]
+                nf_nodes[name] = resolve_checkpoint_path(node["checkpoint_path"])
             elif estimator_name.startswith("classifier"):
                 if not classifier_node.get("classifier"):
-                    classifier_node["classifier"] = node["checkpoint_path"]
+                    classifier_node["classifier"] = resolve_checkpoint_path(node["checkpoint_path"])
                 else:
                     raise ValueError(
                         f"More than one classifier found in snapshot: existing are {list(classifier_node.keys())} and"
