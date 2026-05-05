@@ -12,3 +12,4 @@ lightning_logs*
 .benchmarks
 .coverage
 docs/_build/
+tests/**/*.ipynb
