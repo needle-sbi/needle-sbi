@@ -94,6 +94,7 @@ def compute_signal_fraction(
     nuisance_priors: tuple[tuple[float, float], tuple[float, float]] = ((1.0, 0.05), (1.0, 0.05)),
     initial_f_s: float = 0.001,
     verbose: bool = True,
+    return_diagnostics: bool = False,
 ):
     """
     Perform a simultaneous MLE of the global signal fraction `f_s`
@@ -184,10 +185,26 @@ def compute_signal_fraction(
         tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
 
     edge_tol = 1e-3
-    if abs(nu1_hat - nu1_bounds[0]) < edge_tol or abs(nu1_hat - nu1_bounds[1]) < edge_tol:
+    nu1_hit_bound = abs(nu1_hat - nu1_bounds[0]) < edge_tol or abs(nu1_hat - nu1_bounds[1]) < edge_tol
+    nu2_hit_bound = abs(nu2_hat - nu2_bounds[0]) < edge_tol or abs(nu2_hat - nu2_bounds[1]) < edge_tol
+
+    if nu1_hit_bound:
         logger.warning(f"nu1 hit bound {nu1_bounds} at {nu1_hat:.6f}")
-    if abs(nu2_hat - nu2_bounds[0]) < edge_tol or abs(nu2_hat - nu2_bounds[1]) < edge_tol:
+    if nu2_hit_bound:
         logger.warning(f"nu2 hit bound {nu2_bounds} at {nu2_hat:.6f}")
+
+    if return_diagnostics:
+        return {
+            "f_s_hat": float(f_s_hat),
+            "nu1_hat": float(nu1_hat),
+            "nu2_hat": float(nu2_hat),
+            "nu1_bounds": tuple(float(value) for value in nu1_bounds),
+            "nu2_bounds": tuple(float(value) for value in nu2_bounds),
+            "nu1_hit_bound": bool(nu1_hit_bound),
+            "nu2_hit_bound": bool(nu2_hit_bound),
+            "success": bool(opt_result.success),
+            "message": str(opt_result.message),
+        }
 
     return float(f_s_hat)
 
