@@ -6,6 +6,21 @@ estimators:
     datamodule: pandas
     dataset: fair_universe
     trainer: default
+    expands:
+      ensembles:
+        num_ensembles: 5
+      folds: 2
+
+  model_B:
+    model: mock_transformer
+    datamodule: padded
+    dataset: fair_universe
+    trainer: default
+    requires: ["model_A"]
+    expands:
+      ensembles:
+        num_ensembles: 5
+      folds: 2
 
 aggregation:
   fold_method: "mean"  # Options: best, mean, weighted_mean

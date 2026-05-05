@@ -1,0 +1,45 @@
+# Grid search configuration for PseudoModel benchmark analysis
+# This defines the 3D parameter space to explore
+
+# Dimension 1: Network count (num_ensembles × folds)
+n_networks:
+  ensembles: [2, 5, 10]  # Number of ensembles
+  folds: [2, 5, 10]      # Number of folds per ensemble
+  # Total networks = ensembles × folds
+  # Options: [4, 10, 20, 25, 50, 100]
+
+# Dimension 2: Batch size
+batch_size: [32, 64, 128, 256, 512, 1024]
+
+# Dimension 3: Network size (parameters controlled by hidden architecture)
+network_size:
+  # Small: ~26K parameters (hidden_dim=64, n_hidden=5)
+  # Medium: ~263K parameters (hidden_dim=128, n_hidden=10)
+  # Large: ~1M parameters (hidden_dim=256, n_hidden=15)
+  # XLarge: ~4M parameters (hidden_dim=512, n_hidden=30)
+  configs:
+    - name: "small"
+      hidden_dim: 64
+      n_hidden: 5
+    - name: "medium"
+      hidden_dim: 128
+      n_hidden: 10
+    - name: "large"
+      hidden_dim: 256
+      n_hidden: 15
+    - name: "xlarge"
+      hidden_dim: 512
+      n_hidden: 30
+
+# Benchmark configuration
+benchmark:
+  n_tests: 10  # Number of repetitions per parameter point
+  warmup_iterations: 3  # Warmup iterations before timing
+  test_data_size: 1000  # Number of samples for inference testing
+
+# Output paths (relative to workspace root or absolute)
+output:
+  base_dir: "/data/dust/user/sjiggins/NEEDLE/NEEDLE/2026-01-29/PseudoModel-Benchmark"
+  jobs_dir: "jobs"
+  results_dir: "output"
+  plots_dir: "plots"

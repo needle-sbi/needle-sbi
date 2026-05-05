@@ -8,9 +8,10 @@ from typing import Dict, List
 from urllib.parse import urlencode
 
 import law
+import luigi
 from omegaconf import OmegaConf
 
-from law_tasks.main import MainTask
+from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import (
     AggregationEdge,
@@ -103,21 +104,13 @@ class SnapshotTask(HydraMixin, law.Task):
         systematic_agg_method = agg_config.systematic_method
         estimator_agg_method = agg_config.estimator_method
 
-        # Get optional weights
-        # fold_weights = agg_config.get("fold_weights")
-        # ensemble_weights = agg_config.get("ensemble_weights")
-        # systematic_weights = agg_config.get("systematic_weights")
-        # estimator_weights = agg_config.get("estimator_weights")
-
-        main_task = self.requires()
-
         # Track all node IDs at each level for aggregation
         all_estimator_nodes = []
 
         logger.info("Processing...")
 
         # Traverse EstimatorTasks
-        for estimator_task in main_task.requires():
+        for estimator_task in self.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"|  Estimator:    {estimator_name}")
 

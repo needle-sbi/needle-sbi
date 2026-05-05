@@ -19,15 +19,43 @@ if [[ -n "$ZSH_EVAL_CONTEXT" ]] && [[ "$ZSH_EVAL_CONTEXT" != *:file* ]]; then
     exit 1
 fi
 
-# Check if LAW package is available
+# resolve script dir (needed later for LAW_HOME)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
+
+# Check if running in remote HTCondor job (LAW sets these variables)
+if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
+    echo -e "${_NEEDLE_BLUE}Running in remote HTCondor context, activating virtual environment...${_NEEDLE_NC}"
+    # Try to activate venv if it exists
+    if [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
+        source "$SCRIPT_DIR/.venv/bin/activate"
+    elif [[ -f "$SCRIPT_DIR/../.venv/bin/activate" ]]; then
+        source "$SCRIPT_DIR/../.venv/bin/activate"
+    else
+        echo -e "${_NEEDLE_ORANGE}Warning: Virtual environment not found, assuming packages are available system-wide${_NEEDLE_NC}"
+    fi
+else
+    # Local execution - activate venv if not already active
+    if [[ -z "$VIRTUAL_ENV" ]] && [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
+        echo -e "${_NEEDLE_BLUE}Activating virtual environment...${_NEEDLE_NC}"
+        source "$SCRIPT_DIR/.venv/bin/activate"
+    fi
+fi
+
+# Check if LAW package is available (only fail for local, warn for remote)
 if ! command -v law &> /dev/null; then
-    echo -e "${_NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${_NEEDLE_NC}"
-    return 1
+    if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
+        echo -e "${_NEEDLE_ORANGE}Warning: LAW not found, but continuing for remote execution${_NEEDLE_NC}"
+    else
+        echo -e "${_NEEDLE_ORANGE}The package LAW could not be found, is your virtual environment active?${_NEEDLE_NC}"
+        return 1
+    fi
 fi
 
 # Check if the script was already sourced
 if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
     echo -e "${_NEEDLE_GREEN}$ENV_NAME environment is already active.${_NEEDLE_NC}"
+    # Still export FAIR_UNIVERSE_DATA for HTCondor jobs (where getenv=True copies the NEEDLE_ENV_ACTIVE flag)
+    export FAIR_UNIVERSE_DATA="/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"
     return 0
 fi
 
@@ -39,6 +67,9 @@ export _OLD_PS1="$PS1"
 # use resolved script dir so LAW_HOME is always correct
 export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
+
+# Export FAIR_UNIVERSE_DATA path for dataset access
+export FAIR_UNIVERSE_DATA="/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"
 
 # use absolute paths so PYTHONPATH works regardless of cwd
 for p in "preprocessor" "ml" "."; do
@@ -69,6 +100,7 @@ _deactivate() {
     unset SCRIPT_DIR
     unset LAW_HOME
     unset LAW_CONFIG_FILE
+    unset FAIR_UNIVERSE_DATA
     unset _OLD_PYTHONPATH
     unset _OLD_PS1
     unset -f deactivate
