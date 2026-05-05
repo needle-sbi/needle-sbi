@@ -8,10 +8,9 @@ from typing import Dict, List
 from urllib.parse import urlencode
 
 import law
-import luigi
 from omegaconf import OmegaConf
 
-from law_tasks.estimator import EstimatorTask
+from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
 from orchestrator.results import (
     AggregationEdge,
@@ -108,9 +107,10 @@ class SnapshotTask(HydraMixin, law.Task):
         all_estimator_nodes = []
 
         logger.info("Processing...")
+        main_task = self.requires()
 
         # Traverse EstimatorTasks
-        for estimator_task in self.requires():
+        for estimator_task in main_task.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"|  Estimator:    {estimator_name}")
 
