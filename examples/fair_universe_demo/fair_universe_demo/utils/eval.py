@@ -101,6 +101,8 @@ def predict(
     """
     if nuissance_parameters is None:
         nuissance_parameters = [1.0, 1.0, 1.0, 1.0, 1.0, 0.0]
+    else:
+        nuissance_parameters = list(nuissance_parameters)
 
     if not device:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -137,7 +139,7 @@ def predict(
             set_mu=mu,
             seed=seed,
             n_param=nuissance_parameters,
-            useRand=True,
+            useRand=False,
             loaded_data=data,
         )
     elif root_dir:
@@ -147,7 +149,7 @@ def predict(
             set_mu=mu,
             seed=seed,
             n_param=nuissance_parameters,
-            useRand=True,
+            useRand=False,
             root_dir=root_dir,
         )
     else:
@@ -188,7 +190,6 @@ def predict(
         data_2j, data_1j, label_2j, label_1j = return1j2j(
             alljet_data,
             models,
-            cut=True,
             nevents=predict_num_events,
             device=device,
         )

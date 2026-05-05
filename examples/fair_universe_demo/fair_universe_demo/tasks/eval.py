@@ -151,12 +151,12 @@ class EvalTask(luigi.Task):
                 snapshot_path=self.snapshot_path,
                 data=self.data,
                 nuissance_parameters=[
-                    tes,
-                    jes,
-                    soft_met,
                     ttbar_scale,
                     diboson_scale,
                     bkg_scale,
+                    tes,
+                    jes,
+                    soft_met,
                 ],
                 predict_num_events=0,
             )
