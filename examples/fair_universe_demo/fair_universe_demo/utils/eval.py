@@ -27,6 +27,35 @@ from .stats import (
 logger = Logger("predict")
 
 
+def _signal_fraction_from_labels(alljet_data, models, device: str) -> float:
+    data_2j, data_1j, label_2j, label_1j = return1j2j(alljet_data, models, device=device)
+    labels = np.concatenate([label_2j.detach().cpu().numpy(), label_1j.detach().cpu().numpy()])
+    if len(labels) == 0:
+        raise RuntimeError("Cannot compute nominal signal fraction from an empty 1j/2j sample")
+    return float(np.mean(labels))
+
+
+def _nominal_signal_fraction(data: Data | None, root_dir: str | None, models, device: str) -> float:
+    kwargs: Dict[str, Any]
+    if data:
+        kwargs = {"loaded_data": data}
+    elif root_dir:
+        kwargs = {"root_dir": root_dir}
+    else:
+        raise ValueError("Either set the argument `data` or `root_dir` to load the FAIR Universe Data")
+
+    alljet_data_nominal, _ = createJetData(
+        "all",
+        True,
+        set_mu=1.0,
+        seed=0,
+        n_param=[1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+        useRand=False,
+        **kwargs,
+    )
+    return _signal_fraction_from_labels(alljet_data_nominal, models, device)
+
+
 def predict(
     mu: float,
     hist_path: str,
@@ -130,8 +159,7 @@ def predict(
         logger.info("Running in prediction mode")
         data_2j, data_1j, label_2j, label_1j = return1j2j(alljet_data, models, device=device)
 
-        # Compute the MLE mu using the provided classifier and fitted splines.
-        mu = compute_signal_fraction(  # FIX Technically return is f_s_hat not mu
+        f_s_hat = compute_signal_fraction(
             test_data_2j=data_2j,
             test_data_1j=data_1j,
             dnn_model=class_model_load,
@@ -139,11 +167,15 @@ def predict(
             bin_splines_BG=bin_splines_BG_class,
             eval_device=device,
         )
-        mu_MLE, mu_lower, mu_upper = get_confidence_interval(mu, std_corrected_interp, a, b)
+        f_s_nominal = _nominal_signal_fraction(data, root_dir, models, device)
+        mu_observed = f_s_hat / f_s_nominal
+        mu_MLE, mu_lower, mu_upper = get_confidence_interval(mu_observed, std_corrected_interp, a, b)
 
         results.update(
             {
-                "real_mu": mu,
+                "real_mu": float(mu_observed),
+                "f_s_hat": float(f_s_hat),
+                "f_s_nominal": float(f_s_nominal),
                 "mu_hat": float(mu_MLE),
                 "p16": float(mu_lower),
                 "p84": float(mu_upper),
