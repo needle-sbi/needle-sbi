@@ -67,8 +67,33 @@ class Data:
         Parameters:
             input_dir (str): The directory path of the input data.
         """
-        self.train_data_file = os.path.join(input_dir, parquet_filename)
-        croissant_file = os.path.join(input_dir, metadata_filename)
+        input_path = Path(input_dir).expanduser()
+        if input_path.is_file():
+            data_file = input_path
+        else:
+            candidate_data_files = [
+                input_path / parquet_filename,
+                input_path / "data.parquet",
+                input_path / "input_data" / "train" / "data" / "data.parquet",
+            ]
+            data_file = next((path for path in candidate_data_files if path.exists()), candidate_data_files[0])
+
+        candidate_metadata_files = [
+            data_file.with_name(metadata_filename),
+            input_path / metadata_filename,
+        ]
+        metadata_file = next((path for path in candidate_metadata_files if path.exists()), candidate_metadata_files[0])
+
+        self.train_data_file = str(data_file)
+        croissant_file = str(metadata_file)
+        split_train_dir = data_file.parent.parent
+        self.split_sidecar_dir = (
+            split_train_dir
+            if (split_train_dir / "detailed_labels" / "data.detailed_labels").exists()
+            and (split_train_dir / "labels" / "data.labels").exists()
+            and (split_train_dir / "weights" / "data.weights").exists()
+            else None
+        )
 
         try:
             with open(croissant_file, "r", encoding="utf-8") as f:
@@ -190,6 +215,7 @@ class Data:
         parquet_file = pq.ParquetFile(self.train_data_file)
         current_row = 0
         sampled_df = pd.DataFrame()
+        max_selected_index = int(selected_indices[-1]) if len(selected_indices) else -1
 
         chunks = []
         for row_group_index in tqdm(
@@ -207,8 +233,26 @@ class Data:
             if len(within_group_indices) > 0:
                 chunks.append(row_group.iloc[within_group_indices])
             current_row += row_group_size
+            if current_row > max_selected_index:
+                break
 
         sampled_df = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
+
+        if self.split_sidecar_dir and "detailed_labels" not in sampled_df.columns:
+            sampled_df["detailed_labels"] = self.__load_sidecar_values(
+                self.split_sidecar_dir / "detailed_labels" / "data.detailed_labels",
+                selected_indices,
+            )
+            sampled_df["labels"] = self.__load_sidecar_values(
+                self.split_sidecar_dir / "labels" / "data.labels",
+                selected_indices,
+                dtype="float32",
+            )
+            sampled_df["weights"] = self.__load_sidecar_values(
+                self.split_sidecar_dir / "weights" / "data.weights",
+                selected_indices,
+                dtype="float32",
+            )
 
         if "sum_weights" in self.metadata:
             sum_weights = self.metadata["sum_weights"]
@@ -219,13 +263,58 @@ class Data:
 
         return sampled_df
 
-    def load_test_set(self):
+    @staticmethod
+    def __load_sidecar_values(path: Path, selected_indices, dtype: str | None = None) -> pd.Series:
+        selected_indices = np.asarray(selected_indices, dtype=np.int64)
+        selected_set = set(selected_indices.tolist())
+        max_index = int(selected_indices[-1]) if len(selected_indices) else -1
+
+        values = []
+        with open(path, "r", encoding="utf-8") as file:
+            for index, line in enumerate(file):
+                if index in selected_set:
+                    values.append(line.strip())
+                if index >= max_index:
+                    break
+
+        return pd.Series(values, dtype=dtype)
+
+    def load_test_set(
+        self,
+        test_size: int | None = None,
+        selected_indices: List[int] | np.ndarray | None = None,
+        random_seed: int | None = None,
+        max_source_rows: int | None = None,
+    ):
         """Load the test dataset from the parquet file.
+
+        Args:
+            test_size: Number of rows to load. Defaults to ``self.test_size``.
+            selected_indices: Explicit row indices to use for the test set.
+            random_seed: Seed for drawing a representative subset when ``selected_indices`` is not supplied.
+            max_source_rows: Restrict random sampling to the first N rows. Useful for local debugging on large split
+                datasets because sidecar label files are line-oriented.
 
         Side effects:
             Sets `self.__test_set` with labeled subsets.
         """
-        selected_test_indices = np.array(range(self.test_size))
+        if selected_indices is not None:
+            selected_test_indices = np.sort(np.asarray(selected_indices, dtype=np.int64))
+        else:
+            if test_size is None:
+                test_size = self.test_size
+            if test_size is None:
+                test_size = self.total_rows
+
+            source_rows = self.total_rows if max_source_rows is None else min(max_source_rows, self.total_rows)
+            test_size = min(test_size, source_rows)
+
+            if random_seed is None:
+                selected_test_indices = np.arange(test_size)
+            else:
+                random_state = np.random.default_rng(random_seed)
+                selected_test_indices = np.sort(random_state.choice(source_rows, size=test_size, replace=False))
+
         test_df = self.__load_data(selected_test_indices)
 
         keys = ["ztautau", "diboson", "ttbar", "htautau"]
