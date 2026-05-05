@@ -16,7 +16,6 @@ from urllib.parse import parse_qs
 import luigi
 import numpy as np
 import torch
-from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
@@ -25,6 +24,13 @@ from ..utils.selection import Data, createJetData, load_train_set_data, return1j
 
 logger = Logger("histogram")
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+try:
+    from ml.utils.epoch_timer import timing
+except ModuleNotFoundError:
+
+    def timing(func):
+        return func
 
 
 def init_worker(data: Data):

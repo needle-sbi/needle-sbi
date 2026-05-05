@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.figure import Figure
-from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
