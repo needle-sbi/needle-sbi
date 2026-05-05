@@ -266,6 +266,15 @@ def write_debug_plots(summary: dict, output_dir: Path) -> list[str]:
     paths.append(save_needle_plot(fig, path))
 
     fig, ax = plt.subplots(figsize=(5, 4))
+    residual = neyman_mean - mu_values
+    ax.axhline(0, color="k", linestyle="--", linewidth=1)
+    ax.errorbar(mu_values, residual, yerr=neyman_std, marker="o", capsize=3)
+    ax.set_xlabel(r"$\mu_\mathrm{true}$")
+    ax.set_ylabel(r"Observed $f_s/f_s^\mathrm{nominal} - \mu_\mathrm{true}$")
+    path = plot_dir / "neyman_calibration_residuals.png"
+    paths.append(save_needle_plot(fig, path))
+
+    fig, ax = plt.subplots(figsize=(5, 4))
     ax.errorbar(mu_values, n_events_mean, yerr=n_events_std, marker="o", capsize=3)
     ax.set_xlabel(r"$\mu_\mathrm{true}$")
     ax.set_ylabel("Pseudo-experiment events")
@@ -366,6 +375,39 @@ def write_nuisance_scan_plot(summary: dict, output_dir: Path) -> str | None:
     return save_needle_plot(fig, path)
 
 
+def write_nuisance_impact_plot(summary: dict, output_dir: Path) -> str | None:
+    rows = summary.get("nuisance_scan_rows")
+    if not rows:
+        return None
+
+    grouped = {
+        scan_name: [row for row in rows if row["scan"] == scan_name]
+        for scan_name in dict.fromkeys(row["scan"] for row in rows)
+    }
+    nominal_mu = np.mean([row["mu_observed"] for row in grouped["nominal"]])
+    impact_rows = []
+    for scan_name, scan_rows in grouped.items():
+        if scan_name == "nominal":
+            continue
+        mean_mu = np.mean([row["mu_observed"] for row in scan_rows])
+        impact_rows.append((scan_name, mean_mu - nominal_mu))
+
+    impact_rows.sort(key=lambda item: abs(item[1]))
+    labels = [name.replace("_", " ") for name, _ in impact_rows]
+    impacts = np.array([impact for _, impact in impact_rows])
+    colors = np.where(impacts >= 0, "C0", "C3")
+
+    plot_dir = output_dir / "plots"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.barh(labels, impacts, color=colors, alpha=0.8)
+    ax.axvline(0, color="k", linewidth=1)
+    ax.set_xlabel(r"Shift in observed $f_s/f_s^\mathrm{nominal}$")
+    ax.set_ylabel("Nuisance variation")
+    path = plot_dir / "nuisance_impact_ranking.png"
+    return save_needle_plot(fig, path)
+
+
 def run_profile_likelihood_scan(
     *,
     data: Data,
@@ -457,17 +499,38 @@ def write_profile_likelihood_plot(summary: dict, output_dir: Path) -> str | None
     rows = profile["rows"]
     mu_values = np.array([row["mu_observed"] for row in rows])
     q_values = np.array([row["minus2_delta_log_likelihood"] for row in rows])
+    best_mu = profile["best_mu_observed"]
+
+    gaussian_mu = None
+    gaussian_q = None
+    fit_mask = q_values < 4
+    if np.count_nonzero(fit_mask) < 3:
+        fit_mask = q_values < 9
+    if np.count_nonzero(fit_mask) >= 3:
+        coeff = np.polyfit(mu_values[fit_mask] - best_mu, q_values[fit_mask], deg=2)
+        curvature = coeff[0]
+        if curvature > 0:
+            gaussian_mu = np.linspace(mu_values.min(), mu_values.max(), 300)
+            gaussian_q = curvature * (gaussian_mu - best_mu) ** 2
 
     plot_dir = output_dir / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(5, 4))
-    ax.plot(mu_values, q_values, marker="o", markersize=3)
-    ax.axvline(profile["best_mu_observed"], color="C1", linestyle="--", label="Best fit")
-    ax.axhline(1.0, color="0.5", linestyle=":", label=r"$1\sigma$")
-    ax.axhline(4.0, color="0.7", linestyle=":", label=r"$2\sigma$")
+    ax.plot(mu_values, q_values, marker="o", markersize=3, label="Profile scan")
+    if gaussian_mu is not None and gaussian_q is not None:
+        ax.plot(gaussian_mu, gaussian_q, color="C3", linestyle="--", label="Gaussian approximation")
+    ax.axvline(best_mu, color="C1", linestyle="--", label="Best fit")
+    ax.axhline(1.0, color="0.5", linestyle=":", label="68% CL")
+    ax.axhline(4.0, color="0.7", linestyle=":", label="95% CL")
     ax.set_xlabel(r"$f_s^\mathrm{fit} / f_s^\mathrm{nominal}$")
     ax.set_ylabel(r"$-2\Delta\log L$")
-    ax.set_ylim(bottom=0)
+    y_max = float(np.nanmax(q_values))
+    ax.set_ylim(0, 8 if y_max > 12 else max(4.5, 1.05 * y_max))
+    visible_mask = q_values <= ax.get_ylim()[1]
+    if y_max > 12 and np.count_nonzero(visible_mask) >= 2:
+        visible_mu = mu_values[visible_mask]
+        span = max(float(visible_mu.max() - visible_mu.min()), 0.05)
+        ax.set_xlim(visible_mu.min() - 0.35 * span, visible_mu.max() + 0.35 * span)
     ax.legend()
     path = plot_dir / "profile_likelihood_scan.png"
     return save_needle_plot(fig, path)
@@ -486,6 +549,9 @@ def main() -> None:
         nuisance_plot = write_nuisance_scan_plot(summary, output_dir)
         if nuisance_plot and nuisance_plot not in summary["plot_paths"]:
             summary["plot_paths"].append(nuisance_plot)
+        nuisance_impact_plot = write_nuisance_impact_plot(summary, output_dir)
+        if nuisance_impact_plot and nuisance_impact_plot not in summary["plot_paths"]:
+            summary["plot_paths"].append(nuisance_impact_plot)
         profile_plot = write_profile_likelihood_plot(summary, output_dir)
         if profile_plot and profile_plot not in summary["plot_paths"]:
             summary["plot_paths"].append(profile_plot)
@@ -527,6 +593,11 @@ def main() -> None:
             summary.setdefault("plot_paths", [])
             if nuisance_plot not in summary["plot_paths"]:
                 summary["plot_paths"].append(nuisance_plot)
+        nuisance_impact_plot = write_nuisance_impact_plot(summary, output_dir)
+        if nuisance_impact_plot:
+            summary.setdefault("plot_paths", [])
+            if nuisance_impact_plot not in summary["plot_paths"]:
+                summary["plot_paths"].append(nuisance_impact_plot)
         with open(summary_path, "w", encoding="utf-8") as file:
             json.dump(summary, file, indent=2)
         print(json.dumps({"nuisance_scan_rows": summary["nuisance_scan_rows"]}, indent=2))

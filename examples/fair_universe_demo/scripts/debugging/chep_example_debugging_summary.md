@@ -131,7 +131,8 @@ Profile-likelihood scan:
 - Best fit: observed `mu = 0.95`, `f_s = 0.15916`, `nu1 = 1.00081`, `nu2 = 1.00804`.
 - The true label-derived signal fraction for this pseudo-experiment is `0.17344`, so the profile minimum is consistent
   with the same small low bias seen in the nominal `predict()` check.
-- Plot: `runs/fair_universe_demo_debug_subset/plots/profile_likelihood_scan.png`.
+- Plot: `runs/fair_universe_demo_debug_subset/plots/profile_likelihood_scan.png` now follows the example scan style with
+  68%/95% CL guides and a local Gaussian approximation.
 
 Nuisance scan summary:
 
@@ -153,6 +154,8 @@ Interpretation:
   not rail at the spline boundary.
 - Soft MET and background-normalization shifts do not cause TES/JES railing on this debug subset.
 - The remaining visible issue is calibration/statistics rather than a hard template-boundary failure.
+- Extra plots: `runs/fair_universe_demo_debug_subset/plots/neyman_calibration_residuals.png` and
+  `runs/fair_universe_demo_debug_subset/plots/nuisance_impact_ranking.png`.
 
 ## Wider Local Validation
 
@@ -203,6 +206,8 @@ Wide profile scan:
 - Best fit: observed `mu = 1.05`, `f_s = 0.17885`, `nu1 = 0.99877`, `nu2 = 0.99840`.
 - True label-derived signal fraction for that pseudo-experiment: `0.17213`.
 - Plot: `runs/fair_universe_demo_debug_subset_wide/plots/profile_likelihood_scan.png`.
+- Extra plots: `runs/fair_universe_demo_debug_subset_wide/plots/neyman_calibration_residuals.png` and
+  `runs/fair_universe_demo_debug_subset_wide/plots/nuisance_impact_ranking.png`.
 
 Interpretation:
 
