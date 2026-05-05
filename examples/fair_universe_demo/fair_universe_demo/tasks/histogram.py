@@ -45,7 +45,7 @@ def _compute_histogram_entry(args):
     n_params = [1, 1, 1, j, i, 0]
 
     nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(snapshot_path)
-    nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
+    nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device).eval().to(torch.float32)
     classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
     classifier = classifier.to(device).eval().to(torch.float32)
 

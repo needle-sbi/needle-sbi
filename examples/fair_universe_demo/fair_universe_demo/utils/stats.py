@@ -114,9 +114,9 @@ def compute_signal_fraction(
     -------
     A tuple (f_s_hat, theta_hat)
     """
-    test_data_2j = test_data_2j.to(eval_device)
-    test_data_1j = test_data_1j.to(eval_device)
-    dnn_model = dnn_model.to(eval_device)
+    test_data_2j = test_data_2j.to(eval_device).to(torch.float32)
+    test_data_1j = test_data_1j.to(eval_device).to(torch.float32)
+    dnn_model = dnn_model.to(eval_device).eval().to(torch.float32)
 
     nbins = 200
     bins = np.linspace(0, 1, num=nbins)

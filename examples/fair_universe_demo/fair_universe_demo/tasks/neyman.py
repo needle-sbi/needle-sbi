@@ -105,8 +105,13 @@ class NeymanTask(PlottingMixin):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(self.snapshot_path)
-        self.nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts)
-        self.classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
+        self.nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(self.device).eval().to(torch.float32)
+        self.classifier = (
+            CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
+            .to(self.device)
+            .eval()
+            .to(torch.float32)
+        )
 
         self.loaded_data = fetch_dataset(root_dir=self.root_dir)
 

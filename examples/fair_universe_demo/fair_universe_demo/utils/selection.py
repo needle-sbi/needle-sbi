@@ -596,11 +596,11 @@ def return1j2j(
         label_2j = label_2j[:nevents]
         label_1j = label_1j[:nevents]
 
-    data_1j = data_1j.to(device)
-    data_2j = data_2j.to(device)
+    data_1j = data_1j.to(device).to(torch.float32)
+    data_2j = data_2j.to(device).to(torch.float32)
     label_1j = label_1j.to(device)
     label_2j = label_2j.to(device)
-    models.to(device)
+    models.to(device).eval().to(torch.float32)
 
     with torch.no_grad():
         try:

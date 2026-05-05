@@ -95,7 +95,7 @@ def predict(
     std_corrected_interp, a, b = load_bias_data(neyman_path)
 
     nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(snapshot_path)
-    models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device)
+    models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(device).eval().to(torch.float32)
     class_model_load = (
         CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"]).to(device).eval().to(torch.float32)
     )
