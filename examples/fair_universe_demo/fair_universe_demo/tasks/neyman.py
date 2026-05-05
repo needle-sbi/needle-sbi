@@ -30,6 +30,13 @@ from ..utils.stats import (
 from .histogram import HistogramTask
 from .plot_results import PlottingMixin
 
+try:
+    from ml.utils.epoch_timer import timing
+except ModuleNotFoundError:
+
+    def timing(func):
+        return func
+
 
 class NeymanTask(PlottingMixin):
     snapshot_path: str = luigi.Parameter(description="Path to the snapshot file (.json)")  # type: ignore
