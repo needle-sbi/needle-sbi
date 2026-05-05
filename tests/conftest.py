@@ -1,4 +1,5 @@
 import os
+import resource
 from typing import Callable, List, cast
 
 import hydra
@@ -7,6 +8,16 @@ from dask.distributed import Client, LocalCluster
 from omegaconf import OmegaConf
 
 from orchestrator.config import MainConfig
+
+
+def pytest_sessionstart(session: pytest.Session):
+    """Enable the maximum amount of File Descriptors for the benchmarks
+
+    Args:
+        session (pytest.Session): Current pytest session
+    """
+    _soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 
 @pytest.fixture
@@ -101,18 +112,3 @@ def config_factory() -> Callable[..., MainConfig]:
 @pytest.fixture(scope="function")
 def config(config_factory) -> MainConfig:
     return config_factory(overrides=None)
-
-
-@pytest.fixture(scope="session")
-def dask_client():
-    cluster = LocalCluster(
-        n_workers=1,
-        threads_per_worker=2,
-        memory_limit="20GB",
-    )
-    client = Client(cluster)
-
-    yield client
-
-    client.close()
-    cluster.close()
