@@ -19,8 +19,11 @@ from tests.conftest import MainConfigFactory
 def test_kfold_training(
     config_factory: MainConfigFactory,
     tmp_path: Path,
-    fair_universe_sample: str,
+    fair_universe_sample: str | Path,
 ):
+    fair_universe_sample = Path(fair_universe_sample)
+    if fair_universe_sample.is_dir():
+        fair_universe_sample = fair_universe_sample / "*.parquet"
     estimator_name = list(config_factory().estimators.keys())[0]
     config = config_factory()
     config.estimators[estimator_name].dataset_override.paths = fair_universe_sample
@@ -32,6 +35,6 @@ def test_kfold_training(
         config_file=config_tmp_file,
         estimator=estimator_name,
         systematic="nominal",
-        rel_results_path=tmp_path,
+        results_path=tmp_path,
     )
     assert ensemble.law_run()

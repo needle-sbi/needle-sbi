@@ -1,11 +1,15 @@
 import os
 import resource
-from typing import Callable, List, cast
+from pathlib import Path
+from typing import Callable, List, Protocol, cast
 
+import hydra
 import pytest
 from dask.distributed import Client, LocalCluster
+from omegaconf import OmegaConf
 
 from orchestrator.config import MainConfig
+from orchestrator.config_utils import resolve_defaults
 
 
 def pytest_sessionstart(session: pytest.Session):
@@ -107,6 +111,8 @@ def config_factory() -> Callable[..., MainConfig]:
             cfg_dict = hydra.compose(config_name="config", overrides=overrides)
             cfg_defaults = OmegaConf.structured(MainConfig)
             cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
+            cfg_dir = Path(__file__).parent / "hydra_test_conf"
+            cfg = resolve_defaults(cfg, cfg_dir)
             return cast(MainConfig, cfg)
 
     return _factory

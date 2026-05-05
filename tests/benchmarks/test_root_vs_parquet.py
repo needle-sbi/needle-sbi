@@ -94,7 +94,6 @@ def run_test(
     paths: List[str],
     drop_branches: List[str],
     file_type: Literal["parquet", "root"],
-    file_type: Literal["parquet", "root"],
 ) -> Callable:
     """_summary_
 
@@ -132,16 +131,11 @@ def run_test(
 
         Does not materialize partitions and does not perform any computation of the arrays.
         """
-        """Test function to read the metadata from the files
-
-        Does not materialize partitions and does not perform any computation of the arrays.
-        """
         _ = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
-            reader_kwargs=reader_kwargs(),
             reader_kwargs=reader_kwargs(),
         )
 
@@ -158,10 +152,7 @@ def run_test(
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
             reader_kwargs=reader_kwargs(),
-            reader_kwargs=reader_kwargs(),
         )
-        for field in ingestor.fields:
-            ingestor[field].compute()
         for field in ingestor.fields:
             ingestor[field].compute()
 
@@ -212,7 +203,6 @@ def test_ingestion_speed(
     column_mode: str,
     file_percentage: Percentage,
     file_type: Literal["parquet", "root"],
-    file_type: Literal["parquet", "root"],
     test_method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
@@ -235,8 +225,6 @@ def test_ingestion_speed(
         num_events (int): How many events to load. Will cap at the maximal amount of events found in
             the loaded files.
         drop_branches (list, optional): Remove these branches when reading and converting files.
-            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
-            in the default Delphes dataset.
             Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
             in the default Delphes dataset.
     """
@@ -262,13 +250,6 @@ def test_ingestion_speed(
         paths=resolve_paths(data_path),
     )
     benchmark(
-        run_test(
-            method=test_method,
-            config=config,
-            paths=paths,
-            drop_branches=drop_branches,
-            file_type=file_type,
-        ),
         run_test(
             method=test_method,
             config=config,
