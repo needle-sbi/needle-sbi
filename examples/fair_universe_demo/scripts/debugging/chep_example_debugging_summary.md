@@ -154,12 +154,72 @@ Interpretation:
 - Soft MET and background-normalization shifts do not cause TES/JES railing on this debug subset.
 - The remaining visible issue is calibration/statistics rather than a hard template-boundary failure.
 
+## Wider Local Validation
+
+To check that the conclusion is not an artifact of the smaller debug subset, a wider run was produced in
+`runs/fair_universe_demo_debug_subset_wide`:
+
+```bash
+FAIR_UNIVERSE_DATA="/Users/levievans/Dev/needle/fair-universe-data/data" \
+uv run python examples/fair_universe_demo/scripts/debugging/debug_subset_inference.py \
+  --subset-size 50000 \
+  --max-source-rows 1000000 \
+  --weight-scale 100 \
+  --signal-weight-scale 10000 \
+  --grid-size 5 \
+  --neyman-samples 10 \
+  --mu-values 0.1 0.5 1.0 1.5 2.0 2.5 3.0 \
+  --output-dir runs/fair_universe_demo_debug_subset_wide
+```
+
+Closure summary:
+
+| `mu_true` | mean true signal fraction | mean fitted signal fraction | mean Neyman ratio | Neyman ratio std |
+| --- | ---: | ---: | ---: | ---: |
+| 0.1 | 0.0192 | 0.0210 | 0.1230 | 0.0213 |
+| 0.5 | 0.0928 | 0.0951 | 0.5581 | 0.0292 |
+| 1.0 | 0.1680 | 0.1681 | 0.9866 | 0.0348 |
+| 1.5 | 0.2307 | 0.2271 | 1.3334 | 0.0260 |
+| 2.0 | 0.2874 | 0.2821 | 1.6560 | 0.0203 |
+| 2.5 | 0.3362 | 0.3261 | 1.9146 | 0.0290 |
+| 3.0 | 0.3770 | 0.3666 | 2.1520 | 0.0220 |
+
+Wide nuisance scan:
+
+| scan | mean observed `mu` | mean `nu1` | mean `nu2` | any bound hit |
+| --- | ---: | ---: | ---: | --- |
+| nominal | 0.9708 | 1.0036 | 0.9965 | false |
+| TES low | 0.9425 | 0.9720 | 0.9997 | false |
+| TES high | 0.9885 | 1.0256 | 1.0051 | false |
+| JES low | 0.9433 | 0.9924 | 0.9651 | false |
+| JES high | 0.9239 | 1.0011 | 1.0543 | false |
+| soft MET | 0.9609 | 1.0058 | 0.9982 | false |
+| ttbar up | 0.9497 | 1.0063 | 0.9963 | false |
+| diboson up | 0.9686 | 1.0038 | 0.9966 | false |
+| background up | 0.9539 | 1.0043 | 1.0028 | false |
+
+Wide profile scan:
+
+- Best fit: observed `mu = 1.05`, `f_s = 0.17885`, `nu1 = 0.99877`, `nu2 = 0.99840`.
+- True label-derived signal fraction for that pseudo-experiment: `0.17213`.
+- Plot: `runs/fair_universe_demo_debug_subset_wide/plots/profile_likelihood_scan.png`.
+
+Interpretation:
+
+- The wider closure still recovers the fitted signal fraction close to the label-derived truth across the full tested
+  `mu` range.
+- No tested nuisance scenario drives TES/JES to the spline boundary.
+- The observable `f_s / f_s_nominal` is clearly nonlinear as a function of true `mu` at high signal strength, so the
+  remaining work is calibration: the final Neyman correction should be built with enough statistics and should not rely
+  on an over-simple linear approximation if full-statistics calibration shows the same curvature.
+
 ## Closed and Open Questions
 
 - Closed for the local debug subset: nominal closure recovers fitted signal fraction near the label-derived truth.
 - Closed for the local debug subset: TES-only and JES-only scans do not rail at `[0.9, 1.1]`.
 - Closed for the local debug subset: soft MET and tested background-normalization shifts do not drive TES/JES to the
   spline boundary.
-- Partially closed: increasing from the 5k first-row subset to a 20k randomly selected bounded subset stabilizes the
-  templates enough for debugging, but this is still not a replacement for the final full-stat run.
-- Still open: a larger/full-stat Neyman build should reduce the remaining low bias in the final nominal `mu_hat`.
+- Closed for local validation: increasing from the 5k first-row subset to 20k and then 50k randomly selected bounded
+  subsets stabilizes the templates enough for debugging.
+- Still open for production: build the final full-stat Neyman calibration and use a calibration model flexible enough to
+  capture the observed nonlinearity between `f_s / f_s_nominal` and true `mu`.
