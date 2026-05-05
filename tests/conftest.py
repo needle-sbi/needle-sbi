@@ -1,13 +1,21 @@
 import os
-from functools import partial
-from pathlib import Path
-from typing import Callable, List, Protocol
+import resource
+from typing import Callable, List, cast
 
 import pytest
 from dask.distributed import Client, LocalCluster
 
 from orchestrator.config import MainConfig
-from orchestrator.config_utils import initialize_hydra_config
+
+
+def pytest_sessionstart(session: pytest.Session):
+    """Enable the maximum amount of File Descriptors for the benchmarks
+
+    Args:
+        session (pytest.Session): Current pytest session
+    """
+    _soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 
 @pytest.fixture
@@ -67,37 +75,43 @@ class MainConfigFactory(Protocol):
 
 
 @pytest.fixture()
-def config_factory() -> MainConfigFactory:
+def config_factory() -> Callable[..., MainConfig]:
     """Create configs from the .yaml file together with the defaults from the corresponding
     dataclass.
 
     Returns:
-        MainConfigFactory: Factory to create new configs. Use the hydra `overrides`
+        Callable[List[str] | None, MainConfig]: Factory to create new configs. Use the hydra `overrides`
             argument to replace a value from the .yaml with a new value.
+
+    Example:
+        Default config with no overrides
+
+        ```python
+        config: MainConfig = config_factory()
+        ```
+
+        Config with extra overrides
+
+        ```python
+        config: MainConfig = config_factory(overrides=["datasets=delphes"])
+        ```
+
+    Note:
+        The schema of the overrides is determined by the hydra package, but follows mostly the str
+        version of keyword assignment, e.g. `'<key>=<value>'` as a list of str.
+
     """
-    return partial(
-        initialize_hydra_config,
-        config_dir=str(Path("tests/hydra_test_conf").absolute()),
-        config_name="config",
-    )
+
+    def _factory(overrides: List[str] | None = None):
+        with hydra.initialize(config_path="hydra_test_conf"):
+            cfg_dict = hydra.compose(config_name="config", overrides=overrides)
+            cfg_defaults = OmegaConf.structured(MainConfig)
+            cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
+            return cast(MainConfig, cfg)
+
+    return _factory
 
 
 @pytest.fixture(scope="function")
-def config(config_factory: MainConfigFactory) -> MainConfig:
-    return config_factory()
-
-
-@pytest.fixture(scope="session")
-def dask_client():
-    cluster = LocalCluster(
-        n_workers=1,
-        threads_per_worker=1,
-        memory_limit="10GB",
-    )
-    client = Client(cluster)
-    client.run(lambda: None)
-
-    yield client
-
-    client.close()
-    cluster.close()
+def config(config_factory) -> MainConfig:
+    return config_factory(overrides=None)

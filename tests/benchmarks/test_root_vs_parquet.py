@@ -27,11 +27,10 @@ above.
 """
 
 from pathlib import Path
-from typing import Annotated, Callable, List, Literal
+from typing import Annotated, Callable, Dict, List, Literal
 
+import pydantic
 import pytest
-from dask.distributed import Client
-from pydantic import Field
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
@@ -45,24 +44,25 @@ from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
 pytest.importorskip("ml", reason="Could not import 'ml'")
 from ml.data.padded.eager import PaddedDataset  # noqa: E402
 
-Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
+Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
 
 
 class BenchmarkUtility:
     COLUMN_MODES = {
-        pytest.param("one", id="columns=1"),
-        pytest.param("config", id="columns=config"),
+        pytest.param("one", id="columns_1"),
+        pytest.param("config", id="columns_config"),
     }
     FILE_PERCENTAGE = [
-        pytest.param(0.0, id="files=0%"),
-        pytest.param(10.0, id="files=10%", marks=pytest.mark.slow),
-        pytest.param(50.0, id="files=50%", marks=pytest.mark.slow),
-        pytest.param(100.0, id="files=100%", marks=pytest.mark.slow),
+        pytest.param(0.0, id="files_0percent"),
+        pytest.param(0.1, id="files_10percent", marks=pytest.mark.slow),
+        pytest.param(0.5, id="files_50percent", marks=pytest.mark.slow),
+        pytest.param(1.0, id="files_100percent", marks=pytest.mark.slow),
     ]
     NUM_EVENTS = [
-        pytest.param(10**3, id="events=1k"),
-        pytest.param(10**5, id="events=100k", marks=pytest.mark.slow),
-        pytest.param(10**7, id="events=10M", marks=pytest.mark.slow),
+        pytest.param(10**3, id="events_1k"),
+        pytest.param(10**5, id="events_100k", marks=pytest.mark.slow),
+        pytest.param(10**7, id="events_10M", marks=pytest.mark.slow),
+        pytest.param(-1, id="events_all", marks=pytest.mark.slow),
     ]
 
     @staticmethod
@@ -83,6 +83,7 @@ class BenchmarkUtility:
                 return None
 
     @staticmethod
+    @pydantic.validate_call
     def get_files(file_percentage: Percentage, paths: List[str]) -> List[str]:
         return paths[: max(1, int(len(paths) * file_percentage))]
 
@@ -92,48 +93,91 @@ def run_test(
     config: MainConfig,
     paths: List[str],
     drop_branches: List[str],
+    file_type: Literal["parquet", "root"],
 ) -> Callable:
-    def filter_name_func(name: str) -> bool:
-        return not any(d in name for d in drop_branches)
+    """_summary_
+
+    Args:
+        method (Literal[&quot;only_metadata&quot;, &quot;materialize_partitions&quot;, &quot;iterate_dataloader&quot;]):
+            Which kind of test to run from the list of implemented functions.
+        config (MainConfig):
+        paths (List[str]): List of paths to the data files. Valid paths are all paths accepted by `Ingestor`
+        drop_branches (List[str]): List of potentially corrupted branches to drop at runtime
+
+    Returns:
+        Callable: A function without args that will run the desired test
+    """
+
+    def filter_name_func(columns: List[str]) -> Callable[[str], bool]:
+        """Check if the str is in the list of branches to drop"""
+
+        def _filter(name: str) -> bool:
+            is_valid = not any(d in name for d in drop_branches)
+            is_in_columns = name in columns
+            return is_valid and is_in_columns
+
+        return _filter
+
+    def reader_kwargs() -> Dict[str, Callable]:
+        match file_type:
+            case "parquet":
+                return {}
+            case "root":
+                assert config.datasets.features_columns
+                return {"filter_name": filter_name_func(config.datasets.features_columns)}
 
     def _test_only_metadata():
+        """Test function to read the metadata from the files
+
+        Does not materialize partitions and does not perform any computation of the arrays.
+        """
         _ = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
 
     def _test_materialize_partitions():
+        """Test function to materialize partitions from ingested data.
+
+        Creates an Ingestor instance with specified configuration, filters columns
+        based on a filter function, and computes the mapped partitions to materialize
+        them in memory. Performs no actual calculation.
+        """
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
-        arr = ingestor.array[[c for c in ingestor.fields if filter_name_func(c)]]
-        arr.map_partitions(lambda x: x).compute()
+        for field in ingestor.fields:
+            ingestor[field].compute()
 
     def _test_iterate_dataloader():
-        ingestor_features = Ingestor(
+        """Test function to iterate through a dataloader with padded dataset.
+
+        This function creates an Ingestor instance and filters the columns based on the filter
+        function, combines them into a PaddedDataset, and then iterates through a DataLoader to
+        verify that the data pipeline works correctly without errors.
+
+        The test verifies that:
+        - Data can be loaded and filtered properly
+        - The DataLoader can iterate through the dataset without exceptions
+        """
+
+        ingestor = Ingestor(
             paths=paths,
             format="automatic",
             columns=config.datasets.features_columns,
             max_number_events=config.datasets.max_number_events,
+            reader_kwargs=reader_kwargs(),
         )
-        ingestor_features.array = ingestor_features.array[[c for c in ingestor_features.fields if filter_name_func(c)]]
-        ingestor_labels = Ingestor(
-            paths=paths,
-            format="automatic",
-            columns=config.datasets.features_columns,
-            max_number_events=config.datasets.max_number_events,
-        )
-        ingestor_labels.array = ingestor_labels.array[[c for c in ingestor_labels.fields if filter_name_func(c)]]
-        datamodule = PaddedDataset(
-            ingestor_features,
-            ingestor_labels,
-        )
+        datamodule = PaddedDataset(ingestor, ingestor)
         dataloader = DataLoader(datamodule)
+
         for _ in dataloader:
             pass
 
@@ -155,16 +199,18 @@ def test_ingestion_speed(
     benchmark: BenchmarkFixture,
     delphes_sample_root: str,
     delphes_sample_parquet: str,
-    config_factory,
-    dask_client: Client,
+    config_factory: Callable[..., MainConfig],
     column_mode: str,
     file_percentage: Percentage,
-    file_type: str,
+    file_type: Literal["parquet", "root"],
     test_method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
     num_events: int,
     drop_branches=["ref", "fName", "fSize", "fP", "fE", "fBits"],
 ) -> None:
-    """_summary_
+    """Test function to compare the ingestion speeds of parquet and root files in different scenarios.
+
+    The larger and longer test for many events are marked as slow. To run them, add the '-m slow' marker
+    when running the tests. More info is given in the corresponding `BenchmarkUtility` class.
 
     Args:
         benchmark (BenchmarkFixture): Registers this test as a pytest-benchmark instance
@@ -179,7 +225,8 @@ def test_ingestion_speed(
         num_events (int): How many events to load. Will cap at the maximal amount of events found in
             the loaded files.
         drop_branches (list, optional): Remove these branches when reading and converting files.
-            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"].
+            Defaults to ["ref", "fName", "fSize", "fP", "fE", "fBits"], which are invalid branches
+            in the default Delphes dataset.
     """
     if file_type == "parquet":
         convert_root_to_parquet(
@@ -187,6 +234,10 @@ def test_ingestion_speed(
             Path(delphes_sample_parquet).parent,
             drop_branches=drop_branches,
         )
+        data_path = delphes_sample_parquet
+    else:
+        data_path = delphes_sample_root
+
     config: MainConfig = config_factory(overrides=["datasets=delphes"])
     config.datasets.max_number_events = num_events
     config.datasets.features_columns = BenchmarkUtility.get_column(
@@ -194,11 +245,16 @@ def test_ingestion_speed(
         columns=config.datasets.features_columns,
         drop_branches=drop_branches,
     )
-    paths_glob = delphes_sample_root or config.datasets.paths
     paths = BenchmarkUtility.get_files(
         file_percentage=file_percentage,
-        paths=resolve_paths(paths_glob),
+        paths=resolve_paths(data_path),
     )
     benchmark(
-        run_test(method=test_method, config=config, paths=paths, drop_branches=drop_branches),
+        run_test(
+            method=test_method,
+            config=config,
+            paths=paths,
+            drop_branches=drop_branches,
+            file_type=file_type,
+        ),
     )
