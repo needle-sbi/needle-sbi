@@ -73,6 +73,7 @@ def compute_signal_fraction(
     bin_splines_BG,
     eval_device: str = "cpu",
     verbose: bool = True,
+    return_diagnostics: bool = False,
 ):
     """
     Perform a simultaneous MLE of the global signal fraction `f_s`
@@ -93,9 +94,9 @@ def compute_signal_fraction(
     -------
     A tuple (f_s_hat, theta_hat)
     """
-    test_data_2j = test_data_2j.to(eval_device)
-    test_data_1j = test_data_1j.to(eval_device)
-    dnn_model = dnn_model.to(eval_device)
+    test_data_2j = test_data_2j.to(eval_device).to(torch.float32)
+    test_data_1j = test_data_1j.to(eval_device).to(torch.float32)
+    dnn_model = dnn_model.to(eval_device).eval().to(torch.float32)
 
     nbins = 200
     bins = np.linspace(0, 1, num=nbins)
@@ -167,6 +168,28 @@ def compute_signal_fraction(
             )
         )
         tqdm.write(f"Converged={opt_result.success}, {opt_result.message}")
+
+    edge_tol = 1e-3
+    nu1_hit_bound = abs(nu1_hat - nu1_bounds[0]) < edge_tol or abs(nu1_hat - nu1_bounds[1]) < edge_tol
+    nu2_hit_bound = abs(nu2_hat - nu2_bounds[0]) < edge_tol or abs(nu2_hat - nu2_bounds[1]) < edge_tol
+
+    if nu1_hit_bound:
+        logger.warning(f"nu1 hit bound {nu1_bounds} at {nu1_hat:.6f}")
+    if nu2_hit_bound:
+        logger.warning(f"nu2 hit bound {nu2_bounds} at {nu2_hat:.6f}")
+
+    if return_diagnostics:
+        return {
+            "f_s_hat": float(f_s_hat),
+            "nu1_hat": float(nu1_hat),
+            "nu2_hat": float(nu2_hat),
+            "nu1_bounds": tuple(float(value) for value in nu1_bounds),
+            "nu2_bounds": tuple(float(value) for value in nu2_bounds),
+            "nu1_hit_bound": bool(nu1_hit_bound),
+            "nu2_hit_bound": bool(nu2_hit_bound),
+            "success": bool(opt_result.success),
+            "message": str(opt_result.message),
+        }
 
     return float(f_s_hat)
 

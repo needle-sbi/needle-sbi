@@ -156,7 +156,8 @@ def createJetData(
             this function in a loop.
         set_mu (float, optional): Mu parameter for bootstrapping. Defaults to 3.
         seed (int, optional): Random seed. Defaults to 0.
-        n_param (list, optional): List of systematic parameters. Defaults to [1,1,1,1,1,0].
+        n_param (list, optional): List of systematic parameters. Defaults to [1,1,1,1,1,0]. Order is
+            [ttbar_scale, diboson_scale, bkg_scale, TES, JES, soft MET]
         useRand (bool, optional): Whether to apply random systematic shifts. Defaults to False.
 
     Returns:
@@ -596,11 +597,11 @@ def return1j2j(
         label_2j = label_2j[:nevents]
         label_1j = label_1j[:nevents]
 
-    data_1j = data_1j.to(device)
-    data_2j = data_2j.to(device)
+    data_1j = data_1j.to(device).to(torch.float32)
+    data_2j = data_2j.to(device).to(torch.float32)
     label_1j = label_1j.to(device)
     label_2j = label_2j.to(device)
-    models.to(device)
+    models.to(device).eval().to(torch.float32)
 
     with torch.no_grad():
         try:

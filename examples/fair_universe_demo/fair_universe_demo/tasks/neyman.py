@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.figure import Figure
-from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..models.classifier import CombinedClassifier
@@ -29,6 +28,13 @@ from ..utils.stats import (
 )
 from .histogram import HistogramTask
 from .plot_results import PlottingMixin
+
+try:
+    from ml.utils.epoch_timer import timing
+except ModuleNotFoundError:
+
+    def timing(func):
+        return func
 
 
 class NeymanTask(PlottingMixin):
@@ -93,8 +99,13 @@ class NeymanTask(PlottingMixin):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         nf_ckpts, classifier_ckpt = HistogramTask.parse_snapshot(self.snapshot_path)
-        self.nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts)
-        self.classifier = CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
+        self.nf_models = ClassifierDatamodule.load_nf_models(nf_ckpts).to(self.device).eval().to(torch.float32)
+        self.classifier = (
+            CombinedClassifier.load_from_checkpoint(classifier_ckpt["classifier"])
+            .to(self.device)
+            .eval()
+            .to(torch.float32)
+        )
 
         self.loaded_data = fetch_dataset(root_dir=self.root_dir)
 

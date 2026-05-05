@@ -16,13 +16,19 @@ from typing import Any, Dict, List, TypedDict
 
 import luigi
 import numpy as np
-from ml.utils.epoch_timer import timing
 from tqdm import tqdm
 
 from ..utils.dataset_sharing import fetch_dataset
 from ..utils.eval import predict
 
 logger = Logger("eval")
+
+try:
+    from ml.utils.epoch_timer import timing
+except ModuleNotFoundError:
+
+    def timing(func):
+        return func
 
 
 class ModelResult(TypedDict):
@@ -145,12 +151,12 @@ class EvalTask(luigi.Task):
                 snapshot_path=self.snapshot_path,
                 data=self.data,
                 nuissance_parameters=[
-                    tes,
-                    jes,
-                    soft_met,
                     ttbar_scale,
                     diboson_scale,
                     bkg_scale,
+                    tes,
+                    jes,
+                    soft_met,
                 ],
                 predict_num_events=0,
             )
