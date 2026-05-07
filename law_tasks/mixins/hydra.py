@@ -43,7 +43,7 @@ class HydraMixin:
     config_file: str = law.Parameter(
         description="Path to config folder",
         default="conf/config.yaml",
-        significant=True,
+        significant=False,
     )  # type: ignore
     hydra_overrides: str = law.Parameter(
         description="Overrides to be passed to hydra. Type str. Format: 'key1=value1 key2=value2'",
