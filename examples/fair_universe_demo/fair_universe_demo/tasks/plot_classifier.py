@@ -13,7 +13,8 @@ from sklearn.metrics import auc, confusion_matrix, precision_recall_curve, roc_c
 
 from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
-from ..utils.selection import createJetData, load_train_set_data, return1j2j
+from ..utils.dataset_sharing import fetch_dataset
+from ..utils.selection import createJetData, return1j2j
 from .histogram import HistogramTask
 from .plotting_mixin import PlottingMixin
 
@@ -46,7 +47,7 @@ class ClassifierValidationTask(PlottingMixin):
             set_mu=1,
             seed=0,
             useRand=False,
-            loaded_data=load_train_set_data(self.root_dir),
+            loaded_data=fetch_dataset(self.root_dir),
         )
         (
             self.logits_2j,

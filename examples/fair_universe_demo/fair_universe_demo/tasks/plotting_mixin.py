@@ -55,7 +55,7 @@ class PlottingMixin(luigi.Task):
     )  # type: ignore
 
     class PlottingSettings:
-        formats: List[str] = ["pdf"]
+        formats: List[str] = ["pdf", "png"]
 
     @property
     def plot_save_dir_override(self) -> str:

@@ -10,6 +10,7 @@ from matplotlib.colors import LogNorm
 
 from ..models.classifier import CombinedClassifier
 from ..models.classifier_datamodule import ClassifierDatamodule
+from ..utils.dataset_sharing import fetch_dataset
 from ..utils.selection import createJetData
 from .histogram import HistogramTask
 from .plotting_mixin import PlottingMixin
@@ -379,7 +380,8 @@ class NormalizingFlowValidationTask(PlottingMixin):
             jet_num=self.num_jets,
             useTestData=False,
             seed=78,
-            root_dir=self.root_dir,
+            loaded_data=fetch_dataset(self.root_dir),
+            set_mu=1,
         )
         signal_mask = labels == 1
         bg_mask = labels == 0
