@@ -217,7 +217,7 @@ def hydra_check_if_luigi_parameter_supported(task: Type[luigi.Task], arg_name: s
 
 
 def hydra_instantiate(
-    cfg: DictConfig,
+    cfg: DictConfig | Any | None,
     **kwargs,
 ) -> Any:
     """Instantiate the target class using only supported keyword arguments.
@@ -238,6 +238,9 @@ def hydra_instantiate(
     Example:
         >>> instance = hydra_instantiate(cfg, device='cuda', logger=logger)
     """
+    if cfg is None:
+        raise ValueError("Model config is empty")
+
     if not cfg.__getattr__("_target_"):
         raise ValueError(
             "Module config must include the key `_target_` that points to the location of your module. "
