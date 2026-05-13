@@ -34,17 +34,49 @@ import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
-from orchestrator.config import MainConfig
-
-pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
-from preprocessor.ingestion.formatter import Ingestor  # noqa: E402
-from preprocessor.utils.array import resolve_paths  # noqa: E402
-from preprocessor.utils.conversion import convert_root_to_parquet  # noqa: E402
-
-pytest.importorskip("ml", reason="Could not import 'ml'")
-from ml.data.padded.eager import PaddedDataset  # noqa: E402
+from needle.ml.datasets import PaddedDataset
+from needle.utils.array import resolve_paths
+from needle.utils.config_schema import DatasetConfig, EstimatorConfig, ExpansionConfig
+from needle.utils.conversion import convert_root_to_parquet
+from needle.utils.dask_ingestor import Ingestor
 
 Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
+
+
+@pytest.fixture()
+def benchmark_config() -> EstimatorConfig:
+    """Fixture that provides a standalone EstimatorConfig instance for benchmark tests.
+
+    Creates a minimal EstimatorConfig with a default estimator configuration.
+    No external config files or hydra loading is used.
+
+    Returns:
+        EstimatorConfig
+    """
+    # Create a default dataset configuration for ingestion tests
+    dataset_config = DatasetConfig(
+        paths="",  # Will be overridden by the test
+        features_columns=[],  # Will be set by BenchmarkUtility.get_column()
+        labels_columns=[],
+        format="automatic",
+        max_number_events=-1,  # Will be set by the test
+    )
+
+    # Create a default estimator configuration
+    estimator_config = EstimatorConfig(
+        datamodule="default",
+        datamodule_override=None,
+        dataset="default",
+        dataset_override=dataset_config,
+        model="default",
+        model_override=None,
+        trainer="default",
+        trainer_override=None,
+        expands=ExpansionConfig(),
+        requires=None,
+    )
+
+    return estimator_config
 
 
 class BenchmarkUtility:
@@ -90,12 +122,12 @@ class BenchmarkUtility:
 
 def run_test(
     method: Literal["only_metadata", "materialize_partitions", "iterate_dataloader"],
-    config: MainConfig,
+    config: EstimatorConfig,
     paths: List[str],
     drop_branches: List[str],
     file_type: Literal["parquet", "root"],
 ) -> Callable:
-    """_summary_
+    """Benchmark between root and parquet file ingestion with dask_awkward
 
     Args:
         method (Literal[&quot;only_metadata&quot;, &quot;materialize_partitions&quot;, &quot;iterate_dataloader&quot;]):
@@ -108,6 +140,8 @@ def run_test(
         Callable: A function without args that will run the desired test
     """
 
+    assert config.dataset_override is not None
+
     def filter_name_func(columns: List[str]) -> Callable[[str], bool]:
         """Check if the str is in the list of branches to drop"""
 
@@ -119,23 +153,25 @@ def run_test(
         return _filter
 
     def reader_kwargs() -> Dict[str, Callable]:
+        assert config.dataset_override is not None
+        assert config.dataset_override.features_columns is not None
         match file_type:
             case "parquet":
                 return {}
             case "root":
-                assert config.datasets.features_columns
-                return {"filter_name": filter_name_func(config.datasets.features_columns)}
+                return {"filter_name": filter_name_func(config.dataset_override.features_columns)}
 
     def _test_only_metadata():
         """Test function to read the metadata from the files
 
         Does not materialize partitions and does not perform any computation of the arrays.
         """
+        assert config.dataset_override is not None
         _ = Ingestor(
             paths=paths,
             format="automatic",
-            columns=config.datasets.features_columns,
-            max_number_events=config.datasets.max_number_events,
+            columns=config.dataset_override.features_columns,
+            max_number_events=config.dataset_override.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
 
@@ -146,11 +182,12 @@ def run_test(
         based on a filter function, and computes the mapped partitions to materialize
         them in memory. Performs no actual calculation.
         """
+        assert config.dataset_override is not None
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
-            columns=config.datasets.features_columns,
-            max_number_events=config.datasets.max_number_events,
+            columns=config.dataset_override.features_columns,
+            max_number_events=config.dataset_override.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
         for field in ingestor.fields:
@@ -167,12 +204,12 @@ def run_test(
         - Data can be loaded and filtered properly
         - The DataLoader can iterate through the dataset without exceptions
         """
-
+        assert config.dataset_override is not None
         ingestor = Ingestor(
             paths=paths,
             format="automatic",
-            columns=config.datasets.features_columns,
-            max_number_events=config.datasets.max_number_events,
+            columns=config.dataset_override.features_columns,
+            max_number_events=config.dataset_override.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
         datamodule = PaddedDataset(ingestor, ingestor)
@@ -197,9 +234,9 @@ def run_test(
 @pytest.mark.parametrize("test_method", ["only_metadata", "materialize_partitions", "iterate_dataloader"])
 def test_ingestion_speed(
     benchmark: BenchmarkFixture,
+    benchmark_config: EstimatorConfig,
     delphes_sample_root: str,
     delphes_sample_parquet: str,
-    config_factory: Callable[..., MainConfig],
     column_mode: str,
     file_percentage: Percentage,
     file_type: Literal["parquet", "root"],
@@ -214,14 +251,14 @@ def test_ingestion_speed(
 
     Args:
         benchmark (BenchmarkFixture): Registers this test as a pytest-benchmark instance
+        benchmark_config (EstimatorConfig): Configuration instance for benchmark tests
         delphes_sample_root (str): Path to the Delphes (Root) samples
-        delphes_sample_parquet (str): Path to the Delphes (Parquet)  samples. if empty, these files
+        delphes_sample_parquet (str): Path to the Delphes (Parquet) samples. if empty, these files
             will be generated by converting the root files from `delphes_sample_root` to .parquet.
-        config_factory (_type_): Load the config (as a factory to override some of the arguments)
-        dask_client (Client): Run this code within the dask Client environment
         column_mode (str): Which columns to choose. See `BenchmarkUtility`
         file_percentage (Percentage): How many files to open. See `BenchmarkUtility`
         file_type (str): Run this test either as Root or Parquet files.
+        test_method (str): Which benchmark test method to run. See `BenchmarkUtility`
         num_events (int): How many events to load. Will cap at the maximal amount of events found in
             the loaded files.
         drop_branches (list, optional): Remove these branches when reading and converting files.
@@ -238,11 +275,14 @@ def test_ingestion_speed(
     else:
         data_path = delphes_sample_root
 
-    config: MainConfig = config_factory(overrides=["datasets=delphes"])
-    config.datasets.max_number_events = num_events
-    config.datasets.features_columns = BenchmarkUtility.get_column(
+    config: EstimatorConfig = benchmark_config
+    # Access dataset config through the default estimator
+    dataset_config = config.dataset_override
+    assert dataset_config is not None
+    dataset_config.max_number_events = num_events
+    dataset_config.features_columns = BenchmarkUtility.get_column(
         column_mode=column_mode,
-        columns=config.datasets.features_columns,
+        columns=dataset_config.features_columns,
         drop_branches=drop_branches,
     )
     paths = BenchmarkUtility.get_files(

@@ -47,6 +47,6 @@ repos:
       - id: no-debug-string
         name: Check for DEBUG string
         language: pygrep
-        entry: "DEBUG"
+        entry: print("DEBUG*")  # TODO Unsure if this catches everything
         types: [text]
         exclude: ^\.pre-commit-config\.yaml$

@@ -1,8 +1,6 @@
-import os
 from functools import cached_property
 from itertools import product
-from pathlib import Path
-from typing import Any, Dict, List, NamedTuple
+from typing import Any, Dict, NamedTuple
 from urllib.parse import urlencode
 
 import law
@@ -11,10 +9,10 @@ from omegaconf import DictConfig, OmegaConf
 
 from law_tasks.mixins import CollectOutputMixin, HydraMixin
 from law_tasks.snapshot import SnapshotTask
-from orchestrator.config import DownstreamTaskConfig
-from orchestrator.config_utils import hydra_instantiate
-from orchestrator.luigi_utils import convert_luigi_to_law_targets
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.config_schema import DownstreamTaskConfig
+from needle.utils.config_utils import hydra_instantiate
+from needle.utils.logging import ColorFormatter
+from needle.utils.luigi_utils import convert_luigi_to_law_targets
 
 logger = ColorFormatter.get_logger("downstream")
 

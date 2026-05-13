@@ -1,3 +1,0 @@
-_target_: ml.lightning.models.simple_mlp.SimpleMLPModule
-hidden_dim: 64
-init_lr: 0.001

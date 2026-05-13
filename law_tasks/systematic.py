@@ -10,9 +10,9 @@ import law
 
 from law_tasks.ensemble import EnsembleTask
 from law_tasks.mixins import HydraMixin
-from orchestrator.config import EstimatorConfig, SystematicConfig
-from orchestrator.results import EnsembleResults, SystematicResults
-from preprocessor.utils import ColorFormatter
+from needle.utils.config_schema import EstimatorConfig, SystematicConfig
+from needle.utils.logging import ColorFormatter
+from needle.utils.results import EnsembleResults, SystematicResults
 
 logger = ColorFormatter.get_logger("systematic")
 

@@ -3,13 +3,73 @@ import resource
 from pathlib import Path
 from typing import Callable, List, Protocol, cast
 
+import awkward as ak
 import hydra
+import numpy as np
+import pydantic
 import pytest
 from dask.distributed import Client, LocalCluster
 from omegaconf import OmegaConf
 
-from orchestrator.config import MainConfig
-from orchestrator.config_utils import resolve_defaults
+from needle.utils.config_schema import MainConfig
+from needle.utils.config_utils import resolve_defaults
+from needle.utils.dask_ingestor import Ingestor
+
+type NestDictType = dict[str, "NestDictType | ArrayField"]
+
+
+class ArrayField(pydantic.BaseModel):
+    dtype: type
+    shape: tuple[int, ...] = (100, 1, 1)
+
+
+@pydantic.validate_call
+def create_array_field(field_template: ArrayField):
+    """Create a regular ak.Array with the desired shape and dtype"""
+    numpy_array = np.pi * np.random.random(field_template.shape)
+    numpy_array = numpy_array.astype(field_template.dtype)
+    return ak.Array(numpy_array)
+
+
+@pydantic.validate_call
+def create_nested_structure(columns: dict) -> ak.Array:
+    """Template to create nested ak.Record structures from a nested dictionary"""
+    array_dict = {}
+
+    for key, value in columns.items():
+        if isinstance(value, dict):
+            array_dict[key] = create_nested_structure(value)
+        elif isinstance(value, ArrayField):
+            array_dict[key] = create_array_field(value)
+        else:
+            raise ValueError("Value must be either a dict or an ArrayField.")
+
+    return ak.Array(array_dict)
+
+
+@pytest.fixture
+def make_parquet_file(tmp_path: Path) -> Callable[[NestDictType, str], str]:
+    """Pytest fixture (wraps the inner function and provides the temporary path)"""
+
+    def _make_parquet_file(
+        columns: NestDictType,
+        file_name: str = "test",
+    ) -> str:
+        """Create a parquet file with the desired structure"""
+        array = create_nested_structure(columns)
+
+        path = str(os.path.abspath(tmp_path / (file_name + ".parquet")))
+        ak.to_parquet(array, path)
+        return path
+
+    return _make_parquet_file
+
+
+@pytest.fixture
+def ingestor(make_parquet_file: Callable) -> Ingestor:
+    template = ArrayField(dtype=float, shape=(100, 1, 1))
+    file = os.path.abspath(make_parquet_file(columns={"Lepton": {"pt": template}}, file_name="nested"))
+    return Ingestor(paths=file)
 
 
 def pytest_sessionstart(session: pytest.Session):
@@ -25,7 +85,6 @@ def pytest_sessionstart(session: pytest.Session):
 @pytest.fixture
 def simple_sample(request: pytest.FixtureRequest) -> str:
     pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
-    from preprocessor.tests.conftest import ArrayField
 
     try:
         make_parquet_file: Callable = request.getfixturevalue("make_parquet_file")

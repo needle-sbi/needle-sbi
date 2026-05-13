@@ -26,7 +26,7 @@ logger = Logger("histogram")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 try:
-    from ml.utils.epoch_timer import timing
+    from needle.utils.epoch_timer import timing
 except ModuleNotFoundError:
 
     def timing(func):

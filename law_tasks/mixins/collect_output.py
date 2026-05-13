@@ -1,7 +1,7 @@
 import law
 
-from orchestrator.luigi_utils import collect_output_paths
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.logging import ColorFormatter
+from needle.utils.luigi_utils import collect_output_paths
 
 logger = ColorFormatter.get_logger("orchestrator")
 

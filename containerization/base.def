@@ -1,0 +1,17 @@
+Bootstrap: docker
+From: python:3.12-slim
+
+%post
+    apt-get update
+    apt-get install -y --no-install-recommends git
+    rm -rf /var/lib/apt/lists/*
+
+%files
+    pyproject.toml /workspace/pyproject.toml
+
+%post
+    pip install --no-cache-dir /workspace
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8

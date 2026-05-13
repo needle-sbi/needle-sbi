@@ -24,7 +24,7 @@ from ..utils.eval import predict
 logger = Logger("eval")
 
 try:
-    from ml.utils.epoch_timer import timing
+    from needle.utils.epoch_timer import timing
 except ModuleNotFoundError:
 
     def timing(func):

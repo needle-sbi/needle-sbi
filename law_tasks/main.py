@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 
 from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
-from preprocessor.utils.logging import ColorFormatter, LogOnce
+from needle.utils.logging import ColorFormatter, LogOnce
 
 logger = ColorFormatter.get_logger("orchestrator")
 

@@ -1,8 +1,0 @@
-defaults:
-  - models: mock_transformer
-  - datamodules: padded
-  - datasets: fair_universe_local
-  - trainers: fair_universe_local
-  - _self_
-
-n_folds: 4

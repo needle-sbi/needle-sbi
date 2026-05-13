@@ -4,9 +4,9 @@ from typing import List
 
 import law
 
-from orchestrator.config import MainConfig
-from orchestrator.config_utils import initialize_hydra_config
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.config_schema import MainConfig
+from needle.utils.config_utils import initialize_hydra_config
+from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
 

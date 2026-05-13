@@ -12,14 +12,14 @@ from omegaconf import OmegaConf
 
 from law_tasks.main import MainTask
 from law_tasks.mixins import HydraMixin
-from orchestrator.results import (
+from needle.utils.logging import ColorFormatter
+from needle.utils.results import (
     AggregationEdge,
     AggregationMethod,
     DAGSnapshot,
     EnsembleResults,
     ModelNodeMetadata,
 )
-from preprocessor.utils import ColorFormatter
 
 logger = ColorFormatter.get_logger("snapshot")
 

@@ -10,6 +10,11 @@ mlruns*
 lightning_logs*
 *.log
 .benchmarks
+.claude
+.law
+.mypy_cache
+.pytest_cache
+.venv
 .coverage
 docs/_build/
 tests/**/*.ipynb

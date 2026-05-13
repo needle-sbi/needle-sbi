@@ -10,9 +10,9 @@ from omegaconf import open_dict
 from law_tasks.fold import FoldTask
 from law_tasks.mixins import HydraMixin
 from law_tasks.systematic import SystematicTask
-from orchestrator.config import EstimatorConfig, SystematicConfig
-from orchestrator.results import EstimatorResults, SystematicResults
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.config_schema import EstimatorConfig, SystematicConfig
+from needle.utils.logging import ColorFormatter
+from needle.utils.results import EstimatorResults, SystematicResults
 
 logger = ColorFormatter.get_logger("estimator")
 

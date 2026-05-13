@@ -10,7 +10,7 @@ from law_tasks.workflows.common import (
     add_workflow_settings_from_cfg,
     get_script_dir,
 )
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("slurm")
 

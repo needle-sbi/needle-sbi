@@ -24,10 +24,10 @@ from law_tasks.workflows import (
     SlurmWorkflow,
     check_batch_system,
 )
-from orchestrator.config import EstimatorConfig, SystematicConfig
-from orchestrator.config_utils import hydra_check_if_arg_supported, hydra_instantiate
-from orchestrator.results import FoldResults
-from preprocessor.utils import ColorFormatter
+from needle.utils.config_schema import EstimatorConfig, SystematicConfig
+from needle.utils.config_utils import hydra_check_if_arg_supported, hydra_instantiate
+from needle.utils.logging import ColorFormatter
+from needle.utils.results import FoldResults
 
 logger = ColorFormatter.get_logger("fold")
 

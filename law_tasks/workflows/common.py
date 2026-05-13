@@ -6,7 +6,7 @@ from typing import Literal, Protocol, Union
 import luigi
 from law.contrib import htcondor, slurm
 
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.logging import ColorFormatter
 
 HTCondorConfig = htcondor.HTCondorJobFileFactory.Config
 SlurmConfig = slurm.SlurmJobFileFactory.Config

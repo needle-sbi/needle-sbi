@@ -1,0 +1,33 @@
+Bootstrap: localimage
+From: needle-base.sif
+
+%post
+    chmod +x /workspace/setup.sh
+    mkdir -p /tmp/law
+    mkdir -p /var/tmp/needle
+
+%files
+    setup.sh /workspace/setup.sh
+    config.yaml /workspace/config.yaml
+    law_tasks /workspace/law_tasks
+    needle /workspace/needle
+    law.cfg /workspace/law.cfg
+
+%runscript
+    #!/bin/bash
+    cd /workspace
+
+    export LAW_HOME=/tmp/law
+    mkdir -p "$LAW_HOME"
+
+    cp law.cfg "$LAW_HOME/" 2>/dev/null || true
+    export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
+
+    source ./setup.sh
+    law index
+
+    echo "LAW environment variables set:"
+    echo "  LAW_HOME=$LAW_HOME"
+    echo "  LAW_CONFIG_FILE=$LAW_CONFIG_FILE"
+    echo "  PYTHONPATH=$PYTHONPATH"
+    exec "$@"

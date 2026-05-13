@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 import law
 
-from preprocessor.utils.logging import ColorFormatter
+from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("orchestrator")
 

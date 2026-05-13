@@ -8,7 +8,7 @@ import json
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import luigi
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ from .histogram import HistogramTask
 from .plot_results import PlottingMixin
 
 try:
-    from ml.utils.epoch_timer import timing
+    from needle.utils.epoch_timer import timing
 except ModuleNotFoundError:
 
     def timing(func):

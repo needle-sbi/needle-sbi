@@ -1,7 +1,0 @@
-_target_: ml.lightning.models.normalizing_flow.NormalizingFlowModule
-features_dim: 8
-context_dim: 0
-flow_type: nsf
-n_transforms: 5
-hidden_dim: 128
-init_lr: 0.001
