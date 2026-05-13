@@ -1,5 +1,17 @@
-"""
-Task for a single ensemble training, includes multiple folds.
+"""EnsembleTask - Manages training for a single ensemble group.
+
+This module defines the EnsembleTask which is responsible for:
+- Creating FoldTask instances for each cross-validation fold
+- Managing fold configuration and parameter expansion
+- Aggregating results from all folds into an ensemble results object
+- Handling ensemble-specific training configurations
+
+The task forms the fourth level of the task DAG hierarchy:
+    MainTask
+    └── EstimatorTask (one per estimator)
+         └── SystematicTask (one per systematic variation)
+              └── EnsembleTask (one per ensemble group)
+                   └── FoldTask (one per cross-validation fold)
 """
 
 import os

@@ -1,3 +1,26 @@
+"""MainTask - Root entry point for the NEEDLE training DAG.
+
+This module defines the MainTask which serves as the main entry point for training.
+It is responsible for:
+- Loading and resolving Hydra configuration
+- Creating EstimatorTask instances for all estimators in the config
+- Managing the complete training DAG
+- Coordinating all training across multiple estimators
+
+Task Hierarchy:
+    MainTask (root entry point) ← you are here
+    └── EstimatorTask (one per estimator in config)
+         └── SystematicTask (one per systematic variation)
+              └── EnsembleTask (one per ensemble group)
+                   └── FoldTask (one per cross-validation fold) ← actual training
+
+Usage:
+    law run MainTask
+    law run MainTask --config-file path/to/config.yaml
+
+The task resolves configuration conflicts and manages results paths, providing
+the orchestration layer between the user's configuration and individual fold training jobs.
+"""
 import os
 from pathlib import Path
 from typing import List

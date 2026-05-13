@@ -1,11 +1,11 @@
 # FAIR Universe Demo
 
 NEEDLE ships with one reference example that demonstrates a complete end-to-end machine learning
-pipeline for a High Energy Physics inference problem.
+pipeline for a typical HEP inference problem.
 
 **Location:** `examples/fair_universe_demo/`
 
-This example implements a Neural Simulation-Based Inference (NSBI) pipeline for the
+This example implements an NSBI pipeline for the
 [FAIR Universe HiggsML Challenge](https://github.com/FAIR-Universe/HEP-Challenge). It trains
 conditional normalizing flows and a combined classifier on Higgs boson decay events, then
 performs statistical inference to estimate the signal strength parameter μ.
@@ -22,7 +22,7 @@ law run DownstreamTask \
     --downstream plot \
     --config-file examples/fair_universe_demo/conf/config.yaml
 
-# Smoke test with the bundled ~1000-event test dataset
+# Test with the bundled ~1000-event dataset
 law run DownstreamTask \
     --downstream eval \
     --config-file examples/fair_universe_demo/conf/config.yaml \
@@ -44,8 +44,7 @@ Output lands in `runs/fair_universe_demo_fixed_normalization/stat_only_histogram
 
 ## Contents
 
-- [Overview and Physics Context](overview.md) — what NSBI is, the HiggsML challenge, and how the
-  pipeline solves it. Start here if you are new to the project.
+- [Overview](overview.md) — A bit more context on the FAIR Universe HiggsML Challenge
 - [Models](models.md) — conditional normalizing flows and the combined classifier: architecture,
   hyperparameters, training objectives, and known limitations.
 - [Downstream Tasks](tasks.md) — each analysis step explained in detail, including the physics
@@ -58,24 +57,4 @@ Output lands in `runs/fair_universe_demo_fixed_normalization/stat_only_histogram
 overview
 models
 tasks
-```
-
-## At a glance
-
-```
-conf/config.yaml
- ├── estimators:
- │    ├── nf_signal_1jet    (CNF, c=0.5 and c=2.0 variants)
- │    ├── nf_signal_2jet    (CNF, c=0.5 and c=2.0 variants)
- │    ├── nf_background_1jet  (CNF, c=0.5 and c=2.0 variants)
- │    ├── nf_background_2jet  (CNF, c=0.5 and c=2.0 variants)
- │    └── classifier          (requires all four NFs above)
- └── downstream_tasks:
-      ├── validation_nf       → validate each NF model
-      ├── validation_classifier → validate classifier
-      ├── histogram           → build JES/TES score histogram grid
-      ├── neyman              → Neyman construction (μ calibration)
-      ├── eval                → run pseudo-experiments, get μ̂ ± δμ̂
-      ├── score               → official FAIR Universe scoring
-      └── plot                → final result plots
 ```

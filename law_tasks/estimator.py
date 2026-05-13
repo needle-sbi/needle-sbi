@@ -1,3 +1,16 @@
+"""EstimatorTask - Trains a single estimator with all its systematic variations.
+
+This module defines the EstimatorTask which is responsible for:
+- Creating SystematicTask instances for each systematic uncertainty variation
+- Managing systematic configuration merging and parameter expansion
+- Aggregating results from all systematic variations
+- Propagating results up to the parent MainTask
+
+The task forms the second level of the task DAG hierarchy:
+    MainTask
+    └── EstimatorTask (one per estimator)
+         └── SystematicTask (one per systematic variation)
+"""
 import json
 import os
 from pathlib import Path

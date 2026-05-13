@@ -1,5 +1,23 @@
-"""
-Creates a snapshot of the trained ensemble DAG for evaluation.
+"""SnapshotTask - Creates a complete snapshot of the trained ensemble DAG.
+
+This module defines the SnapshotTask which is responsible for:
+- Collecting all trained model checkpoints from the complete DAG
+- Creating a mapping of (estimator, systematic, ensemble, fold) → checkpoint path
+- Generating the dag_snapshot.json file for evaluation and inference
+- Enabling post-training analysis without re-running training
+
+Output:
+- dag_snapshot.json: Contains the full DAG structure with checkpoint paths
+- config.yaml: The resolved configuration used for training
+
+Dependencies:
+- Waits for all MainTask dependencies to complete
+- Runs after the complete training DAG is finished
+
+Usage:
+The snapshot can be loaded by NEEDLE's pseudo-models for evaluation and inference:
+    from needle.evaluation.pseudo_model import NEEDLE
+    model = NEEDLE(snapshot_path="runs/dag_snapshot.json")
 """
 
 import os

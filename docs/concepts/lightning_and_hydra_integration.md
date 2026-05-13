@@ -38,7 +38,7 @@ from lightning import LightningModule, LightningDataModule, Trainer
 Mixing the two causes silent failures where the `Trainer` refuses to accept a `LightningModule`
 because they come from different class hierarchies. NEEDLE detects this at instantiation time
 and raises a `TypeError` with a clear fix message (see `check_for_lightning_import_mismatch` in
-[`orchestrator/config_utils.py`](../../orchestrator/config_utils.py)).
+`needle/utils/config_utils.py`).
 
 ---
 
@@ -119,7 +119,7 @@ Multiple overrides are space-separated. They are applied *after* the YAML files 
 
 ## Config resolution: `initialize_hydra_config`
 
-`initialize_hydra_config` (in [`orchestrator/config_utils.py`](../../orchestrator/config_utils.py))
+`initialize_hydra_config` (in [`needle/utils/config_utils.py`](../../needle/utils/config_utils.py))
 composes the full config in two phases:
 
 **Phase 1 — string references to full configs (`resolve_defaults`)**
@@ -147,7 +147,7 @@ The fully resolved config is then cast to a `MainConfig` structured dataclass, a
 ## `hydra_instantiate`: filtered class instantiation
 
 NEEDLE uses a wrapper around `hydra.utils.instantiate` called `hydra_instantiate`
-([`orchestrator/config_utils.py`](../../orchestrator/config_utils.py)):
+([`needle/utils/config_utils.py`](../../needle/utils/config_utils.py)):
 
 ```python
 def hydra_instantiate(cfg: DictConfig, **kwargs) -> Any:

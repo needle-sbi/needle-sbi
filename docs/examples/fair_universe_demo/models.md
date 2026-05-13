@@ -6,7 +6,7 @@ The FAIR Universe demo uses two neural network architectures trained sequentiall
 2. **Combined Classifier** — signal-vs-background discriminant that takes NF scores as additional
    features.
 
-## Conditional Normalizing Flow (`ConditionalNormalizingFlowModule`)
+## Conditional Normalizing Flow
 
 **Source:** `fair_universe_demo/models/nf_model.py`
 
@@ -80,18 +80,6 @@ so their effect on the final result can be studied.
 > (no adversarial term) would use `c=1` with only signal data in the batch. The current setup
 > with mixed batches and adversarial loss may need further theoretical justification.
 
-### Input normalisation
-
-The flow normalises inputs using per-feature mean and std computed from the training set. These
-statistics are stored as model buffers (`x_mean`, `x_std`) so they are saved with the checkpoint
-and automatically applied at inference time.
-
-The normalisation is set in `on_train_start()` by reading `datamodule.X_mean` / `datamodule.X_std`
-directly from the Lightning DataModule. This approach works because Lightning guarantees that
-`on_train_start` is called after `datamodule.setup()`. It checks that the values actually changed
-from their placeholder zeros — if not, it raises a `RuntimeError`, which is a safeguard against
-accidentally running inference with uninitialised normalisations.
-
 ### Training setup
 
 ```yaml
@@ -108,7 +96,7 @@ epoch 500; on the test dataset (1000 events) it may stop very early.
 
 ---
 
-## Combined Classifier (`CombinedClassifier`)
+## Combined Classifier
 
 **Source:** `fair_universe_demo/models/classifier.py`
 
@@ -140,8 +128,8 @@ same trunk and have category-specific heads:
 ```
 
 **Input dimensions:**
-- 1-jet: 20 raw features + 4 NF scores (NF_s1j_c0.5, NF_s1j_c2.0, NF_b1j_c0.5, NF_b1j_c2.0) = 24
-- 2-jet: 27 raw features + 4 NF scores (same structure for 2-jet NFs) = 31
+- 1-jet: 20 raw features + 4 NF scores = 24
+- 2-jet: 27 raw features + 4 NF scores = 31
 
 The NF scores are computed by `return1j2j()` in `utils/selection.py` during data loading. Each
 score is the sigmoid of the NF log-likelihood, which maps it to [0, 1].
@@ -168,12 +156,6 @@ provides both categories in every batch (as a dict with keys `x_2j`, `x_1j`, `l_
 **Dependency on NF training:** The classifier requires all four NF models to be trained first
 (specified via `requires:` in `config.yaml`). The NF checkpoints are loaded inside the
 `ClassifierDatamodule.setup()` call, which computes NF features on the fly for each batch.
-
-> **⚠ Potential issue:** Computing NF scores during training dataloader setup (in `setup()`) means
-> the NF scores for the training set are fixed at the start of training. If you wanted to use NF
-> models that are still being updated (e.g. in a joint training scenario), this would need to
-> change. Currently it is fine because NF training is fully complete before classifier training
-> starts.
 
 ### DataModule for the classifier (`ClassifierDatamodule`)
 

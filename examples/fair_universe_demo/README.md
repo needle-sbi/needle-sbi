@@ -26,6 +26,10 @@ source venv/bin/activate
 pip install -e .
 ```
 
+## Docs
+
+Refer to the documentation of NEEDLE under the section `examples/fair_universe_demo`
+
 ## Directory Structure
 
 ```

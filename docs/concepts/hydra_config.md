@@ -43,7 +43,7 @@ resolves these references at startup — see [Phase 1 resolution](lightning_and_
 ## The `MainConfig` dataclass
 
 The top level of the config is validated against `MainConfig`
-([`orchestrator/config.py`](../../orchestrator/config.py)):
+([`needle/utils/config_schema.py`](../../needle/utils/config_schema.py)):
 
 ```python
 @dataclass

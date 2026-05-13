@@ -111,8 +111,8 @@ import luigi
 
 from law_tasks.fold import FoldTask
 from law_tasks.mixins import HydraMixin
-from orchestrator.config import EstimatorConfig
-from orchestrator.results import FoldResults, EnsembleResults  # dataclasses with JSON serialization
+from needle.utils.config_schema import EstimatorConfig
+from needle.utils.results import FoldResults, EnsembleResults  # dataclasses with JSON serialization
 
 
 class EnsembleTask(HydraMixin, law.Task):

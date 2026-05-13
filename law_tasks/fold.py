@@ -1,5 +1,24 @@
-"""
-Task for a single fold of the training.
+"""FoldTask - Executes the actual training for a single cross-validation fold.
+
+This module defines the FoldTask which is responsible for:
+- Instantiating the Lightning Trainer, LightningModule, and DataModule
+- Running the actual model training using PyTorch Lightning
+- Saving checkpoints and training artifacts
+- Supporting remote job dispatch (HTCondor, SLURM) or local execution
+- Propagating training results to parent EnsembleTask
+
+The task forms the fifth (leaf) level of the task DAG hierarchy:
+    MainTask
+    └── EstimatorTask (one per estimator)
+         └── SystematicTask (one per systematic variation)
+              └── EnsembleTask (one per ensemble group)
+                   └── FoldTask (one per cross-validation fold) ← actual training happens here
+
+Features:
+- Workflow support: Local, HTCondor, SLURM
+- Remote job dispatch for distributed training
+- Automatic checkpoint management
+- GPU support
 """
 
 import json

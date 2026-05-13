@@ -1,3 +1,34 @@
+"""DownstreamTask - Generic wrapper for post-training tasks.
+
+This module defines the DownstreamTask which is responsible for:
+- Wrapping external user-defined tasks that run after training completes
+- Supporting flexible task dependencies and chaining
+- Passing training results to downstream analysis
+- Managing multi-branch workflows for complex pipelines
+
+Configuration:
+Tasks are configured via the ``downstream_tasks`` key in config.yaml:
+    downstream_tasks:
+      my_task:
+        requires: ["snapshot"]
+        args:
+          _target_: my.module.MyTask
+          output_path: "${results_path_downstream}/output"
+
+Dependency Chain:
+- Depends on SnapshotTask and any other declared dependencies
+- Can form dependency chains (task A → task B → task C)
+- Supports branching with task expansions
+
+Usage:
+    law run DownstreamTask --downstream my_task
+
+This is the extension point for post-training pipelines such as:
+- Evaluation and metric computation
+- Plotting and visualization
+- Model comparison and analysis
+- Integration with external tools
+"""
 from functools import cached_property
 from itertools import product
 from typing import Any, Dict, NamedTuple

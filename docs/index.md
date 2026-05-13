@@ -60,13 +60,20 @@ concepts/law_tasks
 concepts/lightning_and_hydra_integration
 concepts/hydra_config
 concepts/downstream_tasks
-introduction
 concepts/dask_awkward
 ```
 
 ```{toctree}
 :maxdepth: 2
-:caption: API Reference
+:caption: Examples
+:hidden:
+
+examples/fair_universe_demo/index
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: NEEDLE API
 :hidden:
 
 api/index

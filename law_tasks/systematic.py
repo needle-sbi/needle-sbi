@@ -1,5 +1,16 @@
-"""
-Task for a single systematic uncertainty
+"""SystematicTask - Handles a single systematic uncertainty variation.
+
+This module defines the SystematicTask which is responsible for:
+- Creating EnsembleTask instances for multiple ensemble runs with the same systematic
+- Managing ensemble configuration and parameter expansion
+- Aggregating results from all ensembles into a single systematic results object
+- Applying systematic-specific model, trainer, and datamodule overrides
+
+The task forms the third level of the task DAG hierarchy:
+    MainTask
+    └── EstimatorTask (one per estimator)
+         └── SystematicTask (one per systematic variation)
+              └── EnsembleTask (one per ensemble group)
 """
 
 import os

@@ -210,11 +210,16 @@ You can view the documentation locally by then running the following:
 open docs/_build/html/index.html
 ```
 
-If the code is on a remote machine, forward a remote port to your local machine and create a remote python
-http server using:
+If the code is on a remote machine, forward a remote port to your local machine, for example with ssh:
 
 ```bash
-python3 -m http.server 8801 --bind 127.0.0.1
+ssh -L 8801:localhost:8801 user@remote-server  # on local
 ```
 
-Which allows you to look at the docs folder on http://127.0.0.1:8801/
+Then create a remote python http server using:
+
+```bash
+python3 -m http.server 8801 --bind 127.0.0.1  # on remote
+```
+
+Which allows you to look at the docs folder on http://127.0.0.1:8801/.
