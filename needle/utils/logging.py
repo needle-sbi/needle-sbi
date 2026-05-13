@@ -1,4 +1,6 @@
+import functools
 import logging
+import time
 import warnings
 
 
@@ -88,3 +90,19 @@ class LogOnce:
         if message not in _needle_logging_cache:
             self.logger.info(message)
             _needle_logging_cache.add(message)
+
+
+def timing(func):
+    """
+    Decorator to time a function's execution. Uses the 'ml' logger to print.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        logger.debug(f"Function '{func.__module__}.{func.__name__}' took {end - start:.4f} seconds")
+        return result
+
+    return wrapper

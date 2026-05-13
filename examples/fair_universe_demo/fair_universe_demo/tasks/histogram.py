@@ -25,13 +25,6 @@ from ..utils.selection import Data, createJetData, load_train_set_data, return1j
 logger = Logger("histogram")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-try:
-    from needle.utils.epoch_timer import timing
-except ModuleNotFoundError:
-
-    def timing(func):
-        return func
-
 
 def init_worker(data: Data):
     global shared_data
