@@ -54,8 +54,6 @@ fi
 # Check if the script was already sourced
 if [[ -n "$NEEDLE_ENV_ACTIVE" ]]; then
     echo -e "${_NEEDLE_GREEN}$ENV_NAME environment is already active.${_NEEDLE_NC}"
-    # Still export FAIR_UNIVERSE_DATA for HTCondor jobs (where getenv=True copies the NEEDLE_ENV_ACTIVE flag)
-    export FAIR_UNIVERSE_DATA="/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"
     return 0
 fi
 
@@ -67,9 +65,6 @@ export _OLD_PS1="$PS1"
 # use resolved script dir so LAW_HOME is always correct
 export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
-
-# Export FAIR_UNIVERSE_DATA path for dataset access
-export FAIR_UNIVERSE_DATA="/data/dust/group/atlas/needle/FAIRUnv/UncertaintyChallenge_2024/ProcessedData_v1_2025-10-03/CombData-part0.parquet"
 
 # use absolute paths so PYTHONPATH works regardless of cwd
 for p in "preprocessor" "ml" "."; do
@@ -100,7 +95,6 @@ _deactivate() {
     unset SCRIPT_DIR
     unset LAW_HOME
     unset LAW_CONFIG_FILE
-    unset FAIR_UNIVERSE_DATA
     unset _OLD_PYTHONPATH
     unset _OLD_PS1
     unset -f deactivate

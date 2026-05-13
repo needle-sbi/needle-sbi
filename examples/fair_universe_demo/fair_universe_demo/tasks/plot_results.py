@@ -119,6 +119,7 @@ class PlottingTask(PlottingMixin):
         ax.legend(loc="upper left", title=r"$H \to \tau \tau$ (MC) averaged")
 
         ax.set_xlim(*xlims)
+        ax.set_ylim(*xlims)
 
         ax.set_xlabel(r"$\mu_{\text{true}}$", loc="right")
         ax.set_ylabel(r"$\mu_{\text{predicted}}$", loc="top")

@@ -173,10 +173,18 @@ class EvalTask(luigi.Task):
             self.results_dict[set_index].append(predicted_dict)
 
     def save_result(self):
-        results_dict_serializable = {int(key): val for key, val in self.results_dict.items()}
-        result_path = self.output()["eval"].path
+        # Aggregate results from list-of-dicts to dict-of-lists format
+        aggregated_results = {}
+        for set_index, predictions_list in self.results_dict.items():
+            aggregated_results[int(set_index)] = {
+                "mu_hat": [p["mu_hat"] for p in predictions_list],
+                "delta_mu_hat": [p["delta_mu_hat"] for p in predictions_list],
+                "p16": [p["p16"] for p in predictions_list],
+                "p84": [p["p84"] for p in predictions_list],
+            }
 
-        dump = json.dumps(results_dict_serializable, indent=4)
+        result_path = self.output()["eval"].path
+        dump = json.dumps(aggregated_results, indent=4)
 
         with open(result_path, "w") as f:
             f.write(dump)

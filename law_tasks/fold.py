@@ -249,7 +249,7 @@ class FoldTask(
         )
         return MLFlowLogger(
             experiment_name=experiment_name,
-            save_dir=os.path.join(self.output()["metrics"].path, "mlflow"),
+            save_dir=os.path.join(self.config.results_path, "mlruns"),  # type: ignore
             log_model=False,
         )
 
@@ -263,9 +263,9 @@ class FoldTask(
 
         # 1. Load model
         model: lightning.LightningModule = hydra_instantiate(
-            model_config,  # type: ignore
-            dataset_config=dataset_config,
-            input_models=self.input_model_paths,
+            model_config,
+            dataset_config=dataset_config,  # optional
+            input_models=self.input_model_paths,  # optional
         )
 
         # 2. Load datamodule

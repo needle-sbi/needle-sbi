@@ -125,7 +125,6 @@ class Scoring:
 
         for i, ingestion_result in tqdm(enumerate(self.ingestion_results)):
             mu = test_settings["ground_truth_mus"][i]
-
             mu_hats = ingestion_result["mu_hat"]
             delta_mu_hats = ingestion_result["delta_mu_hat"]
             p16s = ingestion_result["p16"]
@@ -140,6 +139,7 @@ class Scoring:
             for mu_hat, delta_mu_hat in zip(mu_hats, delta_mu_hats):
                 set_rmses.append(self.RMSE_score(mu, mu_hat, delta_mu_hat))
                 set_maes.append(self.MAE_score(mu, mu_hat, delta_mu_hat))
+
             set_interval, set_coverage, set_quantiles_score = self.Quantiles_Score(
                 np.repeat(mu, len(p16s)), np.array(p16s), np.array(p84s)
             )
