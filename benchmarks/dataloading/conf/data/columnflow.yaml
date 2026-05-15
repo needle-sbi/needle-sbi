@@ -1,7 +1,0 @@
-files_to_load: [
-  "/work/kschmidt/NEEDLE/test_analysis/data/cf_store/test_analysis/cf.SelectEvents/run2_2016_nano_v9/ttbar_dl/nominal/calib__test/sel__ttbar_dl/remote2/columns_*.parquet",
-]
-features_columns: ['Lepton.charge', 'Lepton.eta', 'Lepton.mass', 'Lepton.phi', 'Lepton.pt']
-labels_columns: [ 'Lepton.pdg_id']
-total_epoch: 5
-max_number_events: 100000
