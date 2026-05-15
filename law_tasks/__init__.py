@@ -37,7 +37,6 @@ from .fold import FoldTask
 from .main import MainTask
 from .snapshot import SnapshotTask
 from .systematic import SystematicTask
-from .workflows.bundle_repo import BundleRepoTask
 
 __all__ = [
     "MainTask",
@@ -47,5 +46,4 @@ __all__ = [
     "FoldTask",
     "SnapshotTask",
     "DownstreamTask",
-    "BundleRepoTask",
 ]

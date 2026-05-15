@@ -23,30 +23,17 @@ logger = ColorFormatter.get_logger("workflow")
 
 
 def get_script_dir() -> str:
-    """Find the path to the root directory of the project. Either by accessing the environment variable
-    `$SCRIPT_DIR` which is defined in the `setup.sh` file or by calculating the relative path based
-    on the location of this file.
+    """Find the root directory of the project.
 
-    Raises:
-        ValueError: If the resulting path does not end with 'orchestrator', which is the hard-coded
-            name of the project.
+    Uses the $SCRIPT_DIR environment variable when set (exported by setup.sh for cloned-repo
+    usage). Falls back to the current working directory, which is correct when the package is
+    installed via pip and law is invoked from the user's project directory.
 
     Returns:
         str: The path to the root directory of the project.
     """
     _script_dir = os.getenv("SCRIPT_DIR")
-
-    if not _script_dir:
-        _script_dir = Path(os.path.abspath(__file__)).parent.parent.parent
-
-    _script_dir = Path(_script_dir) if isinstance(_script_dir, str) else _script_dir
-
-    if not _script_dir.name == "orchestrator":
-        raise ValueError(
-            "The path to the root directory of the project should end with 'orchestrator' " f"but is {_script_dir}"
-        )
-
-    return str(_script_dir)
+    return _script_dir if _script_dir else str(Path.cwd())
 
 
 def add_workflow_settings_from_cfg(

@@ -1,0 +1,13 @@
+results_path: "runs/default"
+
+estimators:
+  model_A:
+    model: mock_transformer
+    datamodule: pandas
+    dataset: fair_universe
+    trainer: default
+    requires: []
+    expands:
+      ensembles:
+        num_ensembles: 5
+      folds: 2

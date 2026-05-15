@@ -2,6 +2,8 @@ from functools import cache
 from pathlib import Path
 from typing import List
 
+_DEFAULT_CONFIG = str(Path.cwd() / "conf" / "config.yaml")
+
 import law
 
 from needle.utils.config_schema import MainConfig
@@ -41,8 +43,8 @@ class HydraMixin:
     """
 
     config_file: str = law.Parameter(
-        description="Path to config folder",
-        default="conf/config.yaml",
+        description="Path to the Hydra config file",
+        default=_DEFAULT_CONFIG,
         significant=False,
     )  # type: ignore
     hydra_overrides: str = law.Parameter(
