@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "needle-sbi"
-version = "0.1.0"
+version = "0.1.1"
 description = "Workflow manager for NSBI tools"
 authors = [
     {name = "Kylian Schmidt", email = "kylian.schmidt@kit.edu"},
@@ -76,6 +76,9 @@ docs = [
     "sphinx-togglebutton",
     "rich>=13.0.0",
 ]
+
+[project.scripts]
+needle = "needle.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["needle", "law_tasks"]
