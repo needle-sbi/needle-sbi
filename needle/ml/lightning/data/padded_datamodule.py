@@ -3,11 +3,11 @@ from typing import Literal
 import lightning as L
 from torch.utils.data import DataLoader
 
+from needle.etl.dask_ingestor import Ingestor
+from needle.etl.normalization import MinMaxScaler
 from needle.ml.datasets import PaddedDaskDataset, PaddedTorchDataset
 from needle.ml.datasets.kfold import KFold
 from needle.utils.config_schema import DatasetConfig
-from needle.utils.dask_ingestor import Ingestor
-from needle.utils.normalization import MinMaxScaler
 
 
 class PaddedDataModule(L.LightningDataModule):

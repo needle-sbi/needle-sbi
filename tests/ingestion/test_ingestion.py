@@ -3,7 +3,7 @@ from typing import Callable
 import numpy as np
 import pytest
 
-from needle.utils.dask_ingestor import Ingestor
+from needle.etl.dask_ingestor import Ingestor
 from tests.conftest import ArrayField
 
 

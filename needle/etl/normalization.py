@@ -10,7 +10,7 @@ import awkward as ak
 import dask_awkward as dak
 import pyarrow.parquet as pq
 
-from needle.utils.array import NestedArrayIndexer
+from needle.etl.array import NestedArrayIndexer
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("ml")

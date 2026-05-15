@@ -9,7 +9,7 @@ import awkward as ak
 import uproot
 from tqdm import tqdm
 
-from needle.utils.array import NestedArrayIndexer, resolve_paths
+from needle.etl.array import NestedArrayIndexer, resolve_paths
 
 
 def convert_root_to_parquet(

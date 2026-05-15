@@ -1,8 +1,8 @@
 import pytest
 import torch
 
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets import PaddedDataset
-from needle.utils.dask_ingestor import Ingestor
 
 
 def test_init(ingestor: Ingestor):

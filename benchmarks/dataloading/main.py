@@ -13,7 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from benchmarks.dataloading import BenchmarkPlotter, BenchmarkResults, DatasetBenchmark
 from benchmarks.dataloading.config import BenchmarkConfig
-from needle.utils.dask_ingestor import Ingestor
+from needle.etl.dask_ingestor import Ingestor
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("benchmarks")

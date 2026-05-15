@@ -15,8 +15,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from needle.utils.array import NestedArrayIndexer
-from needle.utils.dask_ingestor import Ingestor
+from needle.etl.array import NestedArrayIndexer
+from needle.etl.dask_ingestor import Ingestor
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("ml")

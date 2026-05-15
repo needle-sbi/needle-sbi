@@ -1,10 +1,10 @@
 import numpy as np
 from torch.utils.data import IterableDataset
 
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets.io import load_partition
 from needle.ml.datasets.kfold import KFold
 from needle.ml.datasets.padded_base import PaddedDatasetBase
-from needle.utils.dask_ingestor import Ingestor
 
 
 class PaddedDaskDataset(IterableDataset, PaddedDatasetBase):

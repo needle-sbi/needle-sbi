@@ -8,7 +8,7 @@ import pytest
 from needle.ml.data.io import load_partition
 from needle.ml.data.kfold import KFold, PartitionDict
 
-from needle.utils.array import brute_force_divisions
+from needle.etl.array import brute_force_divisions
 
 
 @pytest.fixture(scope="module")

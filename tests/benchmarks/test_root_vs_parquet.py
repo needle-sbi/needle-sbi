@@ -34,11 +34,11 @@ import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
+from needle.etl.array import resolve_paths
+from needle.etl.conversion import convert_root_to_parquet
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets import PaddedDataset
-from needle.utils.array import resolve_paths
 from needle.utils.config_schema import DatasetConfig, EstimatorConfig, ExpansionConfig
-from needle.utils.conversion import convert_root_to_parquet
-from needle.utils.dask_ingestor import Ingestor
 
 Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
 

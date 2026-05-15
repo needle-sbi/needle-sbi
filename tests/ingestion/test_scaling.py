@@ -1,7 +1,7 @@
 import awkward as ak
 
-from needle.utils.dask_ingestor import Ingestor
-from needle.utils.normalization import MinMaxScaler, StandardScaler
+from needle.etl.dask_ingestor import Ingestor
+from needle.etl.normalization import MinMaxScaler, StandardScaler
 
 
 def test_minmax_scaler(

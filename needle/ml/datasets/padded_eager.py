@@ -10,8 +10,8 @@ import warnings
 import awkward as ak
 import torch
 
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets.padded_base import PaddedDatasetBase, logger
-from needle.utils.dask_ingestor import Ingestor
 
 
 class PaddedDataset(PaddedDatasetBase):

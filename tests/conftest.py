@@ -11,9 +11,9 @@ import pytest
 from dask.distributed import Client, LocalCluster
 from omegaconf import OmegaConf
 
+from needle.etl.dask_ingestor import Ingestor
 from needle.utils.config_schema import MainConfig
 from needle.utils.config_utils import resolve_defaults
-from needle.utils.dask_ingestor import Ingestor
 
 type NestDictType = dict[str, "NestDictType | ArrayField"]
 

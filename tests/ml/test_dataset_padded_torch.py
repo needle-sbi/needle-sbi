@@ -1,8 +1,8 @@
 import pytest
 from torch.utils.data import DataLoader
 
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets import PaddedTorchDataset
-from needle.utils.dask_ingestor import Ingestor
 
 
 @pytest.mark.skip("Not implemented yet")

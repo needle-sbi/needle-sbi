@@ -12,7 +12,7 @@ import dask_awkward as dak
 import pydantic
 import uproot
 
-from needle.utils.array import (
+from needle.etl.array import (
     NestedArrayIndexer,
     brute_force_divisions,
     brute_force_length,

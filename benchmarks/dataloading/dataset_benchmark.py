@@ -13,8 +13,8 @@ from benchmarks.dataloading.benchmark_utils import (
     BenchmarkTimer,
     MemoryProfiler,
 )
+from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets import PaddedDaskDataset, PaddedDataset, PaddedTorchDataset
-from needle.utils.dask_ingestor import Ingestor
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("benchmarks")
