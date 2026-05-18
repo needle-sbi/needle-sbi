@@ -1,3 +1,17 @@
+"""This module lists the schema for the needle config by nesting appropriate python dataclasses. These
+are then passed to hydra and OmegaConf to build the final container for the config (`MainConfig`) and
+ensure accurate typehints throughout the framework.
+
+Adding new fields is as simple as registering the
+field in one of the dataclasses then adding the entry to the config. Fields that do not exist in the
+config schema will raise an Error by hydra. Some fields are empty in the schema but are then filled
+at runtime by other functions. This enables leaving that field empty in the config but also allowing
+for manual overrides.
+
+The sibling module to this one `config_utils` stores all the functions that
+help construct the config from file.
+"""
+
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -8,6 +22,11 @@ from needle.utils.dataclass import SerializableDataclass
 
 @dataclass
 class DatasetConfig(SerializableDataclass):
+    """Optional container that is shared between Lightning Datamodule and Module to exchange information
+    about the data used. For example, if your data requires a dimension to be a certain integer, this
+    can be managed uniquely using this container.
+    """
+
     paths: str = ""
     features_columns: Optional[List[str]] = field(default_factory=list)
     labels_columns: Optional[List[str]] = field(default_factory=list)

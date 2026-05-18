@@ -1,21 +1,6 @@
-"""SystematicTask - Handles a single systematic uncertainty variation.
-
-This module defines the SystematicTask which is responsible for:
-- Creating EnsembleTask instances for multiple ensemble runs with the same systematic
-- Managing ensemble configuration and parameter expansion
-- Aggregating results from all ensembles into a single systematic results object
-- Applying systematic-specific model, trainer, and datamodule overrides
-
-The task forms the third level of the task DAG hierarchy:
-    MainTask
-    └── EstimatorTask (one per estimator)
-         └── SystematicTask (one per systematic variation)
-              └── EnsembleTask (one per ensemble group)
-"""
-
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import law
 
@@ -31,7 +16,7 @@ logger = ColorFormatter.get_logger("systematic")
 class SystematicTask(HydraMixin, law.Task):
     """Task representing a systematic uncertainty variation.
 
-    Creates EnsembleTask instances for multiple ensemble runs of the same systematic.
+    Creates `EnsembleTask` instances for multiple ensemble runs of the same systematic.
     Aggregates results from all ensembles into a single systematic results object.
     """
 
@@ -56,10 +41,10 @@ class SystematicTask(HydraMixin, law.Task):
 
     @property
     def estimator_config(self) -> EstimatorConfig:
-        """Get the configuration for the associated estimator.
+        """Get the configuration for the associated parent estimator.
 
         Returns:
-            EstimatorConfig: Configuration object for this systematic's estimator.
+            EstimatorConfig
         """
         return self.config.estimators[self.estimator]
 
@@ -68,12 +53,12 @@ class SystematicTask(HydraMixin, law.Task):
         """Get the configuration for this specific systematic uncertainty.
 
         Returns:
-            SystematicConfig: Specific systematic uncertainty configuration.
+            SystematicConfig
         """
         return self.config.estimators[self.estimator].expands.systematics[self.systematic]
 
-    def requires(self):
-        """Create EnsembleTask instances for all ensemble runs.
+    def requires(self) -> List[EnsembleTask]:
+        """Create `EnsembleTask` instances for all ensemble runs.
 
         Returns:
             List[EnsembleTask]: One task per ensemble index (0 to num_ensembles-1).
@@ -104,7 +89,8 @@ class SystematicTask(HydraMixin, law.Task):
             "outputs": base.child("systematic_results.json", type="f"),
         }
 
-    def run(self):
+    def run(self) -> None:
+        """Aggregate the results from all Ensembles and store them in a JSON"""
         ensemble_results = [
             EnsembleResults.from_json(ensemble_result["outputs"].path) for ensemble_result in self.input()
         ]

@@ -21,6 +21,8 @@ Features:
 - GPU support
 """
 
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
@@ -50,6 +52,7 @@ from needle.utils.results import FoldResults
 
 logger = ColorFormatter.get_logger("fold")
 
+#: Return type of :meth:`FoldTask.output` — maps checkpoint keys to LAW file targets.
 FoldTaskOutput = Dict[str, law.LocalFileTarget] | Dict[str, law.TargetCollection]
 
 

@@ -5,7 +5,7 @@ import law
 from law.contrib import htcondor
 
 from law_tasks.workflows.common import (
-    Config,
+    RemoteConfig,
     add_workflow_settings_from_cfg,
     get_script_dir,
 )
@@ -24,7 +24,7 @@ class HTCondorWorkflow(htcondor.HTCondorWorkflow):
 
     def htcondor_job_config(
         self,
-        config: Config,
+        config: RemoteConfig,
         job_num: int,
         branches: List[int],
     ):

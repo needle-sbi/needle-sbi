@@ -4,6 +4,8 @@ Compute normalization constants from Parquet file metadata.
 Collects per-file (partition) column statistics such as min/max,
 without reading any data into memory.
 """
+from __future__ import annotations
+
 from typing import Any, Protocol
 
 import awkward as ak
@@ -15,6 +17,7 @@ from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("ml")
 
+#: Nested metadata structure: ``{field → {scaler_key → {class_index → value}}}``.
 type MetaDataDict = dict[str, dict[str, dict[int, Any]]]
 
 

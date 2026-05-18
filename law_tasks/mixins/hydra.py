@@ -10,7 +10,7 @@ from needle.utils.config_schema import MainConfig
 from needle.utils.config_utils import initialize_hydra_config
 from needle.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("needle")
+logger = ColorFormatter.get_logger("dag")
 
 
 class HydraMixin:

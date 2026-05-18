@@ -6,9 +6,12 @@ from typing import Dict, List, Set, Tuple, Union, overload
 import law
 import luigi
 
+#: A single Luigi ``LocalTarget`` file handle.
 LuigiTarget = luigi.LocalTarget
+#: A single LAW ``LocalFileTarget`` file handle.
 LawTarget = law.LocalFileTarget
 
+#: Any form a Luigi target collection can take: a single target, list, dict, or tuple.
 LuigiTargetCollection = Union[
     LuigiTarget,
     List[LuigiTarget],
@@ -16,6 +19,7 @@ LuigiTargetCollection = Union[
     Tuple[LuigiTarget, ...],
 ]
 
+#: Any form a LAW target collection can take: a single target, list, dict, or tuple.
 LawTargetCollection = Union[
     LawTarget,
     List[LawTarget],

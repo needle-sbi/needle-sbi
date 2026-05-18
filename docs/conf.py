@@ -116,10 +116,11 @@ autodoc_default_options = {
     "members": True,
     "undoc-members": True,
     "show-inheritance": True,
-    "special-members": "__init__",
 }
 
 autodoc_typehints = "both"
+
+maximum_signature_line_length = 1
 
 nitpick_ignore = [
     ("py:class", "SerializableDataclass"),
@@ -129,6 +130,17 @@ nitpick_ignore = [
     ("py:class", "L.LightningModule"),
     ("py:class", "L.LightningDataModule"),
 ]
+
+
+def _strip_config_schema_params(app, what, name, obj, options, lines):
+    """Remove injected :param:/:type: lines for config_schema dataclasses.
+
+    autodoc_typehints="both" injects these into the class description, producing a
+    "Parameters:" section that duplicates the signature already shown at the top.
+    """
+    if what != "class" or not name.startswith("needle.utils.config_schema."):
+        return
+    lines[:] = [line for line in lines if not line.startswith(":param ") and not line.startswith(":type ")]
 
 
 def setup(app: object) -> None:
@@ -141,3 +153,5 @@ def setup(app: object) -> None:
     _MockObject.__radd__ = lambda self, other: other if isinstance(other, list) else _MockObject()  # type: ignore[attr-defined]
     _MockObject.__or__ = lambda self, other: _MockObject()  # type: ignore[attr-defined]
     _MockObject.__ror__ = lambda self, other: _MockObject()  # type: ignore[attr-defined]
+
+    app.connect("autodoc-process-docstring", _strip_config_schema_params)

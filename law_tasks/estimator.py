@@ -1,16 +1,3 @@
-"""EstimatorTask - Trains a single estimator with all its systematic variations.
-
-This module defines the EstimatorTask which is responsible for:
-- Creating SystematicTask instances for each systematic uncertainty variation
-- Managing systematic configuration merging and parameter expansion
-- Aggregating results from all systematic variations
-- Propagating results up to the parent MainTask
-
-The task forms the second level of the task DAG hierarchy:
-    MainTask
-    └── EstimatorTask (one per estimator)
-         └── SystematicTask (one per systematic variation)
-"""
 import json
 import os
 from pathlib import Path
@@ -31,9 +18,17 @@ logger = ColorFormatter.get_logger("estimator")
 
 
 class EstimatorTask(HydraMixin, law.Task):
-    """Task representing a single estimator in the ensemble hierarchy.
+    """Task representing a single estimator. An estimator is a similar concept to a single type
+    of model used in your analysis chain. Since `SystematicTask` also has models of the same type but
+    with a different meaning, we wanted to differentiate between `EstimatorTask` (a model potentially
+    trained with systematics) and a regular ML model.
 
-    Creates SystematicTask instances for each systematic uncertainty defined in the config.
+    Creates `SystematicTask` instances for each systematic shift defined in the config. By default, this
+    will be a single systematic called 'nominal' which just passes the information along to the next
+    layer in the tree. If you wish to train on different systematics, each has to be registered in the
+    config in the `expands` section of the estimator. See the corresponding documentation for more
+    information.
+
     Handles systematic configuration merging and aggregates results from all systematic variations.
     """
 
@@ -55,9 +50,10 @@ class EstimatorTask(HydraMixin, law.Task):
         """Get the estimator configuration with normalized systematic cases.
 
         Handles the 'nominal' systematic special case:
-        - If only 'nominal' exists and is the default (unmodified), keeps it
-        - If other systematics exist alongside a default 'nominal', removes the nominal
-        - Otherwise, preserves the systematic configuration as-is
+
+         - If only 'nominal' exists and is the default (unmodified), keeps it
+         - If other systematics exist alongside a default 'nominal', removes the nominal
+         - Otherwise, preserves the systematic configuration as-is
 
         This normalization prevents redundant nominal case execution when other variations exist.
 
@@ -91,7 +87,7 @@ class EstimatorTask(HydraMixin, law.Task):
 
         Returns:
             Dict[str, str]: Mapping of URL-encoded task indices to checkpoint paths.
-                Key format: "syst=<name>&ensem=<idx>&fold=<idx>"
+                Key format: `"syst=<name>&ensem=<idx>&fold=<idx>"`
         """
         model_paths_dict: Dict[str, str] = {}
 
@@ -139,7 +135,7 @@ class EstimatorTask(HydraMixin, law.Task):
         }
 
     def run(self) -> None:
-        """Gather results from all SystematicTasks and merge them into own container"""
+        """Gather results from all `SystematicTasks` and merge them into own results container"""
         systematic_results = [
             SystematicResults.from_json(systematic_result["outputs"].path) for systematic_result in self.input()
         ]

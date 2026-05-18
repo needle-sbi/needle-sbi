@@ -2,6 +2,8 @@
 Small helper functions for ML Datasets
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
@@ -9,7 +11,10 @@ import numpy as np
 
 logger = logging.getLogger("ml")
 
+#: Mapping from fold index to an optional partition size override.
 type PartitionDict = dict[int, Optional[int]]
+
+#: Dask division boundaries expressed as a sorted tuple of integer row offsets.
 type Divisions = tuple[int, ...]
 
 

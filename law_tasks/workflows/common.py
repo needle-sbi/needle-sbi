@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 from pathlib import Path
@@ -8,14 +10,19 @@ from law.contrib import htcondor, slurm
 
 from needle.utils.logging import ColorFormatter
 
+#: Configuration dataclass for HTCondor job submission parameters.
 HTCondorConfig = htcondor.HTCondorJobFileFactory.Config
+#: Configuration dataclass for SLURM job submission parameters.
 SlurmConfig = slurm.SlurmJobFileFactory.Config
-Config = Union[HTCondorConfig, SlurmConfig]
+#: Union of all supported remote execution backend configurations.
+RemoteConfig = Union[HTCondorConfig, SlurmConfig]
+#: Luigi configuration parser used to read ``luigi.cfg`` settings at runtime.
 LuigiConfig = luigi.configuration.cfg_parser.LuigiConfigParser
 
 
 class SupportsLuigiAPI(Protocol):
     def get_task_family(self) -> str:
+        """Implements `luigi.Task.get_task_family` which returns the name of the Task."""
         ...
 
 
@@ -25,7 +32,7 @@ logger = ColorFormatter.get_logger("workflow")
 def get_script_dir() -> str:
     """Find the root directory of the project.
 
-    Uses the $SCRIPT_DIR environment variable when set (exported by setup.sh for cloned-repo
+    Uses the `$SCRIPT_DIR` environment variable when set (exported by `setup.sh` for cloned-repo
     usage). Falls back to the current working directory, which is correct when the package is
     installed via pip and law is invoked from the user's project directory.
 
@@ -38,20 +45,20 @@ def get_script_dir() -> str:
 
 def add_workflow_settings_from_cfg(
     self: SupportsLuigiAPI,
-    cfg: Config,
+    cfg: RemoteConfig,
     workflow_type: Literal["htcondor", "slurm"],
-) -> Config:
+) -> RemoteConfig:
     """Add the settings for a Workflow from the law.cfg to the job Config
 
     Note:
-        Law will pass through luigi configs when they are labelled "luigi_<section>". Therefore, our
-        Workflow is accessible through the section "[luigi_<Task>_<batch_system>]".
+        Law will pass through luigi configs when they are labelled `luigi_<section>`. Therefore, our
+        Workflow is accessible through the section `[luigi_<Task>_<batch_system>]`.
 
     Args:
-        self (SupportsLuigiAPI): Any Task that inherits from luigi
-        cfg (Config): The Config used by the Workflow. One of `htcondor.HTCondorJobFileFactory.Config`
+        self (SupportsLuigiAPI): Any Task that inherits from `luigi.Task`
+        cfg (RemoteConfig): The config used by the Workflow. One of `htcondor.HTCondorJobFileFactory.Config`
             or `slurm.SlurmJobFileFactory.Config` depending on the Workflow.
-        workflow_type (Literal[&quot;htcondor&quot;, &quot;slurm&quot;]): The name of the batch system
+        workflow_type (Literal["htcondor", "slurm"]): The name of the batch system
             to use. This is used for accessing the correct section in the luigi cfg.
 
     Raises:
@@ -59,7 +66,7 @@ def add_workflow_settings_from_cfg(
             exists but is empty, then only a Warning is triggered
 
     Returns:
-        Config: The same object as `cfg` but with the added items from the luigi cfg.
+        RemoteConfig: The same object as `cfg` but with the added items from the luigi cfg.
     """
     luigi_cfg: LuigiConfig = luigi.configuration.get_config()
     section = f"{self.get_task_family()}_{workflow_type}"
