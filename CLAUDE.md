@@ -44,7 +44,7 @@ uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs d
 
 ## Architecture
 
-The orchestrator is a **DAG workflow engine** layering three frameworks:
+The needle is a **DAG workflow engine** layering three frameworks:
 - **LAW (Luigi)** — task scheduling, dependency tracking, checkpointing, remote job dispatch (HTCondor / Slurm)
 - **Hydra** — structured configuration via dataclasses + YAML composition + CLI overrides
 - **PyTorch Lightning** — training loop, checkpointing, logging inside each leaf task
@@ -68,9 +68,9 @@ DownstreamTask             (generic post-training hook, waits on declared `requi
 - `SnapshotTask` writes `dag_snapshot.json` mapping every (estimator, systematic, ensemble, fold) to its checkpoint path.
 - `DownstreamTask` wraps arbitrary user-defined post-training tasks and can declare inter-estimator dependencies via the `requires` config field — this is the mechanism for multi-stage pipelines (e.g., train normalizing flows first, then use their outputs as input to a classifier).
 
-### Configuration (`orchestrator/` + `conf/`)
+### Configuration (`needle/` + `conf/`)
 
-Config is pure Pydantic dataclasses registered in Hydra's ConfigStore (`orchestrator/registry.py`). The hierarchy:
+Config is pure Pydantic dataclasses registered in Hydra's ConfigStore (`needle/utils/config_schema.py`). The hierarchy:
 
 ```
 MainConfig
@@ -81,16 +81,11 @@ MainConfig
       └── requires: [str]                             ← inter-estimator deps
 ```
 
-`orchestrator/config_utils.py` resolves and validates the full config (cycle detection, missing dependency checks, etc.) at startup. `orchestrator/results.py` defines result aggregation objects (`FoldResults`, `EnsembleResults`, …) that propagate up the DAG using configurable methods (`mean`, `weighted_mean`, `sum`).
+`needle/utils/config_utils.py` resolves and validates the full config (cycle detection, missing dependency checks, etc.) at startup. `needle/utils/results.py` defines result aggregation objects (`FoldResults`, `EnsembleResults`, …) that propagate up the DAG using configurable methods (`mean`, `weighted_mean`, `sum`).
 
 ### Workspace layout
 
-This is a `uv` workspace with three members:
-- `preprocessor/` — data ingestion from ROOT/Parquet, scaling, normalization
-- `ml/` — Lightning modules, DataModules, datasets, network blocks
 - `examples/fair_universe_demo/` — end-to-end demo (CNF signal estimators + classifier)
-
-The root package (`orchestrator/`, `law_tasks/`, `conf/`) depends on both members.
 
 ### Tests
 

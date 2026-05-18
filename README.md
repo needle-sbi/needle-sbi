@@ -1,24 +1,19 @@
-# Orchestrator for NEEDLE ML workflows
+# NEEDLE– The Workflow Orchestrator for Neural Simulation Based Inference Methods
 
 ![pipeline](https://gitlab.desy.de/needle/orchestrator/badges/dev/pipeline.svg)
 ![coverage](https://gitlab.desy.de/needle/orchestrator/badges/dev/coverage.svg)
 
 ## Overview
 
-The orchestrator ties together the [ml](https://gitlab.desy.de/needle/ml) and [preprocessor](https://gitlab.desy.de/needle/preprocessor) submodules with a [LAW](https://github.com/riga/law)-based workflow manager and [Hydra](https://hydra.cc/) configuration. It supports k-fold training, experiment tracking, and in the future also remote job submission via a range of job scheduling technologies (HTCondor, Slurm, etc.).
-
+NEEDLE is a framework for the management and training on NSBI tools. It implements most functionalities
+needed to train a pool of ML models in a typical HPE analysis environment, meaning deployment to batch systems (htcondor or slurm), config management and efficient dataloading.
 
 ## Getting started
-
-> **Note:** The active development branch is `dev`, not `main` currently.
 
 ### 1. Clone
 
 ```bash
-git clone git@gitlab.desy.de:needle/orchestrator.git --recurse-submodules
-cd orchestrator
-git checkout fair_universe_demo
-git submodule update --init --recursive
+git clone git@github.com:needle-sbi/needle-sbi.git
 ```
 
 ### 2. Install dependencies
@@ -50,25 +45,9 @@ source setup.sh    # sets up the LAW environment variables
 law index          # indexes available LAW tasks in the law.cfg file
 ```
 
-### 4. FAIR Universe Dataset
+### FAIR Universe Demo (Optional)
 
-```bash
-pytest  # runs non-slow, non-benchmark tests by default
-```
-
-Some training tests require the `FAIR_UNIVERSE_DATA` environment variable pointing to a parquet file:
-
-```bash
-export FAIR_UNIVERSE_DATA=/path/to/fair_universe/data.parquet
-```
-
-If you dont want to use the full FAIR Universe Dataset but only the test dataset (1000 events) located at `examples/fair_universe_demo/test_data/` you still need to set the environment variable:
-
-```bash
-export FAIR_UNIVERSE_DATA=""
-```
-
-The full dataset can be obtained from codabench
+We provide an example of how to implement a full NSBI pipeline within needle. For this, we use the FAIR Universe dataset. If you dont want to use the full dataset (a few GB), there is a test dataset (1000 events) already shipped with at `examples/fair_universe_demo/test_data/`. The full dataset can be obtained from codabench
 
 ```bash
 cd /path/to/desired/directory  # can be in the same repo
@@ -114,6 +93,8 @@ law run SnapshotTask \
     --hydra-overrides ""
 ```
 
+You can directly run `SnapshotTask` without first calling `MainTask`, as the later is already a dependency of the former.
+
 ### 3. Custom Luigi Tasks: DownstreamTask
 
 If you are using `law` for your own downstream analysis, you can directly require our NEEDLE Tasks and
@@ -144,16 +125,16 @@ uv run python -m ipykernel install --user --name needle --display-name "NEEDLE"
 
 Then select the **NEEDLE** kernel when opening notebooks.
 
-## Singularity containers
+## Singularity (now apptainer) containers
 
-Pre-built container definitions are in `container/`:
+Pre-built container definitions are in `containerization/`:
 
 - `singularity_base.def` — dependencies only (Python 3.12 + all packages)
 - `singularity_dev.def` — full image with source code copied in
 
 ```bash
-singularity build needle-base.sif container/singularity_base.def
-singularity build needle.sif container/singularity_dev.def
+singularity build needle-base.sif containerization/singularity_base.def
+singularity build needle.sif containerization/singularity_dev.def
 singularity run needle.sif pytest ml/tests
 ```
 
@@ -163,63 +144,22 @@ When using `singularity exec` or `singularity shell`, you still need to `source 
 
 The current structure is as follows:
 ```
-orchestrator/
-├ conf/                  # hydra configs (datasets, models, trainers, datamodules)
-├ container/             # singularity container definitions
+needle-sbi/
+├ containerization/      # singularity container definitions
 ├ examples/              # Examples with finished models, configs and more
 │  └ fair_universe_demo  # FAIR Universe Example code, config and test data
 ├ law_tasks/             # LAW workflow tasks (training, fold, ensemble)
-├ ml/                    # [submodule] models, datasets, blocks, lightning modules
-├ notebooks/             # development notebooks
-├ orchestrator/          # config dataclasses, results, MLflow logging
-├ preprocessor/          # [submodule] data ingestion, normalisation, utilities
-├ tests/                 # Integration tests
-├ pyproject.toml         # deps, dev deps and tools
-├ setup.sh               # LAW environment setup
-└ law.cfg                # LAW task registry
+├ needle/                # source code
+├ tests/
+├ pyproject.toml
+├ conf/config.yaml       # HYDRA config (can also be located elsewhere)
+├ setup.sh
+└ law.cfg                # LAW config (distinct from needle config.yaml)
 ```
 
-## Working with submodules
+## Disclaimer on the use of Artificial Intelligence
 
-Push orchestrator and submodule changes together:
-
-```bash
-git push --recurse-submodules=on-demand
-```
-
-## Documentation
-
-> Note: under development
-
-To build the documentation, follow these steps:
-
-```bash
-# install docs dependencies from pyproject [dependency-groups].docs
-uv sync --group docs
-```
-
-then run the following to build the docs:
-
-```bash
-uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
-```
-
-You can view the documentation locally by then running the following:
-
-```bash
-open docs/_build/html/index.html
-```
-
-If the code is on a remote machine, forward a remote port to your local machine, for example with ssh:
-
-```bash
-ssh -L 8801:localhost:8801 user@remote-server  # on local
-```
-
-Then create a remote python http server using:
-
-```bash
-python3 -m http.server 8801 --bind 127.0.0.1  # on remote
-```
-
-Which allows you to look at the docs folder on http://127.0.0.1:8801/.
+The vast majority of the code in this project was written by the NEEDLE core development team. Files
+in which the code was generated using AI coding agents are marked as such in their corresponding header.
+AI-generated code bits are sometimes used in individual functions but not explicitly marked. The docs
+were mainly produced using AI under human supervision and review.

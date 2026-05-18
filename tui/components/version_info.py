@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Version information retrieval module for NEEDLE TUI."""
+"""Find and display the package version for the TUI.
+Disclaimer: Generated using Claude 4.6
+"""
 
 import json
 import sys
@@ -24,7 +26,6 @@ def get_package_version(package_name: str) -> str:
 def get_needle_version() -> str:
     """Get NEEDLE version from pyproject.toml."""
     try:
-        # Find the pyproject.toml in the orchestrator directory
         pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
 
         if pyproject_path.exists():

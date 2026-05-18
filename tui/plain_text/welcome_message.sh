@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generated with the help of GPT4.5
+# Disclaimer: Generated with the help of GPT4.5
 
 WIDTH=60
 LOGO_FILE="tui/plain_text/needle_name_ascii.txt"
