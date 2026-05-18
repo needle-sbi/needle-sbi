@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import difflib
 import graphlib
 import inspect
 from pathlib import Path
-from typing import Any, List, Literal, Mapping, Type, cast
+from typing import Any, List, Literal, Mapping, Optional, Type, cast
 
 import hydra
 import luigi
@@ -16,7 +17,7 @@ from pytorch_lightning import Trainer as LegacyTrainer
 from needle.utils.config_schema import MainConfig
 from needle.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("needle")
+logger = ColorFormatter.get_logger("config")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
 
 
@@ -313,3 +314,55 @@ def check_for_lightning_import_mismatch(cfg: DictConfig) -> None:
         f"    # After (modern)\n"
         f"    {fix}\n\n"
     )
+
+
+def compare_configs(self: MainConfig, other: object) -> Optional[str]:
+    """Return None if equal, otherwise a colored unified diff of their YAML representations."""
+    import re
+
+    RED, GREEN, CYAN, BOLD, RESET = "\033[31m", "\033[32m", "\033[36m", "\033[1m", "\033[0m"
+
+    if self == other:
+        return None
+
+    def _to_lines(cfg: object) -> List[str]:
+        if isinstance(cfg, DictConfig):
+            return OmegaConf.to_yaml(cfg, resolve=True).splitlines(keepends=True)
+        return OmegaConf.to_yaml(OmegaConf.structured(cfg), resolve=True).splitlines(keepends=True)
+
+    self_lines = _to_lines(self)
+    other_lines = _to_lines(other)
+    raw_diff: List[str] = list(
+        difflib.unified_diff(
+            self_lines,
+            other_lines,
+            fromfile=f"{self.__class__.__name__} (self)",
+            tofile=f"{other.__class__.__name__} (other)",
+            lineterm="",
+        )
+    )
+    if not raw_diff:
+        return None
+
+    old_lineno = new_lineno = 0
+    out: List[str] = []
+
+    for line in raw_diff:
+        if line.startswith("---") or line.startswith("+++"):
+            out.append(f"{BOLD}{line}{RESET}")
+        elif line.startswith("@@"):
+            m = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+            if m:
+                old_lineno, new_lineno = int(m.group(1)), int(m.group(2))
+            out.append(f"{CYAN}{line}{RESET}")
+        elif line.startswith("-"):
+            out.append(f"{RED}{old_lineno:4d} {line}{RESET}")
+            old_lineno += 1
+        elif line.startswith("+"):
+            out.append(f"{GREEN}{new_lineno:4d} {line}{RESET}")
+            new_lineno += 1
+        else:
+            out.append(f"{old_lineno:4d} {line}")
+            old_lineno += 1
+            new_lineno += 1
+    return "".join(out)
