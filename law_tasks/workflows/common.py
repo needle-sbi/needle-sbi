@@ -106,6 +106,6 @@ def check_batch_system(system: Literal["local", "htcondor", "slurm"]) -> None:
 
     if binary:
         if shutil.which(binary) is None:
-            raise RuntimeError(f"Selected batch system '{system}' is not available: '{binary}' not in PATH. ")
+            logger.error(f"Selected batch system '{system}' is not available: '{binary}' not in PATH. ")
     else:
-        raise ValueError(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")
+        logger.warning(f"Selected batch system '{system}' is not in {list(valid_batch_systems.keys())}")

@@ -3,7 +3,6 @@ from typing import List
 
 import law
 from law.contrib import slurm
-from law.util import rel_path
 
 from law_tasks.workflows.common import (
     Config,
