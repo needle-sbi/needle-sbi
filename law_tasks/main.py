@@ -32,7 +32,7 @@ from law_tasks.estimator import EstimatorTask
 from law_tasks.mixins import HydraMixin
 from needle.utils.logging import ColorFormatter, LogOnce
 
-logger = ColorFormatter.get_logger("orchestrator")
+logger = ColorFormatter.get_logger("needle")
 
 
 class MainTask(HydraMixin, law.WrapperTask):

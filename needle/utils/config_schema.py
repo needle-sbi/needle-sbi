@@ -56,7 +56,7 @@ class EstimatorConfig(SerializableDataclass):
     Each field can be defined in two ways:
 
     1. By name (str): `dataset="fair_universe"`. This string is resolved at runtime using
-        `orchestrator.registry.resolve_defaults` to produce the actual DictConfig in the corresponding
+        `needle.registry.resolve_defaults` to produce the actual DictConfig in the corresponding
         `*_override` field.
 
     2. By override (DictConfig / dataclass): Usual `dataset_override=DatasetConfig(...)`.

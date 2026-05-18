@@ -76,6 +76,7 @@ class FoldTask(
     )  # type: ignore
     systematic: str = law.Parameter(
         description="Name of the systematic uncertainty.",
+        default="nominal",
         significant=True,
     )  # type: ignore
     ensemble: int = luigi.IntParameter(

@@ -3,7 +3,6 @@ from typing import List
 
 import law
 from law.contrib import htcondor
-from law.util import rel_path
 
 from law_tasks.workflows.common import (
     Config,
@@ -16,14 +15,12 @@ logger = ColorFormatter.get_logger("htcondor")
 
 
 class HTCondorWorkflow(htcondor.HTCondorWorkflow):
+    results_path: str
+
     def htcondor_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
         return law.LocalDirectoryTarget(
-            os.path.join(get_script_dir(), "runs", "htcondor", self.__class__.__name__),
-        )  # TODO Make dependent on law output
-
-    def htcondor_bootstrap_file(self) -> law.JobInputFile:  # type: ignore
-        bootstrap_file = rel_path(__file__, "bootstrap.sh")
-        return law.JobInputFile(bootstrap_file, share=True, render_job=True)
+            os.path.join(get_script_dir(), self.results_path, "htcondor", self.__class__.__name__),
+        )
 
     def htcondor_job_config(
         self,

@@ -15,10 +15,12 @@ logger = ColorFormatter.get_logger("slurm")
 
 
 class SlurmWorkflow(slurm.SlurmWorkflow):
+    results_path: str
+
     def slurm_output_directory(self) -> law.LocalDirectoryTarget:  # type: ignore
         return law.LocalDirectoryTarget(
-            os.path.join(get_script_dir(), "runs", "slurm", self.__class__.__name__),
-        )  # TODO Make dependent on law output dir instead
+            os.path.join(get_script_dir(), self.results_path, "slurm", self.__class__.__name__),
+        )
 
     def slurm_job_config(
         self,
@@ -37,6 +39,7 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
         )
 
         config.custom_content.append(("export", "ALL"))
+        config.render_variables["script_dir"] = get_script_dir()
 
         config.stdout = "stdout_%j.txt"  # %j = Slurm job id
         config.stderr = "stderr_%j.txt"

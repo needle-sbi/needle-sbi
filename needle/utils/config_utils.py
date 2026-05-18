@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import graphlib
 import inspect
 from pathlib import Path
@@ -14,7 +16,7 @@ from pytorch_lightning import Trainer as LegacyTrainer
 from needle.utils.config_schema import MainConfig
 from needle.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("orchestrator")
+logger = ColorFormatter.get_logger("needle")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
 
 

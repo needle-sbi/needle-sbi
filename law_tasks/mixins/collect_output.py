@@ -3,7 +3,7 @@ import law
 from needle.utils.logging import ColorFormatter
 from needle.utils.luigi_utils import collect_output_paths
 
-logger = ColorFormatter.get_logger("orchestrator")
+logger = ColorFormatter.get_logger("needle")
 
 
 class CollectOutputMixin(law.Task):

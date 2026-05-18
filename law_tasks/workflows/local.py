@@ -4,7 +4,7 @@ import law
 
 from needle.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("orchestrator")
+logger = ColorFormatter.get_logger("needle")
 
 
 class LocalWorkflow(law.LocalWorkflow):

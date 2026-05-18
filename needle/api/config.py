@@ -11,7 +11,7 @@ logger = ColorFormatter.get_logger("needle")
 
 
 class Config:
-    """Configuration manager - reuses orchestrator's Hydra infrastructure"""
+    """Configuration manager - reuses needle's Hydra infrastructure"""
 
     def __init__(self, config_path: Union[str, Path]):
         self.config_path = Path(config_path).resolve()
@@ -40,7 +40,7 @@ class Config:
 
 
 def config(config_path: Union[str, Path]) -> Config:
-    """Load configuration using orchestrator's Hydra infrastructure"""
+    """Load configuration using needle's Hydra infrastructure"""
     return Config(config_path)
 
 
