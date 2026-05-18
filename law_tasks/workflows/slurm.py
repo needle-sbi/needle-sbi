@@ -21,10 +21,6 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
             os.path.join(get_script_dir(), "runs", "slurm", self.__class__.__name__),
         )  # TODO Make dependent on law output dir instead
 
-    def slurm_bootstrap_file(self):  # type: ignore
-        bootstrap_file = os.path.join(rel_path(__file__), "bootstrap.sh")
-        return law.JobInputFile(bootstrap_file, share=True, render_job=True)
-
     def slurm_job_config(
         self,
         config: Config,
@@ -41,9 +37,10 @@ class SlurmWorkflow(slurm.SlurmWorkflow):
             os.path.join(get_script_dir(), "setup.sh"),
         )
 
-        config.custom_content.append(("getenv", "true"))
+        config.custom_content.append(("export", "ALL"))
 
-        config.stdout = self.slurm_output_directory().child("stdout_%j.txt", type="f")  # %j = Slurm job id
-        config.stderr = self.slurm_output_directory().child("stderr_%j.txt", type="f")
+        config.stdout = "stdout_%j.txt"  # %j = Slurm job id
+        config.stderr = "stderr_%j.txt"
+        config.log = "slurm.log"
 
         return config
