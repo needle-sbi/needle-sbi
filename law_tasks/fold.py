@@ -268,7 +268,7 @@ class FoldTask(
         )
         return MLFlowLogger(
             experiment_name=experiment_name,
-            save_dir=os.path.join(self.config.results_path, "mlruns"),  # type: ignore
+            save_dir=os.path.join(self.config.results_path, "metrics"),  # type: ignore
             log_model=False,
         )
 
