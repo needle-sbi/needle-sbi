@@ -210,7 +210,6 @@ class FoldTask(
             "dir": base,
             "ckpt": base.child("model.ckpt", type="f"),
             "model_config": base.child("model_config.yaml", type="f"),
-            "metrics": base.child("metrics", type="d"),
             "outputs": base.child("fold_results.json", type="f"),
             "input_models": base.child("input_models.json", type="f"),
         }
