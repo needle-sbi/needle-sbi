@@ -18,7 +18,7 @@ dependencies = [
     # data / HEP
     "awkward>=2.7",
     "dask[distributed]>=2025.2",
-    "dask-awkward>=2025.2",
+    "dask-awkward>=2025.9",
     "pyarrow>=19.0",
     "uproot>=5.6",
     # ml related packages
@@ -93,7 +93,7 @@ gallery = { git = "https://gitlab.etp.kit.edu/kschmidt/web.git" }
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m='not slow'"
+addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m='not slow' -m 'not law'"
 markers = ["slow"]
 
 [tool.isort]

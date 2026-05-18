@@ -31,7 +31,6 @@ def create_array_field(field_template: ArrayField):
     return ak.Array(numpy_array)
 
 
-@pydantic.validate_call
 def create_nested_structure(columns: dict) -> ak.Array:
     """Template to create nested ak.Record structures from a nested dictionary"""
     array_dict = {}
@@ -39,8 +38,14 @@ def create_nested_structure(columns: dict) -> ak.Array:
     for key, value in columns.items():
         if isinstance(value, dict):
             array_dict[key] = create_nested_structure(value)
-        elif isinstance(value, ArrayField):
-            array_dict[key] = create_array_field(value)
+        elif isinstance(value, pydantic.BaseModel):
+            # Use model_validate to handle the case where ArrayField is imported
+            # under two different module paths (conftest vs tests.conftest).
+            try:
+                field = ArrayField.model_validate(value.model_dump())
+            except pydantic.ValidationError:
+                raise ValueError("Value must be either a dict or an ArrayField.")
+            array_dict[key] = create_array_field(field)
         else:
             raise ValueError("Value must be either a dict or an ArrayField.")
 
@@ -159,7 +164,7 @@ def config_factory() -> Callable[..., MainConfig]:
     """
 
     def _factory(overrides: List[str] | None = None):
-        with hydra.initialize(config_path="hydra_test_conf"):
+        with hydra.initialize(config_path="conf_tests"):
             cfg_dict = hydra.compose(config_name="config", overrides=overrides)
             cfg_defaults = OmegaConf.structured(MainConfig)
             cfg = OmegaConf.merge(cfg_defaults, cfg_dict)

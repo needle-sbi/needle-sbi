@@ -1,4 +1,4 @@
-# NEEDLE– The Workflow Orchestrator for Neural Simulation Based Inference Methods
+# NEEDLE – The Workflow Orchestrator for Neural Simulation Based Inference Methods
 
 ![pipeline](https://gitlab.desy.de/needle/orchestrator/badges/dev/pipeline.svg)
 ![coverage](https://gitlab.desy.de/needle/orchestrator/badges/dev/coverage.svg)

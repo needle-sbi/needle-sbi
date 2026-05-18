@@ -23,7 +23,7 @@ def test_kfold_training(
     config = config_factory()
     dataset_config = config.estimators[estimator_name].dataset_override
     assert dataset_config
-    dataset_config.paths = fair_universe_sample._str
+    dataset_config.paths = str(fair_universe_sample)
     config._resolved = True
     config_tmp_file = tmp_path / "config.yaml"
     omegaconf.OmegaConf.save(config, config_tmp_file, resolve=True)
