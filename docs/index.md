@@ -40,6 +40,15 @@ Auto-generated reference for all public modules.
 
 ::::
 
+## Libraries
+
+The data-processing libraries are completely optional and are only used when selecting the NEEDLE
+Lightning Datamodules in your config. For the training and inference, pytorch Lightning is a key
+component that ensures models are compatible with the framework. Finally, we use law (a fork of
+Spotify's luigi) to schedule and organize Tasks.
+
+![libraries](diagrams/website_technical_overview_light.png)
+
 ---
 
 ```{toctree}
