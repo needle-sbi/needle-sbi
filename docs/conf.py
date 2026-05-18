@@ -7,7 +7,7 @@ copyright = "2026, Needle Team"
 
 # resolve version from the installed distribution, or fall back
 try:
-    version = release = importlib.metadata.version("needle-orchestrator")
+    version = release = importlib.metadata.version("needle-sbi")
 except importlib.metadata.PackageNotFoundError:
     version = release = "0+local"
 
@@ -47,7 +47,6 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitLab",
-            "url": "",  # TODO: update with real URL (deploy docs)
             "icon": "fa-brands fa-gitlab",
         },
     ],
@@ -107,6 +106,8 @@ autodoc_mock_imports = [
     "psutil",
     "pyarrow",
     "spacy",
+    "preprocessor",
+    "networkx",
 ]
 
 autosummary_generate = True
@@ -128,3 +129,15 @@ nitpick_ignore = [
     ("py:class", "L.LightningModule"),
     ("py:class", "L.LightningDataModule"),
 ]
+
+
+def setup(app: object) -> None:
+    # sphinx's _MockObject does not define __add__ or __or__, which breaks
+    # class-body code like `interactive_params = law.Task.interactive_params + [...]`
+    # and overloaded methods with `dak.Array | ak.Array` annotations.
+    from sphinx.ext.autodoc.mock import _MockObject
+
+    _MockObject.__add__ = lambda self, other: other if isinstance(other, list) else _MockObject()  # type: ignore[attr-defined]
+    _MockObject.__radd__ = lambda self, other: other if isinstance(other, list) else _MockObject()  # type: ignore[attr-defined]
+    _MockObject.__or__ = lambda self, other: _MockObject()  # type: ignore[attr-defined]
+    _MockObject.__ror__ = lambda self, other: _MockObject()  # type: ignore[attr-defined]

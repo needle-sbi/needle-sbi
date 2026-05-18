@@ -1,10 +1,11 @@
-Auto-generated reference for all public modules.
+API Reference
+=============
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   law_tasks
-   needle.utils
-   needle.ml
-   needle.api
-   needle.evaluation
+   law_tasks/index
+   needle_utils/index
+   needle_ml/index
+   needle_api/index
+   needle_evaluation/index
