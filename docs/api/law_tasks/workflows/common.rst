@@ -1,5 +1,5 @@
-Common Utilities for Workflows
-==============================
+Common Utilities
+================
 
 Shared utilities for all workflow backends.
 

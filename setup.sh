@@ -19,28 +19,6 @@ if [[ -n "$ZSH_EVAL_CONTEXT" ]] && [[ "$ZSH_EVAL_CONTEXT" != *:file* ]]; then
     exit 1
 fi
 
-# resolve script dir (needed later for LAW_HOME)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
-
-# Check if running in remote HTCondor job (LAW sets these variables)
-if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
-    echo -e "${_NEEDLE_BLUE}Running in remote HTCondor context, activating virtual environment...${_NEEDLE_NC}"
-    # Try to activate venv if it exists
-    if [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
-        source "$SCRIPT_DIR/.venv/bin/activate"
-    elif [[ -f "$SCRIPT_DIR/../.venv/bin/activate" ]]; then
-        source "$SCRIPT_DIR/../.venv/bin/activate"
-    else
-        echo -e "${_NEEDLE_ORANGE}Warning: Virtual environment not found, assuming packages are available system-wide${_NEEDLE_NC}"
-    fi
-else
-    # Local execution - activate venv if not already active
-    if [[ -z "$VIRTUAL_ENV" ]] && [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
-        echo -e "${_NEEDLE_BLUE}Activating virtual environment...${_NEEDLE_NC}"
-        source "$SCRIPT_DIR/.venv/bin/activate"
-    fi
-fi
-
 # Check if LAW package is available (only fail for local, warn for remote)
 if ! command -v law &> /dev/null; then
     if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
@@ -65,14 +43,6 @@ export _OLD_PS1="$PS1"
 # use resolved script dir so LAW_HOME is always correct
 export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$LAW_HOME/law.cfg"
-
-# use absolute paths so PYTHONPATH works regardless of cwd
-for p in "preprocessor" "ml" "."; do
-    abs_p="$LAW_HOME/$p"
-    if [[ ":$PYTHONPATH:" != *":$abs_p:"* ]]; then
-        export PYTHONPATH="$abs_p:$PYTHONPATH"
-    fi
-done
 
 # load shell completions for both bash and zsh
 # TODO: add for fish shell types

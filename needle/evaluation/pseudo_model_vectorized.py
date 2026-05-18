@@ -4,15 +4,15 @@ Vectorized pseudo-model using torch.vmap for maximum parallelization.
 This approach is optimal when all models have identical architectures.
 """
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import hydra
 import torch
 import torch.nn as nn
 from functorch import vmap
 from omegaconf import OmegaConf
-from preprocessor.utils import ColorFormatter
 
+from needle.utils.logging import ColorFormatter
 from needle.utils.results import AggregationEdge, AggregationMethod, DAGSnapshot
 
 logger = ColorFormatter.get_logger("pseudo_model_vectorized")

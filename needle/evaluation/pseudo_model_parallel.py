@@ -9,8 +9,8 @@ import hydra
 import torch
 import torch.nn as nn
 from omegaconf import OmegaConf
-from preprocessor.utils import ColorFormatter
 
+from needle.utils.logging import ColorFormatter
 from needle.utils.results import AggregationEdge, AggregationMethod, DAGSnapshot
 
 logger = ColorFormatter.get_logger("pseudo_model_parallel")

@@ -106,7 +106,6 @@ autodoc_mock_imports = [
     "psutil",
     "pyarrow",
     "spacy",
-    "preprocessor",
     "networkx",
 ]
 

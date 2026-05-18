@@ -5,10 +5,10 @@ import awkward as ak
 import dask_awkward as dak
 import numpy as np
 import pytest
-from needle.ml.data.io import load_partition
-from needle.ml.data.kfold import KFold, PartitionDict
 
 from needle.etl.array import brute_force_divisions
+from needle.ml.datasets.io import load_partition
+from needle.ml.datasets.kfold import KFold, PartitionDict
 
 
 @pytest.fixture(scope="module")

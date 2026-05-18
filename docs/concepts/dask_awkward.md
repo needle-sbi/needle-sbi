@@ -2,14 +2,12 @@
 
 ## Dask
 
-https://docs.dask.org/en/stable/
-
-The dask ecosystem is a series of libraries that wrap an existing python array-based library such as
-numpy, pandas or awkward. These wrapping delay the execution of a given operation until dask performs
-a computation of the whole object. In essence, you defined the operations that you want to perform
-and at the very end of the code you call `dask.compute()` which actually crunshes the numbers. The
-benefit from this approach is that the overhead required to perform that computation is know to dask,
-who can regulate how much resources to use at each point.
+The [dask](https://docs.dask.org/en/stable/) ecosystem is a series of libraries that wrap an existing
+python array-based library such as numpy, pandas or awkward. These wrapping delay the execution of a
+given operation until dask performs a computation of the whole object. In essence, you defined the
+operations that you want to perform and at the very end of the code you call `dask.compute()` which
+actually crunshes the numbers. The benefit from this approach is that the overhead required to perform
+that computation is know to dask, who can regulate how much resources to use at each point.
 
 Dask is on the one hand a toolbox for build dask-libraries such as dask-pandas DataFrames or dask-numpy
 Arrays (called Dask-Dataframes and Dask-Arrays respectively). There are three key steps required to
@@ -26,9 +24,9 @@ Note: Spark is another library that does the same thing but is proprietary to Ap
 
 ## Awkward
 
-https://awkward-array.org/doc/main/
 
-The awkward library is an extension of numpy that works with irregularly shaped data commonly found in
+The [awkward](https://awkward-array.org/doc/main/) library is an extension of
+numpy that works with irregularly shaped data commonly found in
 HEP. It interfaces nicely with the `uproot` [docs](https://uproot.readthedocs.io/en/latest/uproot.html)
 and can be used to manipulate root file data in python. It is not super fast but it can easily be
 parallelized in our case since events are usually independent.
@@ -42,12 +40,12 @@ Since we mostly do not use awkward in our codebase, we will focus on dask_awkwar
 
 ## Dask + Awkward
 
-https://dask-awkward.readthedocs.io/en/stable/
 
-The promises of using dask and awkward is that we can work with almost all types of data in nested
-and irregularly shaped arrays. This makes it the most flexible configuration for HEP data. The dask
-wrapper on top ensures that we can harness the benefits of parallelized execution and also better
-resource management.
+
+The promises from [dask_awkward](https://dask-awkward.readthedocs.io/en/stable/) is that we can work
+with almost all types of data in nested and irregularly shaped arrays. This makes it the most flexible
+configuration for HEP data. The dask wrapper on top ensures that we can harness the benefits of
+parallelized execution and also better resource management.
 
 Some caveats:
  - Nested array (as awkward Records) are very nice to work with sine you can access sub-fields using
@@ -66,7 +64,7 @@ Some caveats:
         dask operations if one is not careful.
     2. Access with custom `NestedArrayIndexer.get_nested_array(array, "Lepton.pt")` method. This recursive
         calls `getattr` on the field until it finds the desired Array. This class can be found in
-        `preprocessor.utils.array`.
+        `needle.etl.array`.
  - Do not mix dask with non-dask operations. Adding a scalar to a dask array might trigger unwanted
     DAG execution.
  - When using dask functions like `dask.map_partitions`, you are not guaranteed to get the information

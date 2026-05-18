@@ -13,7 +13,7 @@ from pyarrow import ArrowInvalid
 
 from needle.utils.logging import ColorFormatter
 
-logger = ColorFormatter.get_logger("preprocessor")
+logger = ColorFormatter.get_logger("etl")
 
 
 def resolve_paths(

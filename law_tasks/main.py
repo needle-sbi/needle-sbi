@@ -93,7 +93,8 @@ class MainTask(HydraMixin, law.WrapperTask):
             if config_diff:
                 msg = (
                     "The cached version of your config does not match the new instance. Training results "
-                    f"might differ based on the changes lines. Offending entries are (new, old):\n{config_diff}"
+                    "might differ based on the changes lines. Use `--remove-output` to delete the cached files "
+                    f"from the previous run if you want a fresh run. Offending entries are (new, old):\n{config_diff}"
                 )
                 match self.strict_config.upper():
                     case ConfigStrictness.WARN.value:

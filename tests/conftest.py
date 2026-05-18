@@ -83,14 +83,7 @@ def pytest_sessionstart(session: pytest.Session):
 
 
 @pytest.fixture
-def simple_sample(request: pytest.FixtureRequest) -> str:
-    pytest.importorskip("preprocessor", reason="Could not import 'preprocessor'")
-
-    try:
-        make_parquet_file: Callable = request.getfixturevalue("make_parquet_file")
-    except pytest.FixtureLookupError:
-        pytest.skip("Fixture 'make_parquet_file' from preprocessor could not be found")
-
+def simple_sample(make_parquet_file: Callable) -> str:
     template = ArrayField(dtype=float, shape=(10000, 1, 1))
     file_path: str = make_parquet_file(
         columns={
