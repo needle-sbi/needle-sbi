@@ -1,0 +1,31 @@
+results_path: "runs/default"  # reserved field
+results_path_downstream: ""  # in case you need multiple evaluation folders for the same training
+custom_settings:  # extra user-defined settings (not managed by hydra/OmegaConf)
+  my_field: ""  # arbitrary name and type
+
+estimators:
+  model_A:  # name of this estimator
+    model: mock_transformer  # reads file 'models/mock_transformer.yaml'
+    datamodule: pandas  # reads file 'datamodules/pandas.yaml'
+    dataset: default  # reads file 'datasets/default.yaml'
+    trainer: default  # reads file 'trainers/default.yaml'
+    requires: []  # another estimator field
+    expands:
+      systematics:
+        nominal:
+          model: mock_transformer  # point to another dataset
+          datamodule_override:  # or modify individual entries
+            batch_size: 256  # specific to your datamodule
+          dataset: default  # if not set, will inherit from parent estimator (model_A.dataset)
+          trainer: default
+      ensembles:
+        num_ensembles: 1
+      folds: 1
+
+downstream_tasks:
+  downstream_A:  # name of this downstream Task
+    args:
+      _target_: ""  # mandatory field that points to your luigi Task
+      my_parameter: ""  # any number of arbitrary args for your Task
+    expands:  # same as estimators, but you can defined the iterable to loop over
+      my_expansion_args: [0, 1]  # will create an instance of your Task with each value

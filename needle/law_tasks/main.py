@@ -44,7 +44,7 @@ class MainTask(HydraMixin, law.WrapperTask):
             f"these options: {ConfigStrictness._member_map_}. The cached config will be updated "
             "and therefore prevent this check during the next run. Using lower cases is possible"
         ),
-        default=ConfigStrictness.WARN,
+        default=ConfigStrictness.WARN.value,
         significant=False,
     )  # type: ignore
 

@@ -1,0 +1,8 @@
+results_path: "runs/default"  # reserved field
+
+estimators:
+  model_A:  # name of this estimator, at least one
+    model: mock_transformer  # reads file 'models/mock_transformer.yaml'
+    datamodule: pandas  # reads file 'datamodules/pandas.yaml'
+    dataset: default  # reads file 'datasets/default.yaml'
+    trainer: default  # reads file 'trainers/default.yaml'
