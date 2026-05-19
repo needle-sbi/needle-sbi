@@ -6,21 +6,17 @@
 ## Overview
 
 NEEDLE is a framework for the management and training on NSBI tools. It implements most functionalities
-needed to train a pool of ML models in a typical HPE analysis environment, meaning deployment to batch systems (htcondor or slurm), config management and efficient dataloading.
+needed to train a pool of ML models in a typical HPE analysis environment, meaning deployment to batch
+systems (htcondor or slurm), config management and efficient dataloading.
 
 ## Getting started
 
-### 1. Clone
+### Step 1: Astral uv
 
-```bash
-git clone git@github.com:needle-sbi/needle-sbi.git
-```
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management. You can also use plain `pip`
+if you prefer by replacing the `uv` commands with the corresponding `pip` versions.
 
-### 2. Install dependencies
-
-The project uses [uv](https://docs.astral.sh/uv/) for dependency management.
-
-Install it with
+Install `uv` with
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -29,25 +25,61 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Reload your shell or source the uv environment to make it active in your current shell, as stated by
 uv when you run the script.
 
-Download and install the python dependencies:
+### Step 2: Install from Github
 
-```bash
-uv python pin 3.12   # Use recommended python version (higher is also usually okay)
-uv sync              # install runtime dependencies
-uv sync --group dev  # include dev tools (pytest, black, flake8, etc.)
-```
+ - Option A: Download the `needle` package with `uv` (no source code)
 
-### 3 Activate the environment
+    ```bash
+    uv pip install --no-config "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
+    ```
+
+ - Option B: Cloning the whole repo (for devs, adds the source code)
+
+    ```bash
+    git clone git@github.com:needle-sbi/needle-sbi.git
+    uv python pin 3.12   # Use recommended python version (higher is also usually okay)
+    uv sync              # install runtime dependencies
+    ```
+
+### Step 3
+
+3.1 Source your newly built python environment with
 
 ```bash
 source .venv/bin/activate
-source setup.sh    # sets up the LAW environment variables
-law index          # indexes available LAW tasks in the law.cfg file
 ```
+
+This will unlock the `needle` cli tool that installs the files you need to make your project
+work within NEEDLE.
+
+3.2 Initialize your project with
+
+```bash
+needle init
+```
+
+This will copy:
+
+ - `law.cfg`: law/luigi config file for batch submissions
+ - `index`: law index file that lists all the available tasks. Can be updated using `law index`
+ - `setup.sh`: script for activating the NEEDLE environment
+ - `conf/`: template directory for your config files according to the hydra schema
+
+3.3 Source the `setup.sh` script
+
+```bash
+source setup.sh
+```
+
+**Note**: Every time you start a new shell you have to source your virtual environment and the `setup.sh`
+script.
 
 ### FAIR Universe Demo (Optional)
 
-We provide an example of how to implement a full NSBI pipeline within needle. For this, we use the FAIR Universe dataset. If you dont want to use the full dataset (a few GB), there is a test dataset (1000 events) already shipped with at `examples/fair_universe_demo/test_data/`. The full dataset can be obtained from codabench
+We provide an example of how to implement a full NSBI pipeline within needle. For this, we use the
+FAIR Universe dataset. If you dont want to use the full dataset (a few GB), there is a test dataset
+(1000 events) already shipped with at `examples/fair_universe_demo/test_data/`. The full dataset can
+be obtained from codabench
 
 ```bash
 cd /path/to/desired/directory  # can be in the same repo
@@ -60,7 +92,10 @@ It is recommended to add the `$FAIR_UNIVERSE_DATA` environment variable to your 
 
 ## Running LAW tasks
 
-The three top-level Tasks you can use are `MainTask` (only training), `SnapshotTask` (gather checkpoints in tree structure) and `DownstreamTask` (your hook for running custom luigi Tasks).
+The three top-level Tasks you can use are
+ - `MainTask` (only training)
+ - `SnapshotTask` (gather checkpoints in tree structure)
+ - `DownstreamTask` (your hook for running custom luigi Tasks).
 
 > **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling issues with patched worker callbacks.
 
@@ -68,7 +103,7 @@ The three top-level Tasks you can use are `MainTask` (only training), `SnapshotT
 
 ```bash
 law run MainTask \
-    --config-file conf/config.yaml \        # optional
+    --config-file conf/config.yaml \
     --hydra-overrides ""                    # optional (must be a single string)
 ```
 
@@ -148,7 +183,6 @@ needle-sbi/
 ├ containerization/      # singularity container definitions
 ├ examples/              # Examples with finished models, configs and more
 │  └ fair_universe_demo  # FAIR Universe Example code, config and test data
-├ law_tasks/             # LAW workflow tasks (training, fold, ensemble)
 ├ needle/                # source code
 ├ tests/
 ├ pyproject.toml
