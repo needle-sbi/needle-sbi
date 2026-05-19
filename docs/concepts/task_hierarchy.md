@@ -114,14 +114,14 @@ The snapshot format:
 ```json
 {
   "nodes": {
-    "est=nf_signal_1jet&syst=c_0p5&ensem=0&fold=0": {
+    "est=nf_signal_1jet&syst=c_0.5&ensem=0&fold=0": {
       "checkpoint_path": "runs/.../best.ckpt",
-      "task_type": "FoldTask",
+      "task_type": "fold",
       "fold_index": 0,
       "ensemble_index": 0,
       "estimator_name": "nf_signal_1jet",
-      "systematic_name": "c_0p5",
-      "metrics": { "best_validation_loss": 0.42 }
+      "systematic_name": "c_0.5",
+      "metrics": { "val_loss": 0.42 }
     }
   },
   "edges": [ ... ]

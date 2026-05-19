@@ -21,7 +21,7 @@ export DELPHES_DATA_PARQUET=/path/to/*.parquet
 ```
 
 These must be a glob pattern of all the files. The columns and other configs are read from the
-dedicated test `hydra_test_conf` directory for all tests. In that config it is not mandatory to set
+dedicated test `conf_tests` directory for all tests. In that config it is not mandatory to set
 the paths to the datasets because they are overwritten by the two environment variables mentioned
 above.
 """

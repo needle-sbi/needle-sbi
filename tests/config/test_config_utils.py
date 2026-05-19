@@ -44,7 +44,7 @@ class TestValidateGraph:
 
 @pytest.fixture(scope="function")
 def hydra_initialize_context() -> Generator:
-    with hydra.initialize(config_path="../hydra_test_conf"):
+    with hydra.initialize(config_path="../conf_tests"):
         yield
 
 

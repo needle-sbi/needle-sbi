@@ -14,16 +14,19 @@ law index             # index LAW tasks in law.cfg
 
 Key environment variables:
 - `FAIR_UNIVERSE_DATA` — path to parquet file for dataset-dependent tests; empty string uses bundled test data
+- `DELPHES_DATA_ROOT` / `DELPHES_DATA_PARQUET` — paths for Delphes-format test fixtures
 - `LAW_HOME` / `LAW_CONFIG_FILE` — set by `setup.sh`; required for LAW task scheduling
 
 ## Commands
 
 **Tests:**
 ```bash
-pytest                                                    # all non-slow, non-benchmark tests
+pytest                                                    # all non-slow, non-law, non-benchmark tests
 pytest -m slow                                            # slow tests, for example starting law Tasks
 pytest --benchmark-only                                   # benchmark tests, not used at this stage
 ```
+
+Default markers exclude `slow` and `law`; see `pyproject.toml` `[tool.pytest.ini_options]`.
 
 **Lint / format:**
 ```bash
@@ -40,6 +43,12 @@ Line length is 120. mypy uses `disallow_untyped_defs = true`.
 ```bash
 uv sync --group docs
 uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs docs/_build/html
+```
+
+**CLI:**
+```bash
+needle init [directory]   # scaffold a new NEEDLE project (law.cfg, setup.sh, conf/)
+needle init --no-conf     # scaffold without the default conf/ directory
 ```
 
 ## Architecture
@@ -59,36 +68,96 @@ MainTask
       └── SystematicTask    (one per systematic variation)
            └── EnsembleTask (one per ensemble group)
                 └── FoldTask  ← actual Lightning training happens here
-SnapshotTask               (collects all checkpoints → dag_snapshot.json)
-DownstreamTask             (generic post-training hook, waits on declared `requires`)
+SnapshotTask               (requires MainTask → writes dag_snapshot.json with nodes + edges)
+DownstreamTask             (law.LocalWorkflow; wraps user luigi Tasks; supports branch expansion)
 ```
 
-- `MainTask` is the root entry point. It resolves and caches the full Hydra config to `runs/config.yaml` before any subtasks run.
-- `FoldTask` calls into `ml/` to instantiate the Lightning `Trainer`, `LightningModule`, and `DataModule`.
-- `SnapshotTask` writes `dag_snapshot.json` mapping every (estimator, systematic, ensemble, fold) to its checkpoint path.
-- `DownstreamTask` wraps arbitrary user-defined post-training tasks and can declare inter-estimator dependencies via the `requires` config field — this is the mechanism for multi-stage pipelines (e.g., train normalizing flows first, then use their outputs as input to a classifier).
+- `MainTask` is the root entry point. It resolves and caches the full Hydra config to `<results_path>/config.yaml` before any subtasks run. A `ConfigStrictness` enum (IGNORE / WARN / RAISE) controls how config conflicts with the cached version are handled.
+- `FoldTask` calls into `needle/ml/` to instantiate the Lightning `Trainer`, `LightningModule`, and `DataModule`.
+- `SnapshotTask` writes `dag_snapshot.json` as a `DAGSnapshot` object containing typed `ModelNodeMetadata` nodes and `AggregationEdge` edges for every (estimator, systematic, ensemble, fold) trained.
+- `DownstreamTask` is a `law.LocalWorkflow` that wraps arbitrary user-defined `luigi.Task` subclasses. It supports branch expansion (via `expands` in `DownstreamTaskConfig`) and can declare dependencies on other downstream tasks via `requires`.
+- Workflow mixins in `law_tasks/workflows/` provide HTCondor, Slurm, and local execution backends for `FoldTask`.
 
-### Configuration (`needle/` + `conf/`)
+### Configuration (`needle/utils/config_schema.py`)
 
-Config is pure Pydantic dataclasses registered in Hydra's ConfigStore (`needle/utils/config_schema.py`). The hierarchy:
+Config is pure Python dataclasses (not Pydantic) registered in Hydra's ConfigStore. The hierarchy:
 
 ```
 MainConfig
- └── EstimatorConfig[]
-      ├── SystematicConfig[]
-      ├── EnsembleConfig
-      ├── expands: {systematics, ensembles, folds}   ← controls task fan-out
-      └── requires: [str]                             ← inter-estimator deps
+ ├── estimators: dict[str, EstimatorConfig]
+ │    └── EstimatorConfig
+ │         ├── expands: ExpansionConfig        ← controls task fan-out
+ │         │    ├── systematics: dict[str, SystematicConfig]
+ │         │    ├── ensembles: EnsembleConfig
+ │         │    └── folds: int
+ │         └── requires: [str]                 ← inter-estimator deps
+ ├── downstream_tasks: dict[str, DownstreamTaskConfig]
+ ├── aggregation: AggregationConfig            ← fold/ensemble/systematic/estimator aggregation methods
+ ├── results_path: str
+ ├── results_path_downstream: str
+ └── custom_settings: Any
 ```
 
-`needle/utils/config_utils.py` resolves and validates the full config (cycle detection, missing dependency checks, etc.) at startup. `needle/utils/results.py` defines result aggregation objects (`FoldResults`, `EnsembleResults`, …) that propagate up the DAG using configurable methods (`mean`, `weighted_mean`, `sum`).
+`needle/utils/config_utils.py` resolves and validates the full config (cycle detection, missing dependency checks, defaults resolution) at startup. `needle/utils/results.py` defines result objects (`FoldResults`, `EnsembleResults`, …) and the `DAGSnapshot` / `ModelNodeMetadata` / `AggregationEdge` types used by `SnapshotTask` and the pseudo-models.
+
+### Public API (`needle/api/`)
+
+High-level Python API for use outside of LAW tasks:
+
+- `needle.api.config.Config` / `config()` — load and resolve a Hydra config without LAW
+- `needle.api.model.Model` / `model()` — load a trained `DAGSnapshot` as a callable `PseudoModel`
+- `needle.api.dataset.Dataset` / `dataset()` — instantiate a Lightning DataModule from a resolved config
+- `needle.api.train.train_single_lightning_module()` — train a single Lightning module directly
+
+### Evaluation (`needle/evaluation/`)
+
+Three implementations of the ensemble pseudo-model that loads from `dag_snapshot.json`:
+
+- `pseudo_model.py` — `PseudoModel`: sequential aggregation
+- `pseudo_model_parallel.py` — `NEEDLEParallel`: parallel evaluation
+- `pseudo_model_vectorized.py` — `NEEDLEVectorized`: vectorized batched evaluation
+- `dag_visualization.py` — DAG visualisation utilities
+
+### ETL (`needle/etl/`)
+
+Data ingestion layer built on Dask Awkward Arrays:
+
+- `dask_ingestor.py` — `Ingestor`: lazy reader for parquet and ROOT files
+- `array.py` — `NestedArrayIndexer` and helpers for awkward array manipulation
+- `normalization.py` — feature normalisation utilities
+- `conversion.py` — format conversion helpers
 
 ### Workspace layout
 
-- `examples/fair_universe_demo/` — end-to-end demo (CNF signal estimators + classifier)
+```
+needle-sbi/
+├── containerization/    # Singularity/Apptainer container definitions
+├── docs/                # Sphinx docs (MyST Markdown + RST API refs)
+├── examples/
+│   └── fair_universe_demo/   # end-to-end demo (CNF estimators + classifier)
+├── law_tasks/           # LAW workflow task classes
+│   ├── mixins/          # HydraMixin, CollectOutputMixin
+│   └── workflows/       # HTCondor, Slurm, local execution backends
+├── needle/              # Core library
+│   ├── api/             # Public Python API (Config, Model, Dataset, train)
+│   ├── etl/             # Dask/Awkward data ingestion
+│   ├── evaluation/      # PseudoModel variants, DAG visualisation
+│   ├── ml/              # Lightning DataModules, datasets, models
+│   │   ├── datasets/    # Padded dataset implementations (eager, dask, torch)
+│   │   └── lightning/   # DataModule and mock model
+│   ├── templates/       # Files scaffolded by `needle init`
+│   └── utils/           # config_schema, config_utils, results, logging, …
+├── tests/
+│   ├── conf_tests/      # Hydra config used by tests (independent of examples/conf/)
+│   └── …
+├── tui/                 # Terminal UI components
+├── pyproject.toml
+├── law.cfg              # LAW config (distinct from needle config.yaml)
+└── setup.sh
+```
 
 ### Tests
 
-- `tests/hydra_test_conf/` — Hydra config used by all tests (independent of `conf/`)
-- `conftest.py` provides `config_factory()` (builds `MainConfig` with optional overrides), `simple_sample` (parquet fixture), and a session-scoped Dask `LocalCluster` for benchmarks
+- `tests/conf_tests/` — Hydra config used by all tests (independent of example configs)
+- `conftest.py` provides: `make_parquet_file`, `ingestor`, `simple_sample` (parquet fixtures), `fair_universe_sample`, `delphes_sample_root`, `delphes_sample_parquet` (env-gated fixtures that skip if env var unset), `config_factory()` (builds `MainConfig` with optional overrides), `config` (default config), and `dask_client` (session-scoped Dask `LocalCluster`)
 - LAW tasks tests use `tmp_path` to avoid collisions between concurrent runs

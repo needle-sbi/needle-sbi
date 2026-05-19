@@ -168,7 +168,7 @@ def config_factory() -> Callable[..., MainConfig]:
             cfg_dict = hydra.compose(config_name="config", overrides=overrides)
             cfg_defaults = OmegaConf.structured(MainConfig)
             cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
-            cfg_dir = Path(__file__).parent / "hydra_test_conf"
+            cfg_dir = Path(__file__).parent / "conf_tests"
             cfg = resolve_defaults(cfg, cfg_dir)
             return cast(MainConfig, cfg)
 
