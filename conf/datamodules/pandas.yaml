@@ -1,3 +1,0 @@
-_target_: ml.lightning.data.pandas_datamodule.PandasDataModule
-batch_size: 512
-max_number_events: 1000
