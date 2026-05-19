@@ -1,0 +1,7 @@
+needle.law_tasks.ensemble:EnsembleTask:config-file ensemble estimator fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path systematic
+needle.law_tasks.systematic:SystematicTask:config-file estimator fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path systematic
+needle.law_tasks.estimator:EstimatorTask:config-file estimator fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path
+needle.law_tasks.snapshot:SnapshotTask:config-file fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path
+needle.law_tasks.downstream:DownstreamTask:collect-output-paths config-file downstream fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path
+needle.law_tasks.main:MainTask:config-file fetch-output hydra-overrides log-file print-deps print-output print-status remove-output results-path
+needle.law_tasks.fold:FoldTask:acceptance branch branches cancel-jobs cleanup-jobs clear-logs config-file ensemble estimator fetch-output fold-index htcondor-pool htcondor-scheduler hydra-overrides ignore-submission job-workers log-file no-poll parallel-jobs pilot poll-fails poll-interval print-deps print-output print-status remove-output results-path retries shuffle-jobs slurm-partition submission-threads systematic tasks-per-job tolerance transfer-logs walltime workflow
