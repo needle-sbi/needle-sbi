@@ -25,6 +25,9 @@ def get_package_version(package_name: str) -> str:
 
 def get_needle_version() -> str:
     """Get NEEDLE version from pyproject.toml."""
+    pip_version = get_package_version("needle")
+    if pip_version != "N/A":
+        return pip_version
     try:
         pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
 
@@ -32,8 +35,6 @@ def get_needle_version() -> str:
             with open(pyproject_path, "rb") as f:
                 pyproject = tomllib.load(f)
             return pyproject.get("project", {}).get("version", "N/A")
-        else:
-            print(f"Could not find {pyproject_path}")
         return "N/A"
     except Exception:
         return "N/A"

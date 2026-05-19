@@ -45,7 +45,7 @@ export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
 export _OLD_PYTHONPATH="${PYTHONPATH:-}"
 export _OLD_PS1="$PS1"
 
-export LAW_HOME="$SCRIPT_DIR/.law"
+export LAW_HOME="$SCRIPT_DIR"
 export LAW_CONFIG_FILE="$SCRIPT_DIR/law.cfg"
 
 # Load shell completions
@@ -89,8 +89,6 @@ unset _NEEDLE_TUI_DIR
 
 echo -e "${_NEEDLE_GREEN}Activated the $ENV_NAME environment. (Exit with 'exit', 'deactivate' or 'needle_exit').${_NEEDLE_NC}"
 echo -e "${_NEEDLE_GREEN}For a full reset in the same shell, use 'unset NEEDLE_ENV_ACTIVE' then re-source this script.${_NEEDLE_NC}"
-echo -e "  LAW_HOME=$LAW_HOME"
-echo -e "  LAW_CONFIG_FILE=$LAW_CONFIG_FILE"
 
 # Clean up colour vars so they don't pollute the user's env
 unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC

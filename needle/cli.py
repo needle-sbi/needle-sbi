@@ -1,7 +1,5 @@
 import argparse
-import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -20,7 +18,7 @@ def _copy(src: Path, dst: Path, description: str) -> None:
         print(f"Created '{label}' ({description})")
 
 
-def cmd_init(args: argparse.Namespace) -> int:
+def cmd_init(args: argparse.Namespace) -> None:
     target = Path(args.directory).resolve()
     target.mkdir(parents=True, exist_ok=True)
 
@@ -44,18 +42,11 @@ def cmd_init(args: argparse.Namespace) -> int:
             dst=target / "conf",
             description="Config directory following the hydra schema",
         )
-
-    law_home = target / ".law"
-    law_home.mkdir(exist_ok=True)
-    env = {**os.environ, "LAW_HOME": str(law_home), "LAW_CONFIG_FILE": str(target / "law.cfg")}
-    result = subprocess.run(["law", "index"], env=env, cwd=target, capture_output=True, text=True)
-    if result.returncode == 0:
-        print(result.stdout, end="\r")
-        print("Next, source the `setup.sh` script within your virtual environment")
-    else:
-        print(result.stderr)
-
-    return result.returncode
+    _copy(
+        src=_TEMPLATES / "index",
+        dst=target / "index",
+        description="Index of needle.law_tasks, update with `law index`",
+    )
 
 
 def main() -> None:

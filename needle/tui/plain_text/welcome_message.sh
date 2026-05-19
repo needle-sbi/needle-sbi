@@ -69,13 +69,14 @@ fi
 
 print_text_line "Docs:        https://..."
 print_text_line "Examples:    https://..."
-print_text_line "Law guide:   https://..."
+print_text_line "Luigi:       https://luigi.readthedocs.io/en/stable/"
 print_empty
 
 print_text_line "Useful commands:"
-print_text_line "  * law run"
 print_text_line "  * law index"
-print_text_line "  * --help"
+print_text_line "  * law --help"
+print_text_line "  * law run MainTask --config-file "
+print_text_line "  * law run DownstreamTask --config-file "
 
 print_empty
 print_footer
