@@ -1,4 +1,8 @@
+"""Disclaimer: Generated using Claude 4.6
+"""
+
 import argparse
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -20,6 +24,30 @@ def _copy(src: Path, dst: Path, description: str) -> None:
         print(f"Created '{label}', ({description})")
 
 
+def _detect_law_tasks_parent() -> str:
+    spec = importlib.util.find_spec("law_tasks")
+    if spec and spec.submodule_search_locations:
+        return str(Path(list(spec.submodule_search_locations)[0]).parent)
+    return ""
+
+
+def _write_setup_sh(src: Path, dst: Path) -> None:
+    label = src.name
+    if dst.exists():
+        print(f"Skipped '{label}' (Setup script for setting up the NEEDLE environment)")
+        return
+    law_tasks_parent = _detect_law_tasks_parent()
+    content = src.read_text().replace("{{NEEDLE_LAW_TASKS_PARENT}}", law_tasks_parent)
+    dst.write_text(content)
+    if law_tasks_parent:
+        print(f"Created '{label}' (Setup script; law_tasks found at {law_tasks_parent})")
+    else:
+        print(
+            f"Created '{label}' (Setup script; law_tasks not found at init time, you may have to point "
+            "to the install directory in `law.cfg`."
+        )
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     target = Path(args.directory).resolve()
     target.mkdir(parents=True, exist_ok=True)
@@ -30,12 +58,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         description="LAW config file for managing Tasks",
     )
     setup_dst = target / "setup.sh"
-    _copy(
-        src=_TEMPLATES / "setup.sh",
-        dst=setup_dst,
-        description="Setup script for setting up the NEEDLE environment",
-    )
-
+    _write_setup_sh(src=_TEMPLATES / "setup.sh", dst=setup_dst)
     if setup_dst.exists():
         setup_dst.chmod(0o755)
 

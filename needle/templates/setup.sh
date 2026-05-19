@@ -17,6 +17,14 @@ export LAW_HOME="$_SETUP_DIR/.law"
 export LAW_CONFIG_FILE="$_SETUP_DIR/law.cfg"
 export SCRIPT_DIR="$_SETUP_DIR"
 
+# Injected by `needle init`: parent directory of the installed law_tasks package.
+# Ensures `law index` can find NEEDLE's built-in tasks regardless of working directory.
+_NEEDLE_LAW_TASKS_PARENT="{{NEEDLE_LAW_TASKS_PARENT}}"
+if [[ -n "$_NEEDLE_LAW_TASKS_PARENT" ]]; then
+    export PYTHONPATH="$_NEEDLE_LAW_TASKS_PARENT${PYTHONPATH:+:$PYTHONPATH}"
+fi
+unset _NEEDLE_LAW_TASKS_PARENT
+
 unset _SETUP_DIR
 
 if [[ $- == *i* ]]; then
