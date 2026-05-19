@@ -48,13 +48,6 @@ export _OLD_PS1="$PS1"
 export LAW_HOME="$SCRIPT_DIR/.law"
 export LAW_CONFIG_FILE="$SCRIPT_DIR/law.cfg"
 
-# Injected by `needle init`: parent directory of the installed law_tasks package.
-# Ensures `law index` can find NEEDLE's built-in tasks regardless of working directory.
-_NEEDLE_INSTALL_PATH="{{NEEDLE_LAW_TASKS_PARENT}}"
-if [[ -n "$_NEEDLE_INSTALL_PATH" ]]; then
-    export PYTHONPATH="$_NEEDLE_INSTALL_PATH${PYTHONPATH:+:$PYTHONPATH}"
-fi
-
 # Load shell completions
 if [[ $- == *i* ]]; then
     if [[ -n "$BASH_VERSION" ]]; then
@@ -88,14 +81,16 @@ alias deactivate="_deactivate"
 alias needle_deactivate="_deactivate"
 alias needle_exit="_deactivate"
 
-# Show the welcome banner from the installed NEEDLE package
-if [[ -n "$_NEEDLE_INSTALL_PATH" && -f "$_NEEDLE_INSTALL_PATH/tui/plain_text/welcome_message.sh" ]]; then
-    (cd "$_NEEDLE_INSTALL_PATH" && SCRIPT_DIR="$_NEEDLE_INSTALL_PATH" bash "tui/plain_text/welcome_message.sh") 2>/dev/null || true
+_NEEDLE_TUI_DIR=$(python3 -c "import needle, pathlib; print(pathlib.Path(next(iter(needle.__path__))) / 'tui')" 2>/dev/null)
+if [[ -n "$_NEEDLE_TUI_DIR" && -f "$_NEEDLE_TUI_DIR/plain_text/welcome_message.sh" ]]; then
+    (NEEDLE_TUI_DIR="$_NEEDLE_TUI_DIR" bash "$_NEEDLE_TUI_DIR/plain_text/welcome_message.sh")
 fi
-unset _NEEDLE_INSTALL_PATH
+unset _NEEDLE_TUI_DIR
 
 echo -e "${_NEEDLE_GREEN}Activated the $ENV_NAME environment. (Exit with 'exit', 'deactivate' or 'needle_exit').${_NEEDLE_NC}"
 echo -e "${_NEEDLE_GREEN}For a full reset in the same shell, use 'unset NEEDLE_ENV_ACTIVE' then re-source this script.${_NEEDLE_NC}"
+echo -e "  LAW_HOME=$LAW_HOME"
+echo -e "  LAW_CONFIG_FILE=$LAW_CONFIG_FILE"
 
 # Clean up colour vars so they don't pollute the user's env
 unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC

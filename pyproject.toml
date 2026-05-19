@@ -81,7 +81,7 @@ docs = [
 needle = "needle.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["needle", "law_tasks"]
+packages = ["needle"]
 
 [tool.uv.workspace]
 members = ["examples/fair_universe_demo"]

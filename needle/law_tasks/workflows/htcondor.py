@@ -4,7 +4,7 @@ from typing import List
 import law
 from law.contrib import htcondor
 
-from law_tasks.workflows.common import (
+from needle.law_tasks.workflows.common import (
     RemoteConfig,
     add_workflow_settings_from_cfg,
     get_script_dir,

@@ -4,8 +4,8 @@ from typing import Any, Dict, List
 
 import law
 
-from law_tasks.ensemble import EnsembleTask
-from law_tasks.mixins import HydraMixin
+from needle.law_tasks.ensemble import EnsembleTask
+from needle.law_tasks.mixins import HydraMixin
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
 from needle.utils.logging import ColorFormatter
 from needle.utils.results import EnsembleResults, SystematicResults

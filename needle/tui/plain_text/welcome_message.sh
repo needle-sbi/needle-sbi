@@ -2,7 +2,7 @@
 # Disclaimer: Generated with the help of GPT4.5
 
 WIDTH=60
-LOGO_FILE="tui/plain_text/needle_name_ascii.txt"
+LOGO_FILE="${NEEDLE_TUI_DIR}/plain_text/needle_name_ascii.txt"
 
 
 # Colors
@@ -57,7 +57,7 @@ print_text_line " Welcome to NEEDLE, the workflow manager for NSBI tools"
 print_empty
 
 # Get version information from Python module
-VERSIONS_OUTPUT=$(python3 "$SCRIPT_DIR/tui/components/version_info.py" --text 2>/dev/null)
+VERSIONS_OUTPUT=$(python3 "${NEEDLE_TUI_DIR}/components/version_info.py" --text 2>/dev/null)
 
 if [ -n "$VERSIONS_OUTPUT" ]; then
     print_text_line "Environment Versions:"

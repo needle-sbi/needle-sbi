@@ -6,7 +6,7 @@ from pathlib import Path
 import omegaconf
 import pytest
 
-from law_tasks.ensemble import EnsembleTask
+from needle.law_tasks.ensemble import EnsembleTask
 from tests.conftest import MainConfigFactory
 
 

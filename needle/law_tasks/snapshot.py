@@ -28,8 +28,8 @@ from urllib.parse import urlencode
 import law
 from omegaconf import OmegaConf
 
-from law_tasks.main import MainTask
-from law_tasks.mixins import HydraMixin
+from needle.law_tasks.main import MainTask
+from needle.law_tasks.mixins import HydraMixin
 from needle.utils.logging import ColorFormatter
 from needle.utils.results import (
     AggregationEdge,

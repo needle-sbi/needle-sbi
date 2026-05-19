@@ -38,8 +38,8 @@ import torch
 from lightning.pytorch.loggers import MLFlowLogger
 from omegaconf import OmegaConf
 
-from law_tasks.mixins import HydraMixin
-from law_tasks.workflows import (
+from needle.law_tasks.mixins import HydraMixin
+from needle.law_tasks.workflows import (
     HTCondorWorkflow,
     LocalWorkflow,
     SlurmWorkflow,
@@ -186,7 +186,7 @@ class FoldTask(
         if not self.estimator_config.requires:
             return []
 
-        from law_tasks import EstimatorTask  # Avoid circular imports
+        from needle.law_tasks import EstimatorTask  # Avoid circular imports
 
         return [
             EstimatorTask(

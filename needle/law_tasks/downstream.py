@@ -38,8 +38,8 @@ import law
 import luigi
 from omegaconf import DictConfig, OmegaConf
 
-from law_tasks.mixins import CollectOutputMixin, HydraMixin
-from law_tasks.snapshot import SnapshotTask
+from needle.law_tasks.mixins import CollectOutputMixin, HydraMixin
+from needle.law_tasks.snapshot import SnapshotTask
 from needle.utils.config_schema import DownstreamTaskConfig
 from needle.utils.config_utils import hydra_instantiate
 from needle.utils.logging import ColorFormatter

@@ -21,8 +21,8 @@ from typing import Any, Dict, List
 import law
 import luigi
 
-from law_tasks.fold import FoldTask
-from law_tasks.mixins import HydraMixin
+from needle.law_tasks.fold import FoldTask
+from needle.law_tasks.mixins import HydraMixin
 from needle.utils.config_schema import EstimatorConfig
 from needle.utils.logging import ColorFormatter
 from needle.utils.results import EnsembleResults, FoldResults

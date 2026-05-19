@@ -7,9 +7,9 @@ from urllib.parse import urlencode
 import law
 from omegaconf import open_dict
 
-from law_tasks.fold import FoldTask
-from law_tasks.mixins import HydraMixin
-from law_tasks.systematic import SystematicTask
+from needle.law_tasks.fold import FoldTask
+from needle.law_tasks.mixins import HydraMixin
+from needle.law_tasks.systematic import SystematicTask
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
 from needle.utils.logging import ColorFormatter
 from needle.utils.results import EstimatorResults, SystematicResults

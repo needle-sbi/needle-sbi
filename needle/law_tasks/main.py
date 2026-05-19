@@ -6,8 +6,8 @@ from typing import List
 import law
 from omegaconf import OmegaConf
 
-from law_tasks.estimator import EstimatorTask
-from law_tasks.mixins import HydraMixin
+from needle.law_tasks.estimator import EstimatorTask
+from needle.law_tasks.mixins import HydraMixin
 from needle.utils.config_utils import compare_configs, initialize_hydra_config
 from needle.utils.logging import ColorFormatter, LogOnce
 
