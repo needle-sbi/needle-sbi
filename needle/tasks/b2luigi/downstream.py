@@ -11,7 +11,7 @@ tracking in the Luigi task registry).
 from __future__ import annotations
 
 from itertools import product
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Type
 from urllib.parse import parse_qs, urlencode
 
 import b2luigi
@@ -49,19 +49,19 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
             return {}
         return {k: v[0] for k, v in parse_qs(self.branch_params).items()}
 
-    def _snapshot_task_class(self) -> Type[luigi.Task]:
-        from needle.b2luigi_tasks.snapshot import SnapshotTask  # avoid circular imports
+    def _main_task_class(self) -> Type[luigi.Task]:
+        from needle.tasks.b2luigi.main import MainTask  # avoid circular imports
 
-        return SnapshotTask
+        return MainTask
 
     def _upstream_deps(self) -> List[luigi.Task]:
-        """Resolve snapshot or chained downstream dependencies."""
-        SnapshotTask = self._snapshot_task_class()
+        """Resolve main task or chained downstream dependencies."""
+        MainTask = self._main_task_class()
         deps: List[luigi.Task] = []
 
         if not self.downstream_config.requires:
             deps.append(
-                SnapshotTask(
+                MainTask(
                     results_path=self.results_path,
                     config_file=self.config_file,
                     hydra_overrides=self.hydra_overrides,
@@ -104,7 +104,7 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
                     branch_params=urlencode(dict(zip(keys, combo))),
                 )
                 for combo in product(*values)
-            ]
+            ]  # type: ignore
             return self._upstream_deps() + branch_tasks
 
         # Branch instance or no expansion: just require upstream deps

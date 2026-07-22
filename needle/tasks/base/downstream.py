@@ -51,32 +51,36 @@ class BaseDownstreamMixin(HydraParamsMixin):
             return self.results_path
         return self.config.results_path or self.results_path
 
-    def _snapshot_task_class(self) -> Type[luigi.Task]:
-        raise NotImplementedError("Backend subclass must implement _snapshot_task_class()")
+    def _main_task_class(self) -> Type[luigi.Task]:
+        raise NotImplementedError("Backend subclass must implement _main_task_class()")
 
     @cached_property
     def snapshot_path(self) -> str:
-        SnapshotTask = self._snapshot_task_class()
-        snapshot = SnapshotTask(
+        MainTask = self._main_task_class()
+        main = MainTask(
             results_path=self.results_path,
             config_file=self.config_file,
             hydra_overrides=self.hydra_overrides,
         )
-        return snapshot.output()["dag_snapshot"].path  # type: ignore
+        return main.output()["dag_snapshot"].path  # type: ignore
 
     def create_branch_map(self) -> Dict[int, BranchTuple]:
+        from urllib.parse import urlencode
+
         expands = self.downstream_config.expands
+
         if not expands:
             return {0: BranchTuple(name="default", parameters={})}
 
         keys = list(expands.keys())
         values = list(expands.values())
         branch_map = {}
+
         for i, combination in enumerate(product(*values)):
             params = dict(zip(keys, combination))
-            from urllib.parse import urlencode
             branch_name = urlencode(sorted(params.items()))
             branch_map[i] = BranchTuple(name=branch_name, parameters=params)
+
         return branch_map
 
     def downstream_task(self, branch_id: int) -> luigi.Task:

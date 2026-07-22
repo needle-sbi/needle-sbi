@@ -54,7 +54,6 @@ class SystematicConfig(SerializableDataclass):
 @dataclass
 class EnsembleConfig(SerializableDataclass):
     num_ensembles: int = 1
-    aggregation_method: str | None = None
 
 
 @dataclass

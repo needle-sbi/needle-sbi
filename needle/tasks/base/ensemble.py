@@ -2,29 +2,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, List, Type
 
 import luigi
 
-from needle.tasks.mixins.hydra import HydraParamsMixin
+from needle.tasks.base.expansion import BaseExpansionTask
 from needle.utils.config_schema import EstimatorConfig
-from needle.utils.logging import ColorFormatter
-from needle.utils.results import EnsembleResults, FoldResults
-
-logger = ColorFormatter.get_logger("ensemble")
 
 
-class BaseEnsembleTask(HydraParamsMixin, luigi.Task):
-    """Backend-agnostic base for EnsembleTask."""
+class BaseEnsembleTask(BaseExpansionTask):
+    """Fan-out wrapper for a single ensemble group.
 
-    results_path: str = luigi.Parameter(
-        description="Root directory where results are saved.",
-        significant=False,
-    )  # type: ignore
-    estimator: str = luigi.Parameter(
-        description="Name of the estimator (must be included in config).",
-        significant=True,
-    )  # type: ignore
+    Requires one ``FoldTask`` per fold and signals completion via a ``.done`` marker.
+    Backends override ``_fold_task_class()`` to inject the appropriate FoldTask variant.
+    """
+
     systematic: str = luigi.Parameter(
         description="Name of the systematic uncertainty.",
         significant=True,
@@ -67,16 +59,3 @@ class BaseEnsembleTask(HydraParamsMixin, luigi.Task):
             )
             for fold_index in range(self.estimator_config.expands.folds)
         ]
-
-    def output(self) -> Dict[str, Any]:
-        return {
-            "outputs": luigi.LocalTarget(
-                os.path.join(str(self.abs_results_path), "ensemble_results.json")
-            )
-        }
-
-    def run(self) -> None:
-        fold_results = [
-            FoldResults.from_json(fold_output["outputs"].path) for fold_output in self.input()
-        ]
-        EnsembleResults(folds=fold_results).to_json(self.output()["outputs"].path)

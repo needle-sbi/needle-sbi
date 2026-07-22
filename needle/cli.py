@@ -99,8 +99,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     elif backend == "b2luigi":
         import b2luigi
 
-        from needle.b2luigi_tasks import MainTask
-        from needle.b2luigi_tasks.workflows.common import configure_b2luigi
+        from needle.tasks.b2luigi import MainTask
+        from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 
         config_file = getattr(args, "config", "conf/config.yaml")
         results_path = getattr(args, "results_path", "runs")

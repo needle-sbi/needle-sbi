@@ -31,7 +31,7 @@ from typing import Any, Dict, Type
 import law
 import luigi
 
-from needle.law_tasks.mixins import CollectOutputMixin, HydraMixin
+from needle.tasks.law.mixins import CollectOutputMixin, HydraMixin
 from needle.tasks.base.downstream import BaseDownstreamMixin, BranchTuple
 from needle.utils.logging import ColorFormatter
 from needle.utils.luigi_utils import convert_luigi_to_law_targets
@@ -52,18 +52,18 @@ class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow)
     branch_map: Dict[int, BranchTuple]  # type: ignore
     branch: int
 
-    def _snapshot_task_class(self) -> Type[luigi.Task]:
-        from needle.law_tasks.snapshot import SnapshotTask  # avoid circular imports
+    def _main_task_class(self) -> Type[luigi.Task]:
+        from needle.tasks.law.main import MainTask  # avoid circular imports
 
-        return SnapshotTask
+        return MainTask
 
     def requires(self) -> Dict[str, Any]:
         """Resolve dependencies for this downstream task."""
-        SnapshotTask = self._snapshot_task_class()
+        MainTask = self._main_task_class()
         req: Dict[str, Any] = {}
 
         if not self.downstream_config.requires:
-            req["snapshot"] = SnapshotTask(
+            req["main"] = MainTask(
                 results_path=self.results_path,
                 config_file=self.config_file,
                 hydra_overrides=self.hydra_overrides,

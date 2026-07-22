@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Type
@@ -9,25 +8,19 @@ from urllib.parse import urlencode
 import luigi
 from omegaconf import open_dict
 
-from needle.tasks.mixins.hydra import HydraParamsMixin
+from needle.tasks.base.expansion import BaseExpansionTask
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
 from needle.utils.logging import ColorFormatter
-from needle.utils.results import EstimatorResults, SystematicResults
 
 logger = ColorFormatter.get_logger("estimator")
 
 
-class BaseEstimatorTask(HydraParamsMixin, luigi.Task):
-    """Backend-agnostic base for EstimatorTask."""
+class BaseEstimatorTask(BaseExpansionTask):
+    """Fan-out wrapper for a single estimator across all its systematic variations.
 
-    results_path: str = luigi.Parameter(
-        description="Root directory where results are saved.",
-        significant=False,
-    )  # type: ignore
-    estimator: str = luigi.Parameter(
-        description="Name of the estimator (must be included in config).",
-        significant=True,
-    )  # type: ignore
+    Requires one ``SystematicTask`` per systematic key and signals completion via a ``.done``
+    marker. Backends override ``_systematic_task_class()`` to inject the appropriate variant.
+    """
 
     @property
     def abs_results_path(self) -> Path:
@@ -60,6 +53,7 @@ class BaseEstimatorTask(HydraParamsMixin, luigi.Task):
         for systematic_task in self.requires():
             for ensemble_task in systematic_task.requires():
                 for fold_task in ensemble_task.requires():
+                    (training_task,) = fold_task.requires()
                     key = urlencode(
                         {
                             "syst": systematic_task.systematic,
@@ -67,7 +61,7 @@ class BaseEstimatorTask(HydraParamsMixin, luigi.Task):
                             "fold": fold_task.fold_index,
                         }
                     )
-                    model_paths_dict[key] = fold_task.output_as_dict(fold_task.output())["ckpt"].path  # type: ignore
+                    model_paths_dict[key] = training_task.output_as_dict(training_task.output())["ckpt"].path  # type: ignore
 
         return model_paths_dict
 
@@ -86,19 +80,3 @@ class BaseEstimatorTask(HydraParamsMixin, luigi.Task):
             )
             for systematic_key in self.estimator_config.expands.systematics.keys()
         ]
-
-    def output(self) -> Dict[str, Any]:
-        base = str(self.abs_results_path)
-        return {
-            "outputs": luigi.LocalTarget(os.path.join(base, "estimator_result.json")),
-            "input_models": luigi.LocalTarget(os.path.join(base, "input_models.json")),
-        }
-
-    def run(self) -> None:
-        systematic_results = [
-            SystematicResults.from_json(systematic_result["outputs"].path) for systematic_result in self.input()
-        ]
-        EstimatorResults(systematics=systematic_results).to_json(self.output()["outputs"].path)
-
-        with open(self.output()["input_models"].path, "w") as f:
-            json.dump(self.input_model_paths, f)

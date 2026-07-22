@@ -10,19 +10,18 @@ test run (see ``pyproject.toml`` ``addopts``).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import urlencode
 
 import omegaconf
 import pytest
 
-from needle.b2luigi_tasks.downstream import DownstreamTask
-from needle.b2luigi_tasks.ensemble import EnsembleTask
-from needle.b2luigi_tasks.estimator import EstimatorTask
-from needle.b2luigi_tasks.fold import FoldTask
-from needle.b2luigi_tasks.main import MainTask
-from needle.b2luigi_tasks.snapshot import SnapshotTask
-from needle.b2luigi_tasks.systematic import SystematicTask
+from needle.tasks.b2luigi.downstream import DownstreamTask
+from needle.tasks.b2luigi.ensemble import EnsembleTask
+from needle.tasks.b2luigi.estimator import EstimatorTask
+from needle.tasks.b2luigi.fold import FoldTask
+from needle.tasks.b2luigi.main import MainTask
+from needle.tasks.b2luigi.systematic import SystematicTask
+from needle.tasks.b2luigi.training import TrainingTask
 from needle.utils.config_schema import MainConfig
 from tests.conftest import MainConfigFactory
 
@@ -41,13 +40,13 @@ def _write_config(config: MainConfig, tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# FoldTask
+# FoldTask — marker wrapper
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.b2luigi
 class TestB2LuiFoldTask:
-    def test_output_paths(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_output_is_done_marker(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -61,6 +60,68 @@ class TestB2LuiFoldTask:
         )
 
         out = fold.output()
+        assert Path(out.path).name == ".done"
+        assert f"est__{estimator_name}" in out.path
+        assert "syst__nominal" in out.path
+        assert "ensem__0" in out.path
+        assert "fold__2" in out.path
+
+    def test_requires_returns_single_training_task(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        fold = FoldTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="nominal",
+            ensemble=0,
+            fold_index=0,
+            results_path=str(tmp_path),
+        )
+        deps = fold.requires()
+        assert len(deps) == 1
+        assert isinstance(deps[0], TrainingTask)
+
+    def test_training_task_class_returns_b2luigi_training(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        fold = FoldTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="nominal",
+            ensemble=0,
+            fold_index=0,
+            results_path=str(tmp_path),
+        )
+        assert fold._training_task_class() is TrainingTask
+
+
+# ---------------------------------------------------------------------------
+# TrainingTask — the only b2luigi.Task in the backend
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.b2luigi
+class TestB2LuiTrainingTask:
+    def test_output_paths(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="nominal",
+            ensemble=0,
+            fold_index=2,
+            results_path=str(tmp_path),
+        )
+
+        out = task.output()
 
         assert "ckpt" in out
         assert "model_config" in out
@@ -78,7 +139,7 @@ class TestB2LuiFoldTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
-        fold = FoldTask(
+        task = TrainingTask(
             config_file=config_file,
             estimator=estimator_name,
             systematic="nominal",
@@ -86,14 +147,14 @@ class TestB2LuiFoldTask:
             fold_index=0,
             results_path=str(tmp_path),
         )
-        out = fold.output()
-        assert fold.output_as_dict(out) is out
+        out = task.output()
+        assert TrainingTask.output_as_dict(out) is out
 
     def test_requires_empty_without_deps(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
-        fold = FoldTask(
+        task = TrainingTask(
             config_file=config_file,
             estimator=estimator_name,
             systematic="nominal",
@@ -101,7 +162,7 @@ class TestB2LuiFoldTask:
             fold_index=0,
             results_path=str(tmp_path),
         )
-        assert fold.requires() == []
+        assert task.requires() == []
 
     def test_estimator_task_class_returns_b2luigi_estimator(
         self, config_factory: MainConfigFactory, tmp_path: Path
@@ -109,7 +170,7 @@ class TestB2LuiFoldTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
-        fold = FoldTask(
+        task = TrainingTask(
             config_file=config_file,
             estimator=estimator_name,
             systematic="nominal",
@@ -117,7 +178,7 @@ class TestB2LuiFoldTask:
             fold_index=0,
             results_path=str(tmp_path),
         )
-        assert fold._estimator_task_class() is EstimatorTask
+        assert task._estimator_task_class() is EstimatorTask
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +207,7 @@ class TestB2LuiEnsembleTask:
         assert all(isinstance(d, FoldTask) for d in deps)
         assert [d.fold_index for d in deps] == list(range(n_folds))
 
-    def test_output_path(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_output_is_done_marker(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -158,9 +219,8 @@ class TestB2LuiEnsembleTask:
             results_path=str(tmp_path),
         )
         out = ensemble.output()
-        assert "outputs" in out
-        assert Path(out["outputs"].path).name == "ensemble_results.json"
-        assert "ensem__1" in out["outputs"].path
+        assert Path(out.path).name == ".done"
+        assert "ensem__1" in out.path
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +247,7 @@ class TestB2LuiSystematicTask:
         assert len(deps) == num_ensembles
         assert all(isinstance(d, EnsembleTask) for d in deps)
 
-    def test_output_path(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_output_is_done_marker(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -198,8 +258,8 @@ class TestB2LuiSystematicTask:
             results_path=str(tmp_path),
         )
         out = syst.output()
-        assert "outputs" in out
-        assert Path(out["outputs"].path).name == "systematic_results.json"
+        assert Path(out.path).name == ".done"
+        assert "syst__nominal" in out.path
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +283,7 @@ class TestB2LuiEstimatorTask:
         assert len(deps) >= 1
         assert all(isinstance(d, SystematicTask) for d in deps)
 
-    def test_output_paths(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_output_is_done_marker(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -233,19 +293,28 @@ class TestB2LuiEstimatorTask:
             results_path=str(tmp_path),
         )
         out = est.output()
-        assert "outputs" in out
-        assert "input_models" in out
-        assert Path(out["outputs"].path).name == "estimator_result.json"
-        assert f"est__{estimator_name}" in out["outputs"].path
+        assert Path(out.path).name == ".done"
+        assert f"est__{estimator_name}" in out.path
 
 
 # ---------------------------------------------------------------------------
-# MainTask
+# MainTask — merged entry point + snapshot writer
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.b2luigi
 class TestB2LuiMainTask:
+    def test_output_is_dag_snapshot(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+
+        main = MainTask(
+            config_file=config_file,
+            results_path=str(tmp_path),
+        )
+        out = main.output()
+        assert "dag_snapshot" in out
+        assert Path(out["dag_snapshot"].path).name == "dag_snapshot.json"
+
     def test_requires_creates_estimator_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         config = config_factory()
@@ -269,40 +338,8 @@ class TestB2LuiMainTask:
             config_file=config_file,
             results_path=str(tmp_path),
         )
-        deps = main.requires()
-
-        actual_names = {d.estimator for d in deps}
+        actual_names = {d.estimator for d in main.requires()}
         assert actual_names == expected_names
-
-
-# ---------------------------------------------------------------------------
-# SnapshotTask
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.b2luigi
-class TestB2LuiSnapshotTask:
-    def test_output_path(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
-        config_file = _write_config(config_factory(), tmp_path)
-
-        snapshot = SnapshotTask(
-            config_file=config_file,
-            results_path=str(tmp_path),
-        )
-        out = snapshot.output()
-        assert "dag_snapshot" in out
-        assert Path(out["dag_snapshot"].path).name == "dag_snapshot.json"
-
-    def test_main_task_class_returns_b2luigi_main(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
-        config_file = _write_config(config_factory(), tmp_path)
-
-        snapshot = SnapshotTask(
-            config_file=config_file,
-            results_path=str(tmp_path),
-        )
-        assert snapshot._main_task_class() is MainTask
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +356,7 @@ class TestB2LuiDownstreamTaskBranching:
 
         dt = DownstreamTask(
             config_file=config_file,
-            downstream="snapshot",  # any key; won't be resolved without a real config
+            downstream="snapshot",
             results_path=str(tmp_path),
             branch_params="",
         )
@@ -363,40 +400,42 @@ class TestB2LuiDownstreamTaskBranching:
 
 
 # ---------------------------------------------------------------------------
-# Backend isolation: b2luigi tasks must not import law at class-definition time
+# Backend isolation: TrainingTask is the only b2luigi.Task
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.b2luigi
 class TestBackendIsolation:
-    def test_fold_task_importable_without_law_side_effects(self) -> None:
-        """Importing b2luigi FoldTask must not cause law-specific attributes to appear."""
-        assert not hasattr(FoldTask, "create_branch_map"), (
-            "b2luigi FoldTask should not have LAW's create_branch_map"
-        )
+    def test_fold_task_has_no_create_branch_map(self) -> None:
+        """FoldTask is a plain marker wrapper — no law workflow attributes."""
+        assert not hasattr(FoldTask, "create_branch_map")
 
-    def test_fold_task_is_b2luigi_task(self) -> None:
+    def test_fold_task_is_not_b2luigi_task(self) -> None:
+        """Only TrainingTask should be a b2luigi.Task; FoldTask is plain luigi."""
         import b2luigi
 
-        assert issubclass(FoldTask, b2luigi.Task)
+        assert not issubclass(FoldTask, b2luigi.Task)
 
-    def test_fold_task_is_not_local_workflow(self) -> None:
-        # b2luigi FoldTask should NOT inherit from LAW's LocalWorkflow
+    def test_training_task_is_b2luigi_task(self) -> None:
+        import b2luigi
+
+        assert issubclass(TrainingTask, b2luigi.Task)
+
+    def test_training_task_is_not_local_workflow(self) -> None:
         try:
             import law
-            assert not issubclass(FoldTask, law.LocalWorkflow), (
-                "b2luigi FoldTask must not inherit from law.LocalWorkflow"
-            )
-        except ImportError:
-            pass  # law not installed — certainly not inherited
 
-    def test_b2luigi_output_as_dict_is_identity(
+            assert not issubclass(TrainingTask, law.LocalWorkflow)
+        except ImportError:
+            pass
+
+    def test_training_task_output_as_dict_is_identity(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
-        fold = FoldTask(
+        task = TrainingTask(
             config_file=config_file,
             estimator=estimator_name,
             systematic="nominal",
@@ -404,7 +443,5 @@ class TestBackendIsolation:
             fold_index=0,
             results_path=str(tmp_path),
         )
-        output = fold.output()
-        assert FoldTask.output_as_dict(output) is output, (
-            "b2luigi FoldTask.output_as_dict must return the dict unchanged (no TargetCollection)"
-        )
+        output = task.output()
+        assert TrainingTask.output_as_dict(output) is output
