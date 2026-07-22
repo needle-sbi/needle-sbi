@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "needle-sbi"
-version = "0.1.2"
+version = "0.2.0"
 description = "Workflow manager for NSBI tools in HEP"
 authors = [
     {name = "Kylian Schmidt", email = "kylian.schmidt@kit.edu"},

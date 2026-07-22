@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Type
 
 import luigi
 
@@ -29,8 +29,15 @@ class BaseExpansionTask(HydraParamsMixin, luigi.Task):
     def abs_results_path(self) -> Path:
         raise NotImplementedError
 
+    def _target_class(self) -> Type[Any]:
+        """Backend-specific completion-marker target. law overrides this with
+        ``law.LocalFileTarget`` since ``law.Task.complete()`` calls ``target.complete()``,
+        which plain ``luigi.LocalTarget`` does not implement.
+        """
+        return luigi.LocalTarget
+
     def output(self) -> Any:
-        return luigi.LocalTarget(os.path.join(str(self.abs_results_path), ".done"))
+        return self._target_class()(os.path.join(str(self.abs_results_path), ".done"))
 
     def run(self) -> None:
         out = self.output()

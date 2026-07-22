@@ -120,6 +120,23 @@ def fair_universe_sample(check_cli_path) -> str:
     return check_cli_path("FAIR_UNIVERSE_DATA", "parquet")
 
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+FAIR_UNIVERSE_DEMO_DATA = _REPO_ROOT / "examples" / "fair_universe_demo" / "test_data" / "FAIR_Universe_HiggsML_data.parquet"
+
+
+@pytest.fixture(scope="session")
+def fair_universe_demo_parquet() -> Path:
+    """Bundled fair_universe_demo test parquet, resolved by relative repo path.
+
+    Unlike ``fair_universe_sample`` this never depends on the ``FAIR_UNIVERSE_DATA``
+    environment variable or OmegaConf's ``${oc.env:...}`` interpolation - it always
+    resolves to the small parquet file checked into ``examples/fair_universe_demo/test_data/``,
+    so pipeline/CLI tests run the same locally and in CI without extra setup.
+    """
+    assert FAIR_UNIVERSE_DEMO_DATA.exists(), f"Missing bundled test data at {FAIR_UNIVERSE_DEMO_DATA}"
+    return FAIR_UNIVERSE_DEMO_DATA
+
+
 @pytest.fixture()
 def delphes_sample_root(check_cli_path) -> str:
     return check_cli_path("DELPHES_DATA_ROOT", "root")

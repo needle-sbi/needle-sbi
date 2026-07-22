@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from needle.utils.logging import ColorFormatter
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -24,6 +25,8 @@ _SETTINGS_JSON_TEMPLATE = """\
   }
 }
 """
+
+logger = ColorFormatter.get_logger("cli")
 
 
 def _copy(src: Path, dst: Path, description: str) -> None:
@@ -82,9 +85,11 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 def cmd_run(args: argparse.Namespace) -> None:
     backend: str = args.backend
+    task_name: str = args.task
 
     if backend == "law":
-        task_name = getattr(args, "task", "MainTask")
+        logger.info("Running with `law` workflow backend")
+
         config_file = getattr(args, "config", None)
         results_path = getattr(args, "results_path", None)
 
@@ -93,29 +98,44 @@ def cmd_run(args: argparse.Namespace) -> None:
             law_args += ["--config-file", config_file]
         if results_path:
             law_args += ["--results-path", results_path]
+        for param in args.params:
+            key, _, value = param.partition("=")
+            law_args += [f"--{key.replace('_', '-')}", value]
 
         sys.exit(subprocess.call(law_args))
 
     elif backend == "b2luigi":
         import b2luigi
 
-        from needle.tasks.b2luigi import MainTask
+        import needle.tasks.b2luigi as b2luigi_tasks
         from needle.tasks.b2luigi.workflows.common import configure_b2luigi
+
+        logger.info("Running with `b2luigi` workflow backend")
+
+        task_cls = getattr(b2luigi_tasks, task_name, None)
+        if task_cls is None:
+            available = ", ".join(b2luigi_tasks.__all__)
+            raise SystemExit(f"Unknown b2luigi task '{task_name}'. Available: {available}")
 
         config_file = getattr(args, "config", "conf/config.yaml")
         results_path = getattr(args, "results_path", "runs")
         batch_system = getattr(args, "batch_system", "local")
         workers = getattr(args, "workers", 1)
 
+        extra_params = dict(param.partition("=")[::2] for param in args.params)
+
         configure_b2luigi(results_path=results_path, batch_system=batch_system)
 
-        b2luigi.process(
-            MainTask(
-                config_file=config_file,
-                results_path=results_path,
-            ),
-            workers=workers,
-        )
+        task = task_cls(config_file=config_file, results_path=results_path, **extra_params)
+
+        # b2luigi.process() parses sys.argv itself (for --batch/--test/... flags).
+        # Hide needle's own argv from it so the two parsers never fight over the
+        # same flags; behavior is instead driven explicitly via kwargs below.
+        original_argv, sys.argv = sys.argv, sys.argv[:1]
+        try:
+            b2luigi.process(task, workers=workers, batch=batch_system != "local")
+        finally:
+            sys.argv = original_argv
 
 
 def main() -> None:
@@ -144,6 +164,13 @@ def main() -> None:
 
     # --- needle run ---
     run = sub.add_parser("run", help="Run the NEEDLE training DAG")
+    run.add_argument(
+        "task",
+        nargs="?",
+        default="MainTask",
+        help="Task to run, e.g. MainTask, EstimatorTask, SystematicTask, EnsembleTask, FoldTask, "
+        "DownstreamTask (default: MainTask)",
+    )
     run.add_argument(
         "--backend",
         choices=["law", "b2luigi"],
@@ -175,9 +202,13 @@ def main() -> None:
         help="Number of parallel workers for b2luigi (default: 1)",
     )
     run.add_argument(
-        "--task",
-        default="MainTask",
-        help="LAW task name to run (default: MainTask, law backend only)",
+        "--param",
+        dest="params",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Extra parameter to pass to the selected task, e.g. --param estimator=my_estimator. "
+        "Can be given multiple times.",
     )
 
     args = parser.parse_args()

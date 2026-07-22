@@ -1,28 +1,29 @@
-"""Tests for the b2luigi workflow backend.
+"""Tests for the law workflow backend.
 
 Verifies task DAG structure, output paths, parameter handling, and downstream
 branching without executing actual pipeline runs (no training, no file I/O).
+Mirrors ``tests/trainings/test_b2luigi_tasks.py`` for the law backend.
 
-All tests are marked ``@pytest.mark.b2luigi`` and excluded from the default
-test run (see ``pyproject.toml`` ``addopts``).
+All tests are marked ``@pytest.mark.law`` and excluded from the default test
+run (see ``pyproject.toml`` ``addopts``).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import urlencode
 
+import law
 import omegaconf
 import pytest
 
-from needle.tasks.b2luigi.downstream import DownstreamTask
-from needle.tasks.b2luigi.ensemble import EnsembleTask
-from needle.tasks.b2luigi.estimator import EstimatorTask
-from needle.tasks.b2luigi.fold import FoldTask
-from needle.tasks.b2luigi.main import MainTask
-from needle.tasks.b2luigi.systematic import SystematicTask
-from needle.tasks.b2luigi.training import TrainingTask
-from needle.utils.config_schema import MainConfig
+from needle.tasks.law.downstream import DownstreamTask
+from needle.tasks.law.ensemble import EnsembleTask
+from needle.tasks.law.estimator import EstimatorTask
+from needle.tasks.law.fold import FoldTask
+from needle.tasks.law.main import MainTask
+from needle.tasks.law.systematic import SystematicTask
+from needle.tasks.law.training import TrainingTask
+from needle.utils.config_schema import DownstreamTaskConfig, MainConfig
 from tests.conftest import MainConfigFactory
 
 
@@ -44,8 +45,8 @@ def _write_config(config: MainConfig, tmp_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiFoldTask:
+@pytest.mark.law
+class TestLawFoldTask:
     def test_output_is_done_marker(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -60,6 +61,7 @@ class TestB2LuiFoldTask:
         )
 
         out = fold.output()
+        assert isinstance(out, law.LocalFileTarget)
         assert Path(out.path).name == ".done"
         assert f"est__{estimator_name}" in out.path
         assert "syst__nominal" in out.path
@@ -84,7 +86,7 @@ class TestB2LuiFoldTask:
         assert len(deps) == 1
         assert isinstance(deps[0], TrainingTask)
 
-    def test_training_task_class_returns_b2luigi_training(
+    def test_training_task_class_returns_law_training(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
@@ -102,12 +104,14 @@ class TestB2LuiFoldTask:
 
 
 # ---------------------------------------------------------------------------
-# TrainingTask — the only b2luigi.Task in the backend
+# TrainingTask — the only law workflow leaf
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiTrainingTask:
+@pytest.mark.law
+class TestLawTrainingTask:
+    # branch=0 is required: without it the task is the workflow root (branch=-1) and
+    # output() returns a TargetCollection instead of the plain per-branch dict.
     def test_output_paths(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -119,6 +123,7 @@ class TestB2LuiTrainingTask:
             ensemble=0,
             fold_index=2,
             results_path=str(tmp_path),
+            branch=0,
         )
 
         out = task.output()
@@ -134,7 +139,9 @@ class TestB2LuiTrainingTask:
         assert "ensem__0" in str(ckpt_path)
         assert "fold__2" in str(ckpt_path)
 
-    def test_output_as_dict_is_identity(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_output_as_dict_unwraps_plain_dict(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -145,11 +152,14 @@ class TestB2LuiTrainingTask:
             ensemble=0,
             fold_index=0,
             results_path=str(tmp_path),
+            branch=0,
         )
         out = task.output()
         assert TrainingTask.output_as_dict(out) is out
 
-    def test_requires_empty_without_deps(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+    def test_create_branch_map_is_single_branch(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -161,9 +171,9 @@ class TestB2LuiTrainingTask:
             fold_index=0,
             results_path=str(tmp_path),
         )
-        assert task.requires() == []
+        assert task.create_branch_map() == {0: None}
 
-    def test_estimator_task_class_returns_b2luigi_estimator(
+    def test_estimator_task_class_returns_law_estimator(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
@@ -185,8 +195,8 @@ class TestB2LuiTrainingTask:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiEnsembleTask:
+@pytest.mark.law
+class TestLawEnsembleTask:
     def test_requires_creates_fold_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -218,6 +228,7 @@ class TestB2LuiEnsembleTask:
             results_path=str(tmp_path),
         )
         out = ensemble.output()
+        assert isinstance(out, law.LocalFileTarget)
         assert Path(out.path).name == ".done"
         assert "ensem__1" in out.path
 
@@ -227,8 +238,8 @@ class TestB2LuiEnsembleTask:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiSystematicTask:
+@pytest.mark.law
+class TestLawSystematicTask:
     def test_requires_creates_ensemble_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -257,6 +268,7 @@ class TestB2LuiSystematicTask:
             results_path=str(tmp_path),
         )
         out = syst.output()
+        assert isinstance(out, law.LocalFileTarget)
         assert Path(out.path).name == ".done"
         assert "syst__nominal" in out.path
 
@@ -266,8 +278,8 @@ class TestB2LuiSystematicTask:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiEstimatorTask:
+@pytest.mark.law
+class TestLawEstimatorTask:
     def test_requires_creates_systematic_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -292,17 +304,18 @@ class TestB2LuiEstimatorTask:
             results_path=str(tmp_path),
         )
         out = est.output()
+        assert isinstance(out, law.LocalFileTarget)
         assert Path(out.path).name == ".done"
         assert f"est__{estimator_name}" in out.path
 
 
 # ---------------------------------------------------------------------------
-# MainTask — merged entry point + snapshot writer
+# MainTask — entry point + snapshot writer
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiMainTask:
+@pytest.mark.law
+class TestLawMainTask:
     def test_output_is_dag_snapshot(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
@@ -311,7 +324,7 @@ class TestB2LuiMainTask:
             results_path=str(tmp_path),
         )
         out = main.output()
-        assert "dag_snapshot" in out
+        assert isinstance(out["dag_snapshot"], law.LocalFileTarget)
         assert Path(out["dag_snapshot"].path).name == "dag_snapshot.json"
 
     def test_requires_creates_estimator_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
@@ -346,101 +359,115 @@ class TestB2LuiMainTask:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestB2LuiDownstreamTaskBranching:
-    def test_branch_params_empty_means_no_expansion(
+@pytest.mark.law
+class TestLawDownstreamTaskBranching:
+    def test_no_expansion_yields_single_default_branch(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
         dt = DownstreamTask(
             config_file=config_file,
-            downstream="snapshot",
+            downstream="my_task",
             results_path=str(tmp_path),
-            branch_params="",
         )
-        assert dt.branch_parameters == {}
+        dt.config = MainConfig(
+            downstream_tasks={"my_task": DownstreamTaskConfig(args={"_target_": "some.module.Task"})}
+        )
+        branch_map = dt.create_branch_map()
+        assert list(branch_map.keys()) == [0]
+        assert branch_map[0].name == "default"
+        assert branch_map[0].parameters == {}
 
-    def test_branch_params_roundtrip(
+    def test_expansion_creates_one_branch_per_combination(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
-        params = {"alpha": "0.1", "beta": "5"}
-        encoded = urlencode(params)
 
         dt = DownstreamTask(
             config_file=config_file,
-            downstream="snapshot",
+            downstream="my_task",
             results_path=str(tmp_path),
-            branch_params=encoded,
         )
-        decoded = dt.branch_parameters
-        assert decoded["alpha"] == "0.1"
-        assert decoded["beta"] == "5"
+        dt.config = MainConfig(
+            downstream_tasks={
+                "my_task": DownstreamTaskConfig(
+                    args={"_target_": "some.module.Task"},
+                    expands={"num_jets": [1, 2]},
+                )
+            }
+        )
+        branch_map = dt.create_branch_map()
+        assert len(branch_map) == 2
+        assert {b.parameters["num_jets"] for b in branch_map.values()} == {1, 2}
 
-    def test_task_ids_differ_across_branches(
+    def test_requires_without_downstream_deps_needs_main_task(
         self, config_factory: MainConfigFactory, tmp_path: Path
     ) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
-        dt_a = DownstreamTask(
+        # branch=0 makes this a branch instance so `requires()` resolves to
+        # DownstreamTask's own override rather than law's workflow-root branch expansion.
+        dt = DownstreamTask(
             config_file=config_file,
-            downstream="snapshot",
+            downstream="my_task",
             results_path=str(tmp_path),
-            branch_params=urlencode({"alpha": "0.1"}),
+            branch=0,
         )
-        dt_b = DownstreamTask(
+        dt.config = MainConfig(
+            downstream_tasks={"my_task": DownstreamTaskConfig(args={"_target_": "some.module.Task"})}
+        )
+        deps = dt.requires()
+        assert "main" in deps
+        assert isinstance(deps["main"], MainTask)
+
+    def test_requires_with_downstream_deps_chains_to_other_downstream_tasks(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+
+        dt = DownstreamTask(
             config_file=config_file,
-            downstream="snapshot",
+            downstream="my_task",
             results_path=str(tmp_path),
-            branch_params=urlencode({"alpha": "0.2"}),
+            branch=0,
         )
-        assert dt_a.task_id != dt_b.task_id
+        dt.config = MainConfig(
+            downstream_tasks={
+                "my_task": DownstreamTaskConfig(args={"_target_": "some.module.Task"}, requires=["upstream_task"]),
+                "upstream_task": DownstreamTaskConfig(args={"_target_": "some.module.Other"}),
+            }
+        )
+        deps = dt.requires()
+        assert "upstream_task" in deps
+        assert isinstance(deps["upstream_task"], DownstreamTask)
+        assert deps["upstream_task"].downstream == "upstream_task"
 
 
 # ---------------------------------------------------------------------------
-# Backend isolation: TrainingTask is the only b2luigi.Task
+# Backend isolation: TrainingTask is the only law workflow task
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.b2luigi
-class TestBackendIsolation:
+@pytest.mark.law
+class TestLawBackendIsolation:
     def test_fold_task_has_no_create_branch_map(self) -> None:
         """FoldTask is a plain marker wrapper — no law workflow attributes."""
         assert not hasattr(FoldTask, "create_branch_map")
 
-    def test_fold_task_is_not_b2luigi_task(self) -> None:
-        """Only TrainingTask should be a b2luigi.Task; FoldTask is plain luigi."""
-        import b2luigi
+    def test_fold_task_is_not_local_workflow(self) -> None:
+        assert not issubclass(FoldTask, law.LocalWorkflow)
 
-        assert not issubclass(FoldTask, b2luigi.Task)
+    def test_fold_task_is_plain_law_task(self) -> None:
+        assert issubclass(FoldTask, law.Task)
 
-    def test_training_task_is_b2luigi_task(self) -> None:
-        import b2luigi
+    def test_training_task_is_local_workflow(self) -> None:
+        assert issubclass(TrainingTask, law.LocalWorkflow)
 
-        assert issubclass(TrainingTask, b2luigi.Task)
-
-    def test_training_task_is_not_local_workflow(self) -> None:
+    def test_training_task_is_not_b2luigi_task(self) -> None:
         try:
-            import law
+            import b2luigi
 
-            assert not issubclass(TrainingTask, law.LocalWorkflow)
+            assert not issubclass(TrainingTask, b2luigi.Task)
         except ImportError:
             pass
-
-    def test_training_task_output_as_dict_is_identity(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
-        config_file = _write_config(config_factory(), tmp_path)
-        estimator_name = list(config_factory().estimators.keys())[0]
-
-        task = TrainingTask(
-            config_file=config_file,
-            estimator=estimator_name,
-            systematic="nominal",
-            ensemble=0,
-            fold_index=0,
-            results_path=str(tmp_path),
-        )
-        output = task.output()
-        assert TrainingTask.output_as_dict(output) is output

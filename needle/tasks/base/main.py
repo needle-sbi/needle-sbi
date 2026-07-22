@@ -59,7 +59,9 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
                     f"Conflicting value for arg `--results-path`. Config indicates '{self.config.results_path}' "
                     f"while CLI arg is '{self.results_path}'. The CLI value takes precedence."
                 )
-                return Path(self.config.results_path)
+            return Path(os.path.abspath(self.results_path))
+        if self.config.results_path:
+            return Path(os.path.abspath(self.config.results_path))
         return Path(os.path.abspath(self.results_path))
 
     def _estimator_task_class(self) -> Type[luigi.Task]:

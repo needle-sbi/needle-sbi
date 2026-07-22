@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type
+from typing import Any, Type
 
 import law
 import luigi
@@ -17,3 +17,6 @@ class EstimatorTask(BaseEstimatorTask, law.Task):
         from needle.tasks.law.systematic import SystematicTask
 
         return SystematicTask
+
+    def _target_class(self) -> Type[Any]:
+        return law.LocalFileTarget
