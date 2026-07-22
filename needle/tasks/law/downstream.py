@@ -26,21 +26,32 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, NamedTuple
 
 import law
 import luigi
 
-from needle.tasks.law.mixins import CollectOutputMixin, HydraMixin
-from needle.tasks.base.downstream import BaseDownstreamMixin, BranchTuple
+from omegaconf import DictConfig, OmegaConf
+from itertools import product
+
+from needle.tasks.law.mixins import CollectOutputMixin
+from needle.utils.config_utils import hydra_instantiate
+from needle.tasks.base.downstream import BaseDownstreamMixin
 from needle.utils.logging import ColorFormatter
 from needle.utils.luigi_utils import convert_luigi_to_law_targets
 
 logger = ColorFormatter.get_logger("downstream")
 
 
+class BranchTuple(NamedTuple):
+    name: str
+    parameters: Dict[str, Any]
+
+
 class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow):
-    """Task which wraps an external Task that should run after the main training was performed.
+    """LAW implementation of DownstreamTask
+
+    Wraps an external user-defined ``luigi.Task`` that runs after training.
 
     The task is configured via the ``downstream_tasks`` key in the config.yaml file. Each entry
     under ``downstream_tasks`` is a key that can be passed to the ``--downstream`` CLI argument.
@@ -110,15 +121,50 @@ class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow)
 
         return law.TargetCollection(targets)
 
+    def create_branch_map(self) -> Dict[int, BranchTuple]:  # type: ignore
+        from urllib.parse import urlencode
+
+        expands = self.downstream_config.expands
+
+        if not expands:
+            return {0: BranchTuple(name="default", parameters={})}
+
+        keys = list(expands.keys())
+        values = list(expands.values())
+        branch_map = {}
+
+        for i, combination in enumerate(product(*values)):
+            params = dict(zip(keys, combination))
+            branch_name = urlencode(sorted(params.items()))
+            branch_map[i] = BranchTuple(name=branch_name, parameters=params)
+
+        return branch_map
+
     def run(self) -> None:
         if self.is_workflow():
             return None
         else:
             self.downstream_task(branch_id=self.branch).run()
 
+    def downstream_task(self, branch_id: int) -> luigi.Task:
+        """Instantiate the wrapped external task from config for the given branch."""
+        base_args: DictConfig = OmegaConf.to_container(
+            self.downstream_config.args,
+            resolve=True,
+        )  # type: ignore
+        branch_map = self.create_branch_map()
+        branch_args: Dict[str, Any] = branch_map[branch_id].parameters
+
+        merged_args = DictConfig({**base_args, **branch_args})
+
+        return hydra_instantiate(merged_args, snapshot_path=self.snapshot_path)
+
     def workflow_complete(self) -> bool:  # type: ignore
+        """Check if all Tasks from this workflow are complete."""
         for branch_id in self.branch_map.keys():
             task = self.downstream_task(branch_id)
+
             if not task.complete():
                 return False
+
         return True

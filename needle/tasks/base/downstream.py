@@ -1,23 +1,15 @@
 from __future__ import annotations
 
 from functools import cached_property
-from itertools import product
-from typing import Any, Dict, NamedTuple, Type
+from typing import Type
 
 import luigi
-from omegaconf import DictConfig, OmegaConf
 
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_schema import DownstreamTaskConfig
-from needle.utils.config_utils import hydra_instantiate
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("downstream")
-
-
-class BranchTuple(NamedTuple):
-    name: str
-    parameters: Dict[str, Any]
 
 
 class BaseDownstreamMixin(HydraParamsMixin):
@@ -63,35 +55,3 @@ class BaseDownstreamMixin(HydraParamsMixin):
             hydra_overrides=self.hydra_overrides,
         )
         return main.output()["dag_snapshot"].path  # type: ignore
-
-    def create_branch_map(self) -> Dict[int, BranchTuple]:
-        from urllib.parse import urlencode
-
-        expands = self.downstream_config.expands
-
-        if not expands:
-            return {0: BranchTuple(name="default", parameters={})}
-
-        keys = list(expands.keys())
-        values = list(expands.values())
-        branch_map = {}
-
-        for i, combination in enumerate(product(*values)):
-            params = dict(zip(keys, combination))
-            branch_name = urlencode(sorted(params.items()))
-            branch_map[i] = BranchTuple(name=branch_name, parameters=params)
-
-        return branch_map
-
-    def downstream_task(self, branch_id: int) -> luigi.Task:
-        """Instantiate the wrapped external task from config for the given branch."""
-        base_args: DictConfig = OmegaConf.to_container(
-            self.downstream_config.args,
-            resolve=True,
-        )  # type: ignore
-        branch_map = self.create_branch_map()
-        branch_args: Dict[str, Any] = branch_map[branch_id].parameters
-
-        merged_args = DictConfig({**base_args, **branch_args})
-
-        return hydra_instantiate(merged_args, snapshot_path=self.snapshot_path)

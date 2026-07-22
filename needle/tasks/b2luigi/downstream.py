@@ -24,11 +24,16 @@ logger = ColorFormatter.get_logger("downstream")
 
 
 class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
-    """b2luigi DownstreamTask.
+    """b2luigi implementation of DownstreamTask.
 
     Wraps an external user-defined ``luigi.Task`` that runs after training.
-    Branching over ``expands`` is implemented by creating N separate task instances
-    in ``requires()`` instead of using a ``LocalWorkflow``.
+
+    The task is configured via the ``downstream_tasks`` key in the config.yaml file. Each entry
+    under ``downstream_tasks`` is a key that can be passed to the ``--downstream`` CLI argument.
+    The corresponding value is a ``DownstreamTaskConfig`` which controls how the task is
+    instantiated and what it depends on.
+
+    Uses a URL-encoded parameter for branch expansion
     """
 
     task_namespace = "b2luigi"
@@ -55,7 +60,9 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
         return MainTask
 
     def _upstream_deps(self) -> List[luigi.Task]:
-        """Resolve main task or chained downstream dependencies."""
+        """Resolve main task or chained downstream dependencies. This is required when using
+        plain luigi as Task dependencies must be a flat list.
+        """
         MainTask = self._main_task_class()
         deps: List[luigi.Task] = []
 
@@ -85,7 +92,8 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
         """Build dependency list.
 
         If this is an expansion root (no ``branch_params`` set but ``expands`` is configured),
-        returns the upstream deps PLUS one ``DownstreamTask`` per expansion combo.
+        returns the upstream deps and the root ``DownstreamTask`` per expansion combo. This
+        single root Task is called the `workflow` in LAW, and the same name is used here.
 
         If this is a branch instance (``branch_params`` set), just returns upstream deps.
         """
@@ -111,21 +119,22 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
         return self._upstream_deps()
 
     def output(self) -> Any:
-        """Delegate output to the wrapped task (with branch parameters injected)."""
+        """Point to the output of the luigi Task. The `workflow` Task has no output."""
         if not self.branch_params and self.downstream_config.expands:
-            # Root combinator has no output of its own; all real outputs are in branches
             return {}
-        task = self.downstream_task_with_params(self.branch_parameters)
+
+        task = self.downstream_task(self.branch_parameters)
         return task.output()
 
     def run(self) -> None:
-        """Run the wrapped task (branch instances only; root combinator is a no-op)."""
+        """Run the wrapped task for branch instances only, the `workflow` Task is no-op."""
         if not self.branch_params and self.downstream_config.expands:
-            return  # root combinator: nothing to run, branches handle the work
-        task = self.downstream_task_with_params(self.branch_parameters)
+            return None
+
+        task = self.downstream_task(self.branch_parameters)
         task.run()
 
-    def downstream_task_with_params(self, extra_params: Dict[str, Any]) -> luigi.Task:
+    def downstream_task(self, extra_params: Dict[str, Any]) -> luigi.Task:
         """Instantiate the wrapped external task, merging branch parameters into config args."""
         from omegaconf import DictConfig, OmegaConf
 

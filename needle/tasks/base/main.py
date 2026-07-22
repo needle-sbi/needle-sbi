@@ -6,20 +6,31 @@ from typing import Any, Dict, List, Type
 from urllib.parse import urlencode
 
 import luigi
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_utils import compare_configs, initialize_hydra_config
 from needle.utils.logging import ColorFormatter, LogOnce
-from needle.utils.results import (
-    AggregationEdge,
-    AggregationMethod,
-    DAGSnapshot,
-    FoldResults,
-    ModelNodeMetadata,
-)
+from needle.utils.dataclass import SerializableDataclass, dataclass
+from dataclasses import field
 
 logger = ColorFormatter.get_logger("dag")
+
+
+@dataclass
+class NoteMetadata(SerializableDataclass):
+    checkpoint_path: str
+    task_type: str
+    fold_index: int
+    ensemble_index: int
+    estimator_name: str
+    systematic_name: str
+
+
+@dataclass
+class SnapshotTree(SerializableDataclass):
+    config_snapshot: DictConfig
+    nodes: dict[str, NoteMetadata] = field(default_factory=dict)
 
 
 class BaseMainTask(HydraParamsMixin, luigi.Task):
@@ -70,7 +81,8 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
                 msg = (
                     "The cached version of your config does not match the new instance. Training results "
                     "might differ based on the changed lines. Use `--remove-output` to delete the cached "
-                    f"files from the previous run if you want a fresh run. Offending entries are (new, old):\n{config_diff}"
+                    "files from the previous run if you want a fresh run. Offending entries are (new, old):"
+                    f"\n{config_diff}"
                 )
                 match self.strict_config.upper():
                     case "WARN":
@@ -99,49 +111,31 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
             for estimator_key in self.config.estimators.keys()
         ]
 
-    def output(self) -> Dict[str, Any]:
+    def output(self) -> Dict[str, Any]:  # type: ignore
         return {"dag_snapshot": luigi.LocalTarget(f"{self.abs_results_path}/dag_snapshot.json")}
 
     def run(self) -> None:
         self.print_config_path_once()
-
-        nodes: Dict[str, ModelNodeMetadata] = {}
-        edges: List[AggregationEdge] = []
-
-        agg_config = self.config.aggregation
-        fold_agg_method = agg_config.fold_method
-        ensemble_agg_method = agg_config.ensemble_method
-        systematic_agg_method = agg_config.systematic_method
-        estimator_agg_method = agg_config.estimator_method
-
-        all_estimator_nodes = []
-
         logger.info("Processing...")
+        nodes = {}
 
         for estimator_task in self.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"|  Estimator:    {estimator_name}")
 
-            all_systematic_nodes = []
-
             for systematic_task in estimator_task.requires():
                 systematic_name = systematic_task.systematic
                 logger.info(f"|    Systematic: {systematic_name}")
 
-                all_ensemble_nodes = []
-
                 for ensemble_task in systematic_task.requires():
                     ensemble_idx = ensemble_task.ensemble
                     logger.info(f"|      Ensemble: {ensemble_idx}")
-
-                    all_fold_nodes = []
 
                     for fold_idx, fold_task in enumerate(ensemble_task.requires()):
                         (training_task,) = fold_task.requires()
                         training_output = training_task.output_as_dict(training_task.output())
 
                         checkpoint_path = self._find_checkpoint(training_output)
-                        fold_result = FoldResults.from_json(training_output["outputs"].path)
 
                         node_id = urlencode(
                             {
@@ -152,73 +146,26 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
                             }
                         )
 
-                        nodes[node_id] = ModelNodeMetadata(
+                        nodes[node_id] = NoteMetadata(
                             checkpoint_path=checkpoint_path,
                             task_type="fold",
                             fold_index=fold_idx,
                             ensemble_index=ensemble_idx,
                             estimator_name=estimator_name,
                             systematic_name=systematic_name,
-                            metrics={"val_loss": fold_result.best_validation_loss},
                         )
-                        all_fold_nodes.append(node_id)
 
-                    ensemble_node_id = urlencode(
-                        {"est": estimator_name, "syst": systematic_name, "ensem": ensemble_idx}
-                    )
-                    edges.append(
-                        AggregationEdge(
-                            method=AggregationMethod(fold_agg_method),
-                            source_nodes=all_fold_nodes,
-                            target_node=ensemble_node_id,
-                            metric_key="val_loss" if fold_agg_method == "best" else None,
-                        )
-                    )
-                    all_ensemble_nodes.append(ensemble_node_id)
-
-                systematic_node_id = urlencode({"est": estimator_name, "syst": systematic_name})
-                edges.append(
-                    AggregationEdge(
-                        method=AggregationMethod(ensemble_agg_method),
-                        source_nodes=all_ensemble_nodes,
-                        target_node=systematic_node_id,
-                        metric_key="val_loss" if ensemble_agg_method == "best" else None,
-                    )
-                )
-                all_systematic_nodes.append(systematic_node_id)
-
-            estimator_node_id = urlencode({"est": estimator_name})
-            edges.append(
-                AggregationEdge(
-                    method=AggregationMethod(systematic_agg_method),
-                    source_nodes=all_systematic_nodes,
-                    target_node=estimator_node_id,
-                    metric_key="val_loss" if systematic_agg_method == "best" else None,
-                )
-            )
-            all_estimator_nodes.append(estimator_node_id)
-
-        edges.append(
-            AggregationEdge(
-                method=AggregationMethod(estimator_agg_method),
-                source_nodes=all_estimator_nodes,
-                target_node="root",
-                metric_key="val_loss" if estimator_agg_method == "best" else None,
-            )
-        )
-
-        snapshot = DAGSnapshot(
+        snapshot = SnapshotTree(
             nodes=nodes,
-            edges=edges,
-            config_snapshot=OmegaConf.to_container(self.config, resolve=True),
-            root_node="root",
+            config_snapshot=OmegaConf.to_container(self.config, resolve=True),  # type: ignore
         )
-
         snapshot.to_json(self.output()["dag_snapshot"].path)
         logger.info(f"DAG snapshot saved to {self.output()['dag_snapshot'].path}")
 
     def _find_checkpoint(self, training_output: Dict[str, Any]) -> str:
         ckpt_path = training_output["ckpt"].path
+
         if Path(ckpt_path).exists():
             return ckpt_path
+
         raise FileNotFoundError(f"No checkpoint found at {ckpt_path}")

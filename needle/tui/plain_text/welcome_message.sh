@@ -68,9 +68,9 @@ if [ -n "$VERSIONS_OUTPUT" ]; then
 fi
 
 print_text_line "NEEDLE Website: https://needle-sbi.github.io/"
+print_text_line "NEEDLE Docs:    https://needle-sbi.readthedocs.io"
 print_text_line "NEEDLE Github:  https://github.com/needle-sbi/needle-sbi"
-print_text_line "NEEDLE Docs:    https://needle-sbi.readthedocs.io/en/latest/"
-print_text_line "Luigi Docs:     https://luigi.readthedocs.io/en/stable/"
+print_text_line "Luigi Docs:     https://luigi.readthedocs.io/"
 print_empty
 
 print_text_line "Useful commands:"
