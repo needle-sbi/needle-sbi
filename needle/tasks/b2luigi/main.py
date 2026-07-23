@@ -1,8 +1,6 @@
 """MainTask - Entry point for the NEEDLE training DAG (b2luigi backend).
 
-Run via ``needle run --backend b2luigi`` rather than executing this file
-directly — see ``needle/cli.py`` for how the task is constructed and handed
-to ``b2luigi.process()``.
+Run via ``needle run --backend b2luigi``.
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
 # Downstream Tasks
 
 All downstream tasks are plain `luigi.Task` subclasses. They are run after training is complete
-(via `SnapshotTask`) and are invoked through `DownstreamTask` with the `--downstream` flag.
+(via `MainTask`, which writes `dag_snapshot.json`) and are invoked through `DownstreamTask` with
+the `--downstream` flag.
 
 The pipeline runs in order: `histogram → neyman → eval → score → plot`. Validation tasks
 (`validation_nf`, `validation_classifier`) run independently and are required by `plot`.

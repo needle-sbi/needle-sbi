@@ -45,44 +45,25 @@ export FAIR_UNIVERSE_DATA=/path/to/fair_universe_data
 export CUDA_VISIBLE_DEVICES=0
 ```
 
-## The LAW config file (`law.cfg`)
-
-`law.cfg` lives at the repo root and tells LAW where to find tasks and how to run them. Key sections:
-
-```ini
-[core]
-modules = law_tasks          # Python package(s) containing your Task classes
-
-[luigi_core]                 # luigi section are formatted as `luigi_<section>`
-workers = 4                  # How many tasks can run in parallel locally
-local_scheduler = True       # Use the embedded scheduler (no separate daemon needed)
-
-[logging]
-luigi-interface = INFO
-```
-
-Remote execution (SLURM on KIT Horeka, HTCondor on DESY NAF) is also configured here but is
-out of scope for this guide.
-
 ## Running your first task
 
 The two entry points you will use most are:
 
-### `SnapshotTask` — train everything and collect checkpoints
+### `MainTask` — train everything and collect checkpoints
 
 ```bash
-law run SnapshotTask \
+needle run MainTask \
     --config-file examples/fair_universe_demo/conf/config.yaml
 ```
 
 This triggers the full training pipeline: all estimators, their systematic variants, ensemble
-members, and cross-validation folds. At the end it writes `dag_snapshot.json` which maps each
-trained model to its checkpoint path.
+members, and cross-validation folds. At the end `MainTask` itself writes `dag_snapshot.json`
+which maps each trained model to its checkpoint path.
 
 ### `DownstreamTask` — run analysis after training
 
 ```bash
-law run DownstreamTask \
+needle run DownstreamTask \
     --downstream eval \
     --config-file examples/fair_universe_demo/conf/config.yaml
 ```
@@ -106,7 +87,7 @@ The FAIR Universe demo ships a small test dataset (`test_data/`) so you can veri
 without the full dataset:
 
 ```bash
-law run DownstreamTask \
+needle run DownstreamTask \
     --downstream eval \
     --config-file examples/fair_universe_demo/conf/config.yaml \
     --hydra-overrides "custom_settings.use_test_data=True"
@@ -140,7 +121,7 @@ runs/.../est__nf_signal_1jet/syst__c_0p5/ensem__0/fold__0/
 
 ## Troubleshooting
 
-**`ModuleNotFoundError: No module named 'law_tasks'`**
+**`ModuleNotFoundError: No module named 'needle.tasks.law'`**
 → You might have forgotten to run `source setup.sh`. Either this or the modules are broken at import
  and `law` failed to load the Tasks.
 

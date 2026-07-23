@@ -62,16 +62,28 @@ OmegaConf interpolations (`${...}`) are resolved before the task class is instan
 
 ## Running it
 
+With the law backend:
+
 ```bash
 law run DownstreamTask \
     --downstream my_analysis \
     --config-file conf/config.yaml
 ```
 
-LAW will:
-1. Run `SnapshotTask` (and therefore the entire training pipeline) if not already complete.
-2. Run any tasks listed in `requires` if not already complete.
-3. Instantiate and run `MyAnalysisTask`.
+Or with the b2luigi backend:
+
+```bash
+needle run DownstreamTask --backend b2luigi \
+    --param downstream=my_analysis \
+    --config conf/config.yaml
+```
+
+Either way:
+1. `MainTask` (and therefore the entire training pipeline) runs first if not already complete.
+2. Any tasks listed in `requires` run if not already complete.
+3. `MyAnalysisTask` is instantiated and run.
+
+See [DAG Workflow](task_hierarchy.md) for how the two backends differ.
 
 ## Parameter expansion
 
@@ -155,8 +167,8 @@ downstream_tasks:
     args: { ... }
 ```
 
-When you run `law run DownstreamTask --downstream eval`, LAW will run `histogram` then `neyman`
-then `eval`, checking output file existence to skip already-complete steps.
+When you run `DownstreamTask --downstream eval` (either backend), it runs `histogram` then
+`neyman` then `eval`, checking output file existence to skip already-complete steps.
 
 ## Plotting utilities (`PlottingMixin`)
 

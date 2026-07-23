@@ -1,4 +1,4 @@
-"""b2luigi_tasks: b2luigi-based workflow backend for NEEDLE.
+"""needle.tasks.b2luigi: b2luigi-based workflow backend for NEEDLE.
 
 Task Hierarchy:
     MainTask (entry point, plain luigi.Task)
@@ -14,15 +14,15 @@ Supporting Components:
 MainTask both drives the training DAG and writes dag_snapshot.json on completion.
 
 Batch dispatch is configured via ``settings.json`` or by calling
-``needle.b2luigi_tasks.workflows.common.configure_b2luigi()``.
+``needle.tasks.b2luigi.workflows.common.configure_b2luigi()``.
 
 Usage (local):
     import b2luigi
-    from needle.b2luigi_tasks import MainTask
+    from needle.tasks.b2luigi import MainTask
     b2luigi.process(MainTask(config_file="conf/config.yaml"))
 
 Usage (HTCondor):
-    from needle.b2luigi_tasks.workflows.common import configure_b2luigi
+    from needle.tasks.b2luigi.workflows.common import configure_b2luigi
     configure_b2luigi(results_path="runs", batch_system="htcondor")
     b2luigi.process(MainTask(config_file="conf/config.yaml"))
 """

@@ -1,224 +1,131 @@
 # DAG Workflow
 
-## What is a DAG and why does NEEDLE use one?
+## Why use a DAG for NSBI training?
 
-A **Directed Acyclic Graph (DAG)** is a set of nodes connected by directed edges, with no cycles.
-In NEEDLE, each node is a LAW Task (a Python class) and each edge is a dependency: task B depends
-on task A meaning A must finish before B can start.
+Many NSBI tools rely on large neural surrogates to estimate statistical quantities. The final estimator
+is usually composed of several sub-models, in some cases up to hundreds of networks. In `needle-sbi`, the 
+training of the models is individualized into separate python Tasks, with each Task being
+a node in the larger Task graph. The edges of the graph represent a dependency: Task B depends
+on Task A meaning A must finish before B can start.
 
-This pattern is standard in HEP analysis (ColumnFlow, Luigi, CRAB all use it) because:
-- It makes the dependency structure explicit and auditable.
-- Partially complete runs can be resumed: LAW re-checks which outputs exist and only re-runs
-  what is missing.
-- The same task graph can be executed locally, on SLURM, or on HTCondor by swapping a mixin.
+::: {admonition} Advantages of DAG workflows
+:class: tip
+- It makes the dependency structure explicit and reproducible, no loose scripts.
+- You can run the **whole pipeline** from a single command
+- Networks that depend on each other are trained in the proper order
+- Partially complete runs can be resumed: the orchestrator re-checks which outputs exist and
+  only re-runs what is missing.
+- The same task graph can be executed locally, on SLURM, or on HTCondor without changing task code,
+  only user settings.
+:::
 
-## The full task hierarchy
+## Python based workflows: Luigi, b2luigi and law
 
-```
-MainTask (WrapperTask — no output, just coordinates)
- └── EstimatorTask (one per estimator, e.g. "nf_signal_1jet")
-      └── SystematicTask (one per systematic variation, e.g. "c_0.5")
-           └── EnsembleTask (repeated N times for ensemble members)
-                └── FoldTask (one per cross-validation fold)
-                     └─── [PyTorch Lightning trainer.fit(...)]
+The `needle-sbi` package ships this DAG in three forms, all in python, depending on your needs:
 
-SnapshotTask
- └── requires MainTask
- └── writes dag_snapshot.json with all checkpoint paths
+ 1. The base `luigi` layer that implements the structure of the graph and the computing logic.
+ 2. A `b2luigi` wrapper (batch submissions), see [b2luigi Tasks](b2luigi_tasks.md)
+ 3. A `law` wrapper (batch submissions), see [LAW Tasks](law_tasks.md)
 
-DownstreamTask
- └── requires SnapshotTask + declared upstream downstream tasks
- └── instantiates user-provided task class via Hydra
-```
-
-For the FAIR Universe demo this expands to approximately:
-
-```
-MainTask
- ├── EstimatorTask(nf_signal_1jet)
- │    ├── SystematicTask(c_0.5) → EnsembleTask → FoldTask → training
- │    └── SystematicTask(c_2.0) → EnsembleTask → FoldTask → training
- ├── EstimatorTask(nf_signal_2jet)    [same pattern]
- ├── EstimatorTask(nf_background_1jet) [same pattern]
- ├── EstimatorTask(nf_background_2jet) [same pattern]
- └── EstimatorTask(classifier)
-      └── SystematicTask(nominal) → EnsembleTask → FoldTask → training
-           (waits for all four NF estimators to finish first)
+```{image} ../diagrams/luigi_inheritance_chart.png
+:alt: luigi task inheritance chart
+:class: light-diagram
+:width: 70%
+:align: center
 ```
 
-## What each task does
+The two wrappers are virtually identical, same graph, same parameters and execution logic. The only
+difference is the way how they dispatch trainings to HPCs. Users can choose either `b2luigi` or `law`
+based on their own preference and existing knowledge. In both cases, you can easily expand the DAG
+tree by importing the `needle-sbi` `b2luigi`/`law` Tasks in your own workflow. Note that while `b2luigi`
+Tasks are fully compatible with regular `luigi` Tasks, `law` Tasks are not, so in the latter case
+you must work within `law`. We still provide a way to append regular `luigi` Tasks to your `law`
+workflow using [DownstreamTasks](downstream_tasks.md).
 
-### `FoldTask` — the leaf node
+:::{admonition} Should I use b2luigi or law?
+:class: hint
 
-This is where the actual training happens. Each `FoldTask` instance is parameterised by:
-- `estimator` — which estimator configuration to use
-- `systematic` — which systematic variation
-- `ensemble` — ensemble member index
-- `fold_index` — cross-validation fold index
+This comes down to personal preference.
+ - `law` has been long established within the CMS experiment
+and has expanded towards other experiments at the LHC. It has many features but lacks a good
+documentation.
+ - `b2luigi` on the other hand is slightly newer and is mainly used by the Belle II
+collaboration. It has excellent documentation and intuitive usage.
+:::
 
-The `run()` method:
-1. Loads the resolved `MainConfig` from the config file.
-2. Instantiates the `LightningModule` (model), `LightningDataModule`, and `Trainer` via Hydra.
-3. Calls `trainer.fit(model, datamodule)`.
-4. Saves the checkpoint, metrics JSON, model config YAML, and training logs to its output directory.
+(choosing-a-backend)=
+## Choosing a backend
 
-The output directory path encodes all parameters:
-```
-{results_path}/est__{estimator}/syst__{systematic}/ensem__{ensemble}/fold__{fold_index}/
-```
+|                                       | LAW                                       | b2luigi                       |  
+|---------------------------------------|-------------------------------------------|-------------------------------|
+| Compatible with plain luigi           |                                           | ✅                            |
+| local                                 | ✅                                        | ✅                            |
+| SLURM (batch)                         | ✅                                        | ✅                            |
+| HTCondor (batch)                      | ✅                                        | ✅                            |
+| LSF (batch)                           |                                           | ✅                            |
+| Settings file                         | `law.cfg`                                 | `settings.json`               |
+| Running natively (CLI)                | `law run MainTask ...`                    |                               |
+| Running from `needle-sbi` (CLI)       | `needle run MainTask ...`                 | `needle run --backend b2luigi MainTask`      |
+| Importing `needle-sbi` Tasks (python) | `from needle.tasks.law import MainTask `  | `from needle.tasks.b2luigi import MainTask`  | 
 
-LAW considers `FoldTask` complete when all output files exist. If training crashes mid-way, LAW
-will re-run the full task on the next invocation (no partial checkpoint loading).
+Both backends implement the exact same DAG shape described above — pick whichever fits your
+batch system and existing tooling. See [LAW Tasks](law_tasks.md) and
+[b2luigi Tasks](b2luigi_tasks.md) for the concrete APIs.
 
-### `EnsembleTask`
+## The NEEDLE Training DAG
 
-Requires `N` copies of `FoldTask` (where N = `expands.ensembles.num_ensembles`) and aggregates
-their `FoldResults` into an `EnsembleResults` object. The aggregation method (e.g. `mean`,
-`weighted_mean`, `best`) is configured per estimator.
-
-Having multiple ensemble members is useful for uncertainty estimation: you train the same model
-multiple times with different random seeds and use the spread of outputs as an epistemic
-uncertainty estimate.
-
-### `SystematicTask`
-
-Requires one `EnsembleTask` per systematic variation. The systematics are variations of model and the
-data. Both can be steered for each Systematics by using the `*_override` field in the config to swap
-out model or data. For example, training on two different hyperparameters will require two Systematics.
-Training on nominal, up and down variations for a given physics systematics will require three
-SystematicTask
-
-After all ensembles finish, `SystematicTask` aggregates results into `SystematicResults`.
-
-### `EstimatorTask`
-
-One per top-level entry in `config.estimators`. Requires all `SystematicTask` instances for that
-estimator and produces an `EstimatorResults`. It also handles the special case where `requires`
-is set (see inter-estimator dependencies below).
-
-### `MainTask`
-
-A `WrapperTask` — it has no output file of its own and never marks itself as complete. Its sole
-job is to require all `EstimatorTask` instances. You should not run `MainTask` directly;
-instead run `SnapshotTask` which requires `MainTask`. You could run `MainTask` in case you are just
-interested in training the models but do not want to perform inference afterwards.
-
-### `SnapshotTask`
-
-Walks the output tree of `MainTask` and collects all checkpoint paths into a single JSON file
-(`dag_snapshot.json`). This file is the handshake between the training pipeline and the
-downstream analysis: downstream tasks load models from this file without needing to know how
-training was organised.
-
-The snapshot format:
-```json
-{
-  "nodes": {
-    "est=nf_signal_1jet&syst=c_0.5&ensem=0&fold=0": {
-      "checkpoint_path": "runs/.../best.ckpt",
-      "task_type": "fold",
-      "fold_index": 0,
-      "ensemble_index": 0,
-      "estimator_name": "nf_signal_1jet",
-      "systematic_name": "c_0.5",
-      "metrics": { "val_loss": 0.42 }
-    }
-  },
-  "edges": [ ... ]
-}
+```{image} ../diagrams/dependency_graph_full.png
+:alt: dependency graph
+:class: light-diagram
+:width: 70%
+:align: center
 ```
 
-### `DownstreamTask`
+This structure is over-complete on purpose: if you only have one type of model, or no systematics to
+train on, or do not need ensembling or cross-fold validation, then the graph skips these layers.
 
-A generic wrapper for user-defined analysis tasks. It:
-1. Requires `SnapshotTask` and any declared upstream `downstream_tasks` keys.
-2. Reads the config to find the task's `_target_` class and `args`.
-3. Instantiates the user task via `hydra_instantiate` (so you can use `_target_` in your config).
-4. Calls the task's `run()` method.
+You only need to know about `MainTask` (only training) and `DownstreamTask` (training and post-training),
+the other Tasks are intermediaries that organize the execution.
 
-The user task is a plain Luigi `Task` — it does not need to know about LAW or Hydra.
+We are working on also allowing `UpstreamTasks` which would run *before* the whole training pipeline
+using the same mechanism as `DownstreamTasks`.
 
-## Inter-estimator dependencies (`requires` field)
+## Extending the DAG
 
-Some estimators need outputs from other estimators before they can train. In the FAIR Universe
-demo, the `classifier` requires all four normalizing flow estimators:
+You can append your own tasks to the DAG, for example validation steps or even performing the
+fits using the trained weights. This is possible in the following ways:
 
-```yaml
-estimators:
-  classifier:
-    requires:
-      - nf_background_1jet
-      - nf_background_2jet
-      - nf_signal_1jet
-      - nf_signal_2jet
-    model: classifier
-    ...
-```
+ 1. Register your luigi Tasks in needle with [DownstreamTasks](downstream_tasks) to append regular 
+    `luigi` Tasks to the workflow. Works in both `law` and `b2luigi` backends. Here the workflow is
+    still controlled by `needle-sbi`.
+ 2. In `law`, import our Tasks into your workflow from `needle.tasks.law` (`MainTask` for example):
 
-At runtime, `EstimatorTask(classifier)` will not start until all four NF `EstimatorTask`
-instances have completed. The classifier's `FoldTask` then loads the trained NF checkpoints
-(passed through the snapshot mechanism) to compute NF-based features during training.
+      ```python
+      from needle.tasks.law import MainTask
+      import law
 
-This is how you build a two-stage pipeline: first train auxiliary models, then train a final
-model that uses their outputs as features.
 
-## Expansion: systematics and ensembles
+      class SimpleTask(law.Task):
+          def requires():
+              return MainTask()
+      ```
 
-The `expands` block in each estimator config controls how many tasks get spawned:
+    Which you can run from the CLI using `law run <my_script>.SimpleTask`.
 
-```yaml
-estimators:
-  nf_signal_1jet:
-    expands:
-      systematics:
-        c_0.5:
-          model_override: { c: 0.5 }
-        c_2.0:
-          model_override: { c: 2.0 }
-      ensembles:
-        num_ensembles: 1
-      folds: 1
-```
+ 3. In `b2luigi`, same but import from `needle.tasks.b2luigi` (same `MainTask` name):
 
-NEEDLE will create:
-- 1 `EstimatorTask`
-- 2 `SystematicTask` instances (one per systematic key)
-- 1 `EnsembleTask` per systematic (num_ensembles=1)
-- 1 `FoldTask` per ensemble (folds=1)
+      ```python
+      from needle.tasks.b2luigi import MainTask
+      import b2luigi
 
-Total: 2 training runs for this estimator. If you set `num_ensembles: 3` and `folds: 5` you
-would get 2 × 3 × 5 = 30 training runs.
 
-## Why separate systematics from the physics systematics?
+      class SimpleTask(b2luigi.Task):
+          def requires(self):
+              return MainTask()
 
-The `expands.systematics` in the NEEDLE config controls **model-level variations** — things like
-different hyperparameters or different training data subsets. The physics systematics (JES, TES,
-etc.) are handled inside the data pipeline during inference, not during training.
 
-This separation is intentional: you train a set of models, then at inference time you apply
-physics-level systematic shifts to the data and feed them through the (fixed) trained models.
-The model-level systematics in `expands` let you train multiple variants of the same model to
-study sensitivity to training choices.
+      if __name__ == "__main__":
+          b2luigi.process(SimpleTask())
+      ```
 
-## Adding a new task to the pipeline
-
-To add a new downstream analysis task:
-
-1. Write a class inheriting from `luigi.Task` in your example package.
-2. Add it to `downstream_tasks` in your config YAML:
-   ```yaml
-   downstream_tasks:
-     my_analysis:
-       requires: ["histogram"]   # wait for histogram task
-       args:
-         _target_: my_package.tasks.my_task.MyTask
-         some_param: "value"
-   ```
-3. Run it:
-   ```bash
-   law run DownstreamTask --downstream my_analysis \
-       --config-file conf/config.yaml
-   ```
-
-Your task will receive `snapshot_path` automatically (injected by `DownstreamTask`) plus
-any `args` from the config.
+      Which allows you to run it from the CLI with `python3 <my_script>.py`.

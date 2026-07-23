@@ -1,11 +1,8 @@
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import torch
 
-from needle.evaluation.pseudo_model import NEEDLE as PseudoModel
-from needle.evaluation.pseudo_model_parallel import NEEDLEParallel as PseudoModel
-from needle.evaluation.pseudo_model_vectorized import NEEDLEVectorized as PseudoModel
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("needle")
@@ -14,14 +11,19 @@ logger = ColorFormatter.get_logger("needle")
 class Model:
     """NEEDLE ensemble model wrapper"""
 
+    model: Any
+
     def __init__(self, snapshot_path: Union[str, Path], device: Optional[str] = None):
         self.snapshot_path = Path(snapshot_path)
 
         if not self.snapshot_path.exists():
             raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
 
-        self.model = PseudoModel(snapshot_path=str(snapshot_path), device=device)
-        logger.info(f"Loaded NEEDLE model from {snapshot_path}")
+        raise NotImplementedError(
+            "The pseudo-model evaluation backend (needle.evaluation) was removed and has not "
+            "been reimplemented yet. Loading a trained DAGSnapshot for inference is currently "
+            "unsupported."
+        )
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:
         """Simple prediction without uncertainty"""

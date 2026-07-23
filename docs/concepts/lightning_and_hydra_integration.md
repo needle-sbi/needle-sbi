@@ -57,9 +57,9 @@ law run FoldTask --config-file conf/config.yaml --estimator my_estimator
 
 ### `HydraMixin`
 
-Every task that needs the config inherits from `HydraMixin` (defined in
-[`law_tasks/mixins/hydra.py`](../../law_tasks/mixins/hydra.py)). It adds two LAW parameters
-and a `config` property:
+Every task that needs the config inherits from `HydraParamsMixin` (defined in
+[`needle/tasks/mixins/hydra.py`](../../needle/tasks/mixins/hydra.py), shared by both
+backends). It adds two parameters and a `config` property:
 
 ```python
 class HydraMixin:
@@ -177,10 +177,11 @@ visible in `__init__` but are valid task parameters.
 
 ---
 
-## How `FoldTask` uses all of this
+## How `TrainingTask` uses all of this
 
-The `run()` method in [`law_tasks/fold.py`](../../law_tasks/fold.py) is the point where the
-config, Lightning, and Hydra all come together:
+The `run()` method in [`needle/tasks/base/training.py`](../../needle/tasks/base/training.py)
+(`BaseTrainingTask`, shared by both backends — `FoldTask` is just its `.done`-marker parent)
+is the point where the config, Lightning, and Hydra all come together:
 
 ```python
 def run(self):

@@ -2,32 +2,31 @@
 
 This page is a hands-on guide for writing and extending NEEDLE config files. For how Hydra and
 Lightning are wired together internally, see
-[Lightning and Hydra: Technical Implementation](lightning_and_hydra_integration.md).
-
----
+[Lightning and Hydra](lightning_and_hydra_integration.md).
 
 ## Why Hydra?
 
 A training pipeline has many moving parts: dataset paths, model hyperparameters, training
 duration, cross-validation splits. Hardcoding these makes experiments hard to reproduce; putting
-them all in one flat file becomes unwieldy. Hydra solves this by:
+them all in one flat file becomes unwieldy.
 
-1. **Composing configs from multiple YAML files** — mix and match models, datasets, and trainers
+Hydra solves this by:
+
+1. Composing configs from multiple YAML files. Mix and match models, datasets, and trainers
    independently.
-2. **Resolving `_target_` strings to Python classes** — so your config *is* your instantiation
-   logic (`hydra.utils.instantiate`).
-3. **Supporting runtime overrides** — swap any config value from the command line without editing
-   files.
-
----
+2. Resolving `_target_` strings to Python classes. The config directly connect your code with
+    `needle-sni` using `hydra.utils.instantiate`.
+3. Supports runtime overrides. Swap any config value from the command line without editing
+   files. The final config will have the correctly merged settings, keeping a single source of
+   truth.
 
 ## Config directory layout
 
 ```
 conf/
-├── config.yaml          ← main config (estimators, paths, downstream tasks)
+├── config.yaml            # main config
 ├── models/
-│   ├── my_model.yaml    ← LightningModule config
+│   ├── my_model.yaml
 │   └── other_model.yaml
 ├── datamodules/
 │   └── my_datamodule.yaml
@@ -40,31 +39,15 @@ resolves these references at startup — see [Phase 1 resolution](lightning_and_
 
 ---
 
-## The `MainConfig` dataclass
+## The main `config.yaml` file
 
-The top level of the config is validated against `MainConfig`
-([`needle/utils/config_schema.py`](../../needle/utils/config_schema.py)):
-
-```python
-@dataclass
-class MainConfig(SerializableDataclass):
-    estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
-    downstream_tasks: Optional[dict[str, DownstreamTaskConfig]] = field(default_factory=dict)
-    aggregation: AggregationConfig = field(default_factory=AggregationConfig)
-    results_path: Optional[str] = None
-    results_path_downstream: Optional[str] = None
-    custom_settings: Any = None
-    _resolved: bool = False
-```
-
-| Field | Description |
-|---|---|
-| `estimators` | Map of estimator name → `EstimatorConfig`. One entry per model to train. |
-| `downstream_tasks` | Map of task name → `DownstreamTaskConfig`. User analysis tasks run after training. |
-| `aggregation` | How fold/ensemble/systematic results are combined (`mean`, `weighted_mean`, …). |
-| `results_path` | Root output directory for training artifacts. |
-| `results_path_downstream` | Root output directory for downstream task outputs. Can use OmegaConf interpolations. |
-| `custom_settings` | Arbitrary dict for experiment-specific settings. Accessible throughout the config via `${custom_settings.*}`. |
+| Field | Python Type | Description |
+|---|---|---|
+| `estimators` | `dict[str, EstimatorConfig]` | Dictionary of models to train |
+| `downstream_tasks` | `Optional[dict[str, DownstreamTaskConfig]]` | Dictionary of the DownstreamTasks to run after training. |
+| `results_path` | `Optional[str]` | Root output directory for training artifacts. |
+| `results_path_downstream` | `Optional[str]` | Root output directory for downstream task outputs. Can use OmegaConf interpolations. |
+| `custom_settings` | `Optional[Any]` | Extra settings that you want to access throughout the config files via `${custom_settings.*}`. |
 
 ### Minimal `config.yaml`
 
@@ -79,7 +62,8 @@ estimators:
     trainer: default
 ```
 
----
+The values inserted here are validated against `MainConfig`
+([`needle/utils/config_schema.py`](../../needle/utils/config_schema.py)).
 
 ## The `EstimatorConfig` dataclass
 
@@ -121,9 +105,6 @@ estimators:
     datamodule: my_datamodule
     trainer: default
 ```
-
-> **Note:** `dataset` / `dataset_override` merge in the opposite direction — the group config
-> takes precedence over inline overrides. This is intentional for dataset configs.
 
 ### The `expands` block
 
@@ -322,9 +303,14 @@ See [Writing Custom Downstream Tasks](downstream_tasks.md) for the full guide.
 
 ---
 
+(aggregation-config)=
 ## Aggregation config
 
-`aggregation` controls how fold, ensemble, and systematic results are combined after training:
+> **Currently orphaned.** `aggregation` was designed to control how fold, ensemble, and
+> systematic results are combined after training, but its only consumer — the old
+> `needle/utils/results.py` and snapshot-aggregation code — was removed. The dataclass below
+> still exists on `MainConfig.aggregation` and is still accepted in your YAML without error,
+> but nothing in the current task DAG reads it. Setting these fields has no effect today.
 
 ```python
 @dataclass
@@ -378,7 +364,7 @@ aggregation:
 
 5. **Run it:**
    ```bash
-   law run SnapshotTask \
+   law run MainTask \
        --config-file conf/config.yaml
    ```
 
@@ -397,4 +383,4 @@ config file.
 ---
 
 For a complete working example of a multi-estimator config with systematics and downstream tasks,
-see the [FAIR Universe demo](../examples/index.md).
+see the [FAIR Universe demo](../examples/fair_universe_demo/index.md).

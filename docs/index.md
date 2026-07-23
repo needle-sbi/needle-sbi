@@ -1,8 +1,8 @@
 # NEEDLE
 
 **NEEDLE** is a workflow orchestrator for HEP machine learning pipelines, combining
-[LAW](https://law.readthedocs.io/en/latest/) task scheduling,
-[Lightning](https://lightning.ai/docs/pytorch/stable/) training modules, and
+[LAW](https://law.readthedocs.io/en/latest/) or [b2luigi](https://b2luigi.belle2.org/index.html)
+task scheduling, [Lightning](https://lightning.ai/docs/pytorch/stable/) training modules, and
 [Hydra](https://hydra.cc/docs/intro/) configuration management.
 
 ---
@@ -44,10 +44,14 @@ Auto-generated reference for all public modules.
 
 The data-processing libraries are completely optional and are only used when selecting the NEEDLE
 Lightning Datamodules in your config. For the training and inference, pytorch Lightning is a key
-component that ensures models are compatible with the framework. Finally, we use law (a fork of
-Spotify's luigi) to schedule and organize Tasks.
+component that ensures models are compatible with the framework. Finally, we use LAW or b2luigi
+(both forks of Spotify's luigi) to schedule and organize Tasks — see
+[DAG Workflow](concepts/task_hierarchy.md).
 
-![libraries](diagrams/website_technical_overview_light.png)
+```{image} diagrams/website_technical_overview_light.png
+:alt: libraries
+:class: light-diagram
+```
 
 ---
 
@@ -66,6 +70,7 @@ setup/index
 
 concepts/task_hierarchy
 concepts/law_tasks
+concepts/b2luigi_tasks
 concepts/lightning_and_hydra_integration
 concepts/hydra_config
 concepts/downstream_tasks
