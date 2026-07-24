@@ -248,18 +248,21 @@ def hydra_instantiate(cfg: DictConfig, **kwargs) -> Any:
     return hydra.utils.instantiate(cfg, **supported_kwargs)
 ```
 
-**Why the wrapper?**
-
+::: {admonition} Why the wrapper?
+:class: info
 The same `FoldTask.run()` code instantiates *any* model or datamodule class you configure. Some
 of those classes may not accept every keyword argument (e.g. `dataset_config` or `input_models`).
 Instead of requiring every class to implement the full interface, `hydra_instantiate` inspects
 the class signature and silently drops unsupported kwargs, logging a warning. This makes it easy
 to write minimal Lightning modules that only accept what they need.
+:::
 
+::: {hint}
 `hydra_check_if_arg_supported` also handles `luigi.Parameter` class attributes, which are not
 visible in `__init__` but are valid task parameters.
+:::
 
-## Hydra under the hood
+### Hydra from the CLI
 
 [Hydra](https://hydra.cc/docs/intro/) is used for configuration management. NEEDLE uses its
 `initialize` + `compose` API rather than the `@hydra.main` decorator so it coexists cleanly
@@ -271,58 +274,9 @@ law run FoldTask --config-file conf/config.yaml --estimator my_estimator
 
 # Avoid: using --hydra.main clashes with Law's argparser
 ```
-
-### `HydraMixin`
-
-Every task that needs the config inherits from `HydraParamsMixin` (defined in
-[`needle/tasks/mixins/hydra.py`](../../needle/tasks/mixins/hydra.py), shared by both
-backends). It adds two parameters and a `config` property:
-
-```python
-class HydraMixin:
-    config_file: str = law.Parameter(
-        description="Path to config folder",
-        default="conf/config.yaml",
-        significant=True,
-    )
-    hydra_overrides: str = law.Parameter(
-        description="Overrides to pass to Hydra. Format: 'key1=value1 key2=value2'",
-        significant=False,
-        default="",
-    )
-
-    @property
-    def config(self) -> MainConfig:
-        overrides = self.hydra_overrides.split() if self.hydra_overrides else []
-        if hasattr(self, "_config"):
-            return self._config
-        config_file = Path(str(self.config_file)).resolve()
-        self._config = initialize_hydra_config(
-            config_dir=str(config_file.parent),
-            config_name=str(config_file.stem),
-            overrides=overrides,
-        )
-        return self._config
-```
-
-The `config` property is lazy: it only calls `initialize_hydra_config` on first access and
-then caches the result on the instance. This means each task process parses the YAML exactly
-once, regardless of how many times `self.config` is accessed.
-
-**MRO order:** `HydraMixin` must come before `law.Task` in the class definition:
-
-```python
-class MyTask(HydraMixin, law.Task):   # correct
-    ...
-
-class MyTask(law.Task, HydraMixin):   # wrong — HydraMixin.config property may be shadowed
-    ...
-```
-
-## How `TrainingTask` uses all of this
+### How `TrainingTask` uses all of this
 
 The `run()` method in [`needle/tasks/base/training.py`](../../needle/tasks/base/training.py)
-(`BaseTrainingTask`, shared by both backends — `FoldTask` is just its `.done`-marker parent)
 is the point where the config, Lightning, and Hydra all come together:
 
 ```python
@@ -358,7 +312,7 @@ def run(self):
 
 `self.systematic_config` is the estimator config merged with any systematic-specific overrides,
 so a systematic that only changes one model hyperparameter inherits all other fields from the
-base estimator. The `*_override` fields are populated during Phase 1 resolution.
+base estimator. The `*_override` fields are populated during Step 1 resolution.
 
 Notice that the `Trainer` is instantiated with plain `hydra.utils.instantiate` (not the wrapper)
-because the trainer's accepted arguments are well-known and static.
+because there are no additional optional arguments for the Trainer.
