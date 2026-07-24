@@ -1,9 +1,17 @@
 # NEEDLE
 
-**NEEDLE** is a workflow orchestrator for HEP machine learning pipelines, combining
-[LAW](https://law.readthedocs.io/en/latest/) or [b2luigi](https://b2luigi.belle2.org/index.html)
-task scheduling, [Lightning](https://lightning.ai/docs/pytorch/stable/) training modules, and
+**NEEDLE** is a workflow orchestrator for HEP machine learning pipelines, especially with 
+Neural Simulation Based Inference in mind. It combines
+[LAW](https://law.readthedocs.io/en/latest/) or 
+[b2luigi](https://b2luigi.belle2.org/index.html) task scheduling, 
+[Lightning](https://lightning.ai/docs/pytorch/stable/) training modules, and
 [Hydra](https://hydra.cc/docs/intro/) configuration management.
+
+::: {admonition} One workflow to rule them all
+:class: info
+NEEDLE helps you set up a single scalable, reproducible and fully automated pipeline for training
+all your neural networks in one go.
+:::
 
 ---
 
@@ -14,14 +22,14 @@ task scheduling, [Lightning](https://lightning.ai/docs/pytorch/stable/) training
 :link: setup/index
 :link-type: doc
 
-Installation, environment variables, running your first task, and troubleshooting.
+Installation and running your first workflow.
 :::
 
 :::{grid-item-card} Concepts
 :link: concepts/task_hierarchy
 :link-type: doc
 
-The task DAG, Hydra config system, and how to write downstream analysis tasks.
+The DAG workflow and writing the Hydra config.
 :::
 
 :::{grid-item-card} Examples
@@ -42,9 +50,9 @@ Auto-generated reference for all public modules.
 
 ## Libraries
 
-The data-processing libraries are completely optional and are only used when selecting the NEEDLE
-Lightning Datamodules in your config. For the training and inference, pytorch Lightning is a key
-component that ensures models are compatible with the framework. Finally, we use LAW or b2luigi
+The data-processing libraries are completely optional and are only used when selecting the builtin
+NEEDLE modules in your config. For the training and inference, pytorch Lightning is a key
+component that ensures all models are compatible with the framework. Finally, we use LAW or b2luigi
 (both forks of Spotify's luigi) to schedule and organize Tasks — see
 [DAG Workflow](concepts/task_hierarchy.md).
 
