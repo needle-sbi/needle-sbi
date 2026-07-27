@@ -3,34 +3,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Type
-from urllib.parse import urlencode
 
 import luigi
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf
+import json
 
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_utils import compare_configs, initialize_hydra_config
 from needle.utils.logging import ColorFormatter, LogOnce
-from needle.utils.dataclass import SerializableDataclass, dataclass
-from dataclasses import field
+from needle.tasks.base.estimator import BaseEstimatorTask
 
 logger = ColorFormatter.get_logger("dag")
-
-
-@dataclass
-class NoteMetadata(SerializableDataclass):
-    checkpoint_path: str
-    task_type: str
-    fold_index: int
-    ensemble_index: int
-    estimator_name: str
-    systematic_name: str
-
-
-@dataclass
-class SnapshotTree(SerializableDataclass):
-    config_snapshot: DictConfig
-    nodes: dict[str, NoteMetadata] = field(default_factory=dict)
 
 
 class BaseMainTask(HydraParamsMixin, luigi.Task):
@@ -116,53 +99,29 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
     def output(self) -> Dict[str, Any]:  # type: ignore
         return {"dag_snapshot": luigi.LocalTarget(f"{self.abs_results_path}/dag_snapshot.json")}
 
-    def run(self) -> None:
-        self.print_config_path_once()
-        logger.info("Processing...")
-        nodes = {}
+    def snapshot_as_dict(self) -> Dict[str, str]:
+        snapshot_nested: Dict[str, Dict[str, str]] = {}
+        snapshot_flattened: Dict[str, str] = {}
+        estimator_task: BaseEstimatorTask
 
         for estimator_task in self.requires():
-            estimator_name = estimator_task.estimator
-            logger.info(f"|  Estimator:    {estimator_name}")
+            snapshot_nested[estimator_task.estimator] = estimator_task.input_model_paths
 
-            for systematic_task in estimator_task.requires():
-                systematic_name = systematic_task.systematic
-                logger.info(f"|    Systematic: {systematic_name}")
+        for estimator, est_values in snapshot_nested.items():
+            for key, value in est_values.items():
+                snapshot_flattened[f"est={estimator}&{key}"] = value
 
-                for ensemble_task in systematic_task.requires():
-                    ensemble_idx = ensemble_task.ensemble
-                    logger.info(f"|      Ensemble: {ensemble_idx}")
+        return snapshot_flattened
 
-                    for fold_idx, fold_task in enumerate(ensemble_task.requires()):
-                        (training_task,) = fold_task.requires()
-                        training_output = training_task.output_as_dict(training_task.output())
+    def run(self) -> None:
+        self.print_config_path_once()
 
-                        checkpoint_path = self._find_checkpoint(training_output)
+        file = self.output()['dag_snapshot'].path
 
-                        node_id = urlencode(
-                            {
-                                "est": estimator_name,
-                                "syst": systematic_name,
-                                "ensem": ensemble_idx,
-                                "fold": fold_idx,
-                            }
-                        )
+        with open(file, "w") as f:
+            json.dump(self.snapshot_as_dict(), f, indent=4, sort_keys=True, default=str)
 
-                        nodes[node_id] = NoteMetadata(
-                            checkpoint_path=checkpoint_path,
-                            task_type="fold",
-                            fold_index=fold_idx,
-                            ensemble_index=ensemble_idx,
-                            estimator_name=estimator_name,
-                            systematic_name=systematic_name,
-                        )
-
-        snapshot = SnapshotTree(
-            nodes=nodes,
-            config_snapshot=OmegaConf.to_container(self.config, resolve=True),  # type: ignore
-        )
-        snapshot.to_json(self.output()["dag_snapshot"].path)
-        logger.info(f"DAG snapshot saved to {self.output()['dag_snapshot'].path}")
+        logger.info(f"DAG snapshot saved to {file}")
 
     def _find_checkpoint(self, training_output: Dict[str, Any]) -> str:
         ckpt_path = training_output["ckpt"].path

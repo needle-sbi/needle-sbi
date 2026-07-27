@@ -250,7 +250,7 @@ def hydra_instantiate(cfg: DictConfig, **kwargs) -> Any:
 
 ::: {admonition} Why the wrapper?
 :class: info
-The same `FoldTask.run()` code instantiates *any* model or datamodule class you configure. Some
+The same `TrainingTask.run()` code instantiates *any* model or datamodule class you configure. Some
 of those classes may not accept every keyword argument (e.g. `dataset_config` or `input_models`).
 Instead of requiring every class to implement the full interface, `hydra_instantiate` inspects
 the class signature and silently drops unsupported kwargs, logging a warning. This makes it easy
@@ -270,7 +270,7 @@ with LAW's own argument parser.
 
 ```bash
 # Correct: Law is the outer layer, hydra operates internally
-law run FoldTask --config-file conf/config.yaml --estimator my_estimator
+law run TrainingTask --config-file conf/config.yaml --estimator my_estimator
 
 # Avoid: using --hydra.main clashes with Law's argparser
 ```
@@ -281,12 +281,10 @@ is the point where the config, Lightning, and Hydra all come together:
 
 ```python
 def run(self):
-    model_config     = self.systematic_config.model_override
+    model_config = self.systematic_config.model_override
     datamodule_config = self.systematic_config.datamodule_override
-    dataset_config   = self.systematic_config.dataset_override
-    trainer_config   = self.systematic_config.trainer_override
-
-    # model_config, datamodule_config, trainer_config are resolved DictConfigs with _target_
+    dataset_config = self.systematic_config.dataset_override
+    trainer_config = self.systematic_config.trainer_override
 
     model: lightning.LightningModule = hydra_instantiate(
         model_config,
