@@ -64,11 +64,11 @@ which maps each trained model to its checkpoint path.
 
 ```bash
 needle run DownstreamTask \
-    --downstream eval \
-    --config-file examples/fair_universe_demo/conf/config.yaml
+    --config-file examples/fair_universe_demo/conf/config.yaml \
+    --param downstream=eval
 ```
 
-The `--downstream` flag names one of the keys in `downstream_tasks` inside your config.
+The `downstream` parameter names one of the keys in `downstream_tasks` inside your config.
 LAW automatically ensures all upstream tasks (training, snapshot) are complete before running.
 
 ### Common flags
@@ -76,10 +76,12 @@ LAW automatically ensures all upstream tasks (training, snapshot) are complete b
 | Flag | Effect |
 |---|---|
 | `--config-file <path>` | Path to the Hydra config YAML |
-| `--hydra-overrides "key=value key2=value2"` | Override config values at runtime |
-| `--remove-output 0,a,y` | Delete the output of this specific task so it re-runs. Use carefully. |
-| `--workers N` | Override number of parallel workers for this run |
-| `--print-status 0` | Print the completion status of the DAG without running anything |
+| `--results-path <path>` | Root directory for results |
+| `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
+
+Any flags not recognized by `needle run` itself (e.g. `--remove-output`, `--workers`,
+`--print-status`) can still be passed through to `law run` directly by invoking `law run <Task>`
+instead of `needle run`.
 
 ### Quick smoke test with test data
 
@@ -88,9 +90,9 @@ without the full dataset:
 
 ```bash
 needle run DownstreamTask \
-    --downstream eval \
     --config-file examples/fair_universe_demo/conf/config.yaml \
-    --hydra-overrides "custom_settings.use_test_data=True"
+    --param downstream=eval \
+    --param hydra-overrides="custom_settings.use_test_data=True"
 ```
 
 This swaps the data path to `test_data/` and writes outputs to `runs/fair_universe_demo_test/`.

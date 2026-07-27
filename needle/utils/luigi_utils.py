@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Union, overload
+from typing import TYPE_CHECKING, Dict, List, Set, Tuple, Union, overload
 
 import luigi
+
+if TYPE_CHECKING:
+    import law
 
 #: Any form a Luigi target collection can take: a single target, list, dict, or tuple.
 LuigiTarget = luigi.LocalTarget
@@ -13,6 +16,14 @@ LuigiTargetCollection = Union[
     List[LuigiTarget],
     Dict[str, LuigiTarget],
     Tuple[LuigiTarget, ...],
+]
+
+#: Any form a Law target collection can take: a single target, list, dict, or tuple.
+LawTargetCollection = Union[
+    "law.LocalFileTarget",
+    "List[law.LocalFileTarget]",
+    "Dict[str, law.LocalFileTarget]",
+    "Tuple[law.LocalFileTarget, ...]",
 ]
 
 
@@ -53,7 +64,7 @@ def convert_luigi_to_law_targets(luigi_targets: Dict[str, LuigiTarget]) -> "Dict
 def convert_luigi_to_law_targets(luigi_targets: Tuple[LuigiTarget, ...]) -> "Tuple[law.LocalFileTarget, ...]": ...  # type: ignore[name-defined]
 
 
-def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LuigiTargetCollection:
+def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LawTargetCollection:
     """Convert Luigi targets to Law targets.
 
     Takes a Luigi target or collection of targets and converts them to their
@@ -67,7 +78,7 @@ def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LuigiT
             - ``tuple`` of ``luigi.LocalTarget``
 
     Returns:
-        LuigiTargetCollection: Same collection structure, with ``law.LocalFileTarget`` instances.
+        LawTargetCollection: Same collection structure, with ``law.LocalFileTarget`` instances.
 
     Raises:
         TypeError: If luigi_targets is not a LocalTarget, list, dict, or tuple.

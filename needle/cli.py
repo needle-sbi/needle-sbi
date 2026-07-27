@@ -90,7 +90,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     if backend == "law":
         logger.info("Running with `law` workflow backend")
 
-        config_file = getattr(args, "config", None)
+        config_file = getattr(args, "config_file", None)
         results_path = getattr(args, "results_path", None)
 
         law_args = ["law", "run", task_name]
@@ -117,7 +117,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             available = ", ".join(b2luigi_tasks.__all__)
             raise SystemExit(f"Unknown b2luigi task '{task_name}'. Available: {available}")
 
-        config_file = getattr(args, "config", "conf/config.yaml")
+        config_file = getattr(args, "config_file", "conf/config.yaml")
         results_path = getattr(args, "results_path", "runs")
         batch_system = getattr(args, "batch_system", "local")
         workers = getattr(args, "workers", 1)
@@ -178,7 +178,8 @@ def main() -> None:
         help="Workflow backend to use (default: law)",
     )
     run.add_argument(
-        "--config",
+        "--config-file",
+        dest="config_file",
         default="conf/config.yaml",
         help="Path to the Hydra config file (default: conf/config.yaml)",
     )

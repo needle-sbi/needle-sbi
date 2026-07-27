@@ -12,10 +12,13 @@ performs statistical inference to estimate the signal strength parameter μ.
 
 ## Quick start
 
+Install the code with `git clone` to access the source code for the examples.
+
 ```bash
 export FAIR_UNIVERSE_DATA=/path/to/fair_universe_data
 source .venv/bin/activate
 source setup.sh
+cd examples/fair_universe_demo
 
 # Train everything and run the full analysis
 law run DownstreamTask \
@@ -28,6 +31,9 @@ law run DownstreamTask \
     --config-file examples/fair_universe_demo/conf/config.yaml \
     --hydra-overrides "custom_settings.use_test_data=True"
 ```
+
+When using `b2luigi`, you might need to install the `fair_universe_demo` package locally in order to
+register the Tasks. A simple `pip install -e .` suffices.
 
 ## What the pipeline produces
 

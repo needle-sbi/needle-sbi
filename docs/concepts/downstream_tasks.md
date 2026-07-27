@@ -75,7 +75,7 @@ Or with the b2luigi backend:
 ```bash
 needle run DownstreamTask --backend b2luigi \
     --param downstream=my_analysis \
-    --config conf/config.yaml
+    --config-file conf/config.yaml
 ```
 
 Either way:

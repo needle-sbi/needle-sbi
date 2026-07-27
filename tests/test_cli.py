@@ -117,7 +117,7 @@ class TestCmdRunArgParsing:
         args = mock_cmd_run.call_args.args[0]
         assert args.task == "MainTask"
         assert args.backend == "law"
-        assert args.config == "conf/config.yaml"
+        assert args.config_file == "conf/config.yaml"
         assert args.results_path == "runs"
         assert args.batch_system == "local"
         assert args.workers == 1
@@ -133,7 +133,7 @@ class TestCmdRunArgParsing:
                 "EnsembleTask",
                 "--backend",
                 "b2luigi",
-                "--config",
+                "--config-file",
                 "my/config.yaml",
                 "--results-path",
                 "my_runs",
@@ -151,7 +151,7 @@ class TestCmdRunArgParsing:
         args = mock_cmd_run.call_args.args[0]
         assert args.task == "EnsembleTask"
         assert args.backend == "b2luigi"
-        assert args.config == "my/config.yaml"
+        assert args.config_file == "my/config.yaml"
         assert args.results_path == "my_runs"
         assert args.batch_system == "htcondor"
         assert args.workers == 4
@@ -183,7 +183,7 @@ class TestCmdRunLawBackend:
                 argparse.Namespace(
                     task="EnsembleTask",
                     backend="law",
-                    config="conf/config.yaml",
+                    config_file="conf/config.yaml",
                     results_path="runs",
                     params=["estimator=model_A", "systematic=nominal"],
                 )

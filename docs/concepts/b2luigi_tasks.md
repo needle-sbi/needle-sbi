@@ -48,7 +48,7 @@ When running from `needle run` CLI, the settings are listed in the `settings.jso
 {
   "batch_system": "htcondor",
   "htcondor_settings": {
-    "request_memory": "2048MB",
+    "request_memory": "2048MB",register-python-argcomplete gallery
     "request_cpus": 2,
     "+RequestRuntime": 600
   }
@@ -73,8 +73,10 @@ Running the Tasks from the CLI:
 
 ```bash
 needle run MainTask --backend b2luigi --batch-system htcondor --workers 4
-needle run DownstreamTask --backend b2luigi --downstream <name_from_config>
+needle run DownstreamTask --backend b2luigi --param downstream=<name_from_config>
 ```
 
-`needle run --backend b2luigi` looks up the task class by name. It temporarily clears `sys.argv` around that call, since `b2luigi.process()` parses `sys.argv` itself for its own flags (`--batch`, `--test`, ...) and would otherwise conflict with needle's
-own argument parser.
+`needle run --backend b2luigi` looks up the task class by name. It temporarily clears `sys.argv` around
+that call, since `b2luigi.process()` parses `sys.argv` itself for its own flags (`--batch`, `--test`, ...)
+and would otherwise conflict with needle's own argument parser.
+With this approach, you need to specify `--param downstream` instead of the direct `--downstream`. 
