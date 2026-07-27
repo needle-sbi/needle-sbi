@@ -2,6 +2,8 @@
 # Disclaimer: Generated with the help of GPT4.5
 
 WIDTH=60
+LEFT_COL_WIDTH=30
+RIGHT_COL_WIDTH=24
 LOGO_FILE="${NEEDLE_TUI_DIR}/plain_text/needle_name_ascii.txt"
 
 
@@ -9,8 +11,9 @@ LOGO_FILE="${NEEDLE_TUI_DIR}/plain_text/needle_name_ascii.txt"
 _NEEDLE_RED='\033[0;31m'
 _NEEDLE_GREEN='\033[0;32m'
 _NEEDLE_ORANGE='\033[0;33m'
+_NEEDLE_BLUE='\033[0;94m'
+_NEEDLE_BOLD='\033[1m'
 _NEEDLE_NC='\033[0m' # No Color
-_NEEDLE_BLUE='\033[0;34m'
 
 center_line() {
     local text="$1"
@@ -35,9 +38,67 @@ print_empty() {
     printf "│%*s│\n" $((WIDTH-2)) ""
 }
 
+_color_code() {
+    case "$1" in
+        red)    printf '%s' "$_NEEDLE_RED" ;;
+        green)  printf '%s' "$_NEEDLE_GREEN" ;;
+        blue)   printf '%s' "$_NEEDLE_BLUE" ;;
+        orange) printf '%s' "$_NEEDLE_ORANGE" ;;
+        bold)   printf '%s' "$_NEEDLE_BOLD" ;;
+        *)      printf '' ;;
+    esac
+}
+
+# print_text_line PLAIN_TEXT [COLOR]
+# COLOR is one of: none, red, green, blue, orange, bold. Padding is always
+# computed from PLAIN_TEXT so ANSI escapes never throw off alignment.
 print_text_line() {
-    local text="$1"
-    printf "│ %-*s │\n" $((WIDTH-4)) "$text"
+    local plain="$1"
+    local color="${2:-none}"
+    local pad=$(( WIDTH - 4 - ${#plain} ))
+    ((pad < 0)) && pad=0
+
+    local code
+    code="$(_color_code "$color")"
+
+    if [[ -n "$code" ]]; then
+        printf "│ ${code}%s${_NEEDLE_NC}%*s │\n" "$plain" "$pad" ""
+    else
+        printf "│ %s%*s │\n" "$plain" "$pad" ""
+    fi
+}
+
+print_header_line() {
+    print_text_line "$1" "bold"
+}
+
+# print_two_col_line LEFT_TEXT LEFT_COLOR RIGHT_TEXT RIGHT_COLOR
+print_two_col_line() {
+    local left="$1" left_color="$2" right="$3" right_color="$4"
+    ((${#left} > LEFT_COL_WIDTH)) && left="${left:0:$((LEFT_COL_WIDTH-1))}…"
+    ((${#right} > RIGHT_COL_WIDTH)) && right="${right:0:$((RIGHT_COL_WIDTH-1))}…"
+    local left_pad=$(( LEFT_COL_WIDTH - ${#left} ))
+    ((left_pad < 0)) && left_pad=0
+    local right_pad=$(( RIGHT_COL_WIDTH - ${#right} ))
+    ((right_pad < 0)) && right_pad=0
+
+    local lcode rcode
+    lcode="$(_color_code "$left_color")"
+    rcode="$(_color_code "$right_color")"
+
+    printf "│ "
+    if [[ -n "$lcode" ]]; then
+        printf "${lcode}%s${_NEEDLE_NC}%*s" "$left" "$left_pad" ""
+    else
+        printf "%s%*s" "$left" "$left_pad" ""
+    fi
+    printf "  "
+    if [[ -n "$rcode" ]]; then
+        printf "${rcode}%s${_NEEDLE_NC}%*s" "$right" "$right_pad" ""
+    else
+        printf "%s%*s" "$right" "$right_pad" ""
+    fi
+    printf " │\n"
 }
 
 print_center_block() {
@@ -56,28 +117,44 @@ print_empty
 print_text_line " Welcome to NEEDLE, the workflow manager for NSBI tools"
 print_empty
 
-# Get version information from Python module
-VERSIONS_OUTPUT=$(python3 "${NEEDLE_TUI_DIR}/components/version_info.py" --text 2>/dev/null)
+# Get version/environment status information from Python module
+PANEL_LINES_OUTPUT=$(python3 "${NEEDLE_TUI_DIR}/components/version_info.py" --panel-lines 2>/dev/null)
 
-if [ -n "$VERSIONS_OUTPUT" ]; then
-    print_text_line "Environment Versions:"
-    while IFS= read -r version_line; do
-        print_text_line "  $version_line"
-    done <<< "$VERSIONS_OUTPUT"
+if [ -n "$PANEL_LINES_OUTPUT" ]; then
+    LEFT_TEXTS=()
+    LEFT_COLORS=()
+    RIGHT_TEXTS=()
+    RIGHT_COLORS=()
+    while IFS=$'\x1f' read -r side text color; do
+        [ -z "$side" ] && continue
+        if [ "$side" = "L" ]; then
+            LEFT_TEXTS+=("$text")
+            LEFT_COLORS+=("$color")
+        else
+            RIGHT_TEXTS+=("$text")
+            RIGHT_COLORS+=("$color")
+        fi
+    done <<< "$PANEL_LINES_OUTPUT"
+
+    print_header_line "Environment versions:"
+    n_rows=${#LEFT_TEXTS[@]}
+    ((${#RIGHT_TEXTS[@]} > n_rows)) && n_rows=${#RIGHT_TEXTS[@]}
+    for ((i=0; i<n_rows; i++)); do
+        print_two_col_line "  ${LEFT_TEXTS[$i]:-}" "${LEFT_COLORS[$i]:-none}" "${RIGHT_TEXTS[$i]:-}" "${RIGHT_COLORS[$i]:-none}"
+    done
     print_empty
 fi
 
-print_text_line "NEEDLE Website: https://needle-sbi.github.io/"
-print_text_line "NEEDLE Docs:    https://needle-sbi.readthedocs.io"
-print_text_line "NEEDLE Github:  https://github.com/needle-sbi/needle-sbi"
-print_text_line "Luigi Docs:     https://luigi.readthedocs.io/"
+print_header_line "Documentation:"
+print_text_line "  needle-sbi:    https://needle-sbi.readthedocs.io" "blue"
+print_text_line "  luigi:         https://luigi.readthedocs.io/" "blue"
+print_text_line "  b2luigi:       https://b2luigi.belle2.org" "blue"
 print_empty
 
-print_text_line "Useful commands:"
-print_text_line "  * law index"
-print_text_line "  * law --help"
-print_text_line "  * law run MainTask --config-file "
-print_text_line "  * law run DownstreamTask --config-file "
+print_header_line "Entry points:"
+print_text_line "   law run MainTask ..."
+print_text_line "   needle run ..."
+print_text_line "   needle run --backend b2luigi ..."
 
 print_empty
 print_footer

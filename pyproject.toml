@@ -48,6 +48,7 @@ dependencies = [
     "tensorboard>=2.19",
     "matplotlib>=3.10",
     # misc and useful packages
+    "argcomplete>=3.5",
     "numpy>=2.2",
     "pandas>=2.2",
     "psutil>=7.0",

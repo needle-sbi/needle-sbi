@@ -52,8 +52,11 @@ export LAW_CONFIG_FILE="$SCRIPT_DIR/law.cfg"
 if [[ $- == *i* ]]; then
     if [[ -n "$BASH_VERSION" ]]; then
         . "$(law completion)" 2>/dev/null || true
+        eval "$(register-python-argcomplete needle 2>/dev/null)" || true
     elif [[ -n "$ZSH_VERSION" ]]; then
         eval "$(law completion --zsh 2>/dev/null)" || true
+        autoload -Uz bashcompinit && bashcompinit
+        eval "$(register-python-argcomplete needle 2>/dev/null)" || true
     fi
 fi
 

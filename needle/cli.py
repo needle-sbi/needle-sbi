@@ -5,9 +5,32 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from needle.utils.logging import ColorFormatter
+
+# Deferred: importing needle.utils.logging pulls in the full `needle` package
+# (needle.ml -> torch/lightning), which is slow to import. Argument parsing and
+# tab-completion must stay fast, so this is only imported inside command
+# functions that actually need the logger, never at module scope.
+try:
+    import argcomplete
+except ImportError:
+    argcomplete = None
 
 _TEMPLATES = Path(__file__).parent / "templates"
+
+_TASK_CHOICES = [
+    "MainTask",
+    "EstimatorTask",
+    "SystematicTask",
+    "EnsembleTask",
+    "FoldTask",
+    "TrainingTask",
+    "DownstreamTask",
+]
+
+
+def _complete_task(**kwargs: object) -> list[str]:
+    return _TASK_CHOICES
+
 
 _SETTINGS_JSON_TEMPLATE = """\
 {
@@ -25,8 +48,6 @@ _SETTINGS_JSON_TEMPLATE = """\
   }
 }
 """
-
-logger = ColorFormatter.get_logger("cli")
 
 
 def _copy(src: Path, dst: Path, description: str) -> None:
@@ -84,6 +105,9 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
+    from needle.utils.logging import ColorFormatter
+
+    logger = ColorFormatter.get_logger("cli")
     backend: str = args.backend
     task_name: str = args.task
 
@@ -142,8 +166,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="needle", description="NEEDLE CLI Manager")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # --- needle init ---
-    init = sub.add_parser("init", help="Initialize your project within NEEDLE. Adds the required templates")
+    init = sub.add_parser(
+        "init",
+        help="Initialize your project within NEEDLE. Adds the required templates",
+    )
     init.add_argument(
         "directory",
         nargs="?",
@@ -162,15 +188,15 @@ def main() -> None:
         help="Workflow backend to scaffold (default: law)",
     )
 
-    # --- needle run ---
     run = sub.add_parser("run", help="Run the NEEDLE training DAG")
-    run.add_argument(
+    run_task_arg = run.add_argument(
         "task",
         nargs="?",
         default="MainTask",
         help="Task to run, e.g. MainTask, EstimatorTask, SystematicTask, EnsembleTask, FoldTask, "
         "DownstreamTask (default: MainTask)",
     )
+    run_task_arg.completer = _complete_task  # type: ignore[attr-defined]
     run.add_argument(
         "--backend",
         choices=["law", "b2luigi"],
@@ -208,9 +234,13 @@ def main() -> None:
         action="append",
         default=[],
         metavar="KEY=VALUE",
-        help="Extra parameter to pass to the selected task, e.g. --param estimator=my_estimator. "
+        help="Extra parameter to pass to the selected task, e.g. --param estimator=my_estimator "
+        "or --param downstream=my_downstream"
         "Can be given multiple times.",
     )
+
+    if argcomplete is not None:
+        argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 
