@@ -66,9 +66,9 @@ def cmd_init(args: argparse.Namespace) -> None:
     target = Path(args.directory).resolve()
     target.mkdir(parents=True, exist_ok=True)
 
-    backend: str = getattr(args, "backend", "law")
+    backend: str = getattr(args, "backend", "both")
 
-    if backend == "law":
+    if backend == "law" or backend == "both":
         _copy(
             src=_TEMPLATES / "law.cfg",
             dst=target / "law.cfg",
@@ -79,7 +79,7 @@ def cmd_init(args: argparse.Namespace) -> None:
             dst=target / "index",
             description="Index of needle.law_tasks, update with `law index`",
         )
-    elif backend == "b2luigi":
+    elif backend == "b2luigi" or backend == "both":
         settings_dst = target / "settings.json"
         if settings_dst.exists():
             print("Skipped 'settings.json' (b2luigi settings file)")
@@ -123,8 +123,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         if results_path:
             law_args += ["--results-path", results_path]
         for param in args.params:
-            key, _, value = param.partition("=")
-            law_args += [f"--{key.replace('_', '-')}", value]
+            key, sep, value = param.partition("=")
+            flag = f"--{key.replace('_', '-')}"
+            law_args += [flag, value] if sep else [flag]
 
         sys.exit(subprocess.call(law_args))
 
@@ -146,7 +147,10 @@ def cmd_run(args: argparse.Namespace) -> None:
         batch_system = getattr(args, "batch_system", "local")
         workers = getattr(args, "workers", 1)
 
-        extra_params = dict(param.partition("=")[::2] for param in args.params)
+        extra_params: dict[str, str | bool] = {}
+        for param in args.params:
+            key, sep, value = param.partition("=")
+            extra_params[key] = value if sep else True
 
         configure_b2luigi(results_path=results_path, batch_system=batch_system)
 
@@ -183,9 +187,9 @@ def main() -> None:
     )
     init.add_argument(
         "--backend",
-        choices=["law", "b2luigi"],
-        default="law",
-        help="Workflow backend to scaffold (default: law)",
+        choices=["law", "b2luigi", "both"],
+        default="both",
+        help="Workflow backend to scaffold (default: both)",
     )
 
     run = sub.add_parser("run", help="Run the NEEDLE training DAG")

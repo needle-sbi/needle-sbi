@@ -220,6 +220,27 @@ class TestCmdRunLawBackend:
         assert "--strict-config" in called_argv
         assert called_argv[called_argv.index("--strict-config") + 1] == "RAISE"
 
+    def test_valueless_param_is_passed_as_bare_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_call = MagicMock(return_value=0)
+        monkeypatch.setattr(cli.subprocess, "call", mock_call)
+
+        with pytest.raises(SystemExit):
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="MainTask",
+                    backend="law",
+                    config_file=None,
+                    results_path=None,
+                    params=["print-deps", "estimator=model_A"],
+                )
+            )
+
+        called_argv = mock_call.call_args.args[0]
+        assert "--print-deps" in called_argv
+        # A bare flag must not swallow the next `--param`'s value as its own.
+        idx = called_argv.index("--print-deps")
+        assert called_argv[idx + 1] == "--estimator"
+
     def test_propagates_subprocess_exit_code(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(cli.subprocess, "call", MagicMock(return_value=1))
 
@@ -268,6 +289,28 @@ class TestCmdRunB2luigiBackend:
         assert task_instance.estimator == "model_A"
         assert task_instance.systematic == "nominal"
         assert kwargs == {"workers": 2, "batch": False}
+
+    def test_valueless_param_becomes_boolean_true_kwarg(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_process = MagicMock()
+        monkeypatch.setattr("b2luigi.process", mock_process)
+        monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
+
+        mock_task_cls = MagicMock()
+        monkeypatch.setattr("needle.tasks.b2luigi.FakeTask", mock_task_cls, raising=False)
+
+        cli.cmd_run(
+            argparse.Namespace(
+                task="FakeTask",
+                backend="b2luigi",
+                config_file="conf/config.yaml",
+                results_path="runs",
+                batch_system="local",
+                workers=1,
+                params=["dry_run"],
+            )
+        )
+
+        mock_task_cls.assert_called_once_with(config_file="conf/config.yaml", results_path="runs", dry_run=True)
 
     def test_batch_system_other_than_local_sets_batch_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_process = MagicMock()

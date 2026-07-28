@@ -4,13 +4,18 @@ Downstream tasks are how you attach your own analysis code to the NEEDLE pipelin
 models are trained and the snapshot is written, `DownstreamTask` instantiates and runs whatever
 Luigi `Task` you specify in the config.
 
-::: {admonition} When to use`DownstreamTask`
+::: {admonition} When to use `DownstreamTask`
 :class: info
-`DownstreamTask` exists so you can point NEEDLE to your Task purely through config (no import
-needed on NEEDLE's side). If you are already have a `luigi`/`law`/`b2luigi` workflow or plan to build
+`DownstreamTask` exists so you can point NEEDLE to your Task purely through config. If you are already have a `luigi`/`law`/`b2luigi` workflow or plan to build
 one then importing `needle-sbi` as a package is simpler than to use `DownstreamTask`. In this case,
 you only need to point your own `require()` method to NEEDLE's `MainTask` directly from your own
 workflow, see the [Scenarios](#scenarios) section below.
+:::
+
+::: {question} Why is the luigi Task not in the DAG?
+When using the DownstreamTask wrapper for your luigi Task, it is not possible for luigi or the other
+schedulers to inspect your Task. This is because it would have to read the config file first in order
+to see which DownstreamTasks are registered, but luigi only performs a static analysis. Therefore,
 :::
 
 (scenarios)=
@@ -44,26 +49,23 @@ use this method to defined the dependency graph of your post-training. Instead, 
 section in the config, as detailed in [Downstream Task Config](hydra_config.md#downstream-task-config).
 :::
 
-## Anatomy of a downstream task class
+## Implementing a DownstreamTask
 
 A downstream task is just a `luigi.Task`. NEEDLE does not impose any special base class.
 
 ```python
 import luigi
+import json
+
 
 class MyAnalysisTask(luigi.Task):
-    # LAW/Luigi parameters become constructor arguments
-    snapshot_path: str = luigi.Parameter(description="Path to the DAG snapshot JSON")
-    output_path: str = luigi.Parameter(description="Where to write results")
-    root_dir: str = luigi.Parameter(description="Path to raw data")
+    snapshot_path: str = luigi.Parameter()  # optional, see next Section
+    output_path: "..."
 
     def output(self):
-        # Tell Luigi which files this task creates
         return luigi.LocalTarget(self.output_path)
 
     def run(self):
-        # Your analysis code goes here
-        import json
         with open(self.snapshot_path) as f:
             snapshot = json.load(f)
 
@@ -74,13 +76,20 @@ class MyAnalysisTask(luigi.Task):
 ```
 
 Key rules:
-- `output()` must return a `LocalTarget` (or dict of them) whose paths will be created by `run()`.
+- `output()` must return a `LocalTarget` (or a collection of them) whose paths will be created by
+    `run()`. Acceptable collections when running with `--backend law` are `list`, `dict` and `tuple`.
 - Luigi checks `output()` to decide if the task is already done. If all output files exist, the
   task is skipped.
 - The `run()` method must create all output files before it exits. If it raises an exception,
   the task is marked failed and downstream tasks will not run.
 
-## Registering it in the config
+::: {hint}
+Ensure that the content of the files at the end of the `run()` method are correct. Otherwise, if the
+file is corrupted or missing content, luigi will consider the Task as done. In that case, you might get
+a more cryptic error downstream that is more difficult to trace back to the corrupted file.
+:::
+
+## Registering a new DownstreamTask
 
 Add an entry to `downstream_tasks` in your config YAML:
 
@@ -94,13 +103,28 @@ downstream_tasks:
       output_path: "${results_path_downstream}/my_results.json"
 ```
 
-The `snapshot_path` parameter is injected automatically by `DownstreamTask`, you do not need
-to specify it in the config.
+The `downstream_tasks` field is a dict in the same style as `estimators`. You can register an arbitrary
+number of DownstreamTasks (here just one named `my_analysis`). The valid sub-fields for each entry are:
 
+| Field                   | Python Type                       | Description                       |
+|-------------------------|-----------------------------------|-----------------------------------|
+| `requires`              | `Optional[List[str]]`             | Reference other entries by name    |
+| `args`                  | `dict[Any]`                       | Required. Needs at least the `_target_` field as an entry. All the other args are passed to your Task |
+| `expands`               | `Optional[dict[str, list[Any]]]`  | How to duplicate this task. Use a descriptive name for each key and use a list of values to iterate over. If passing more than one key-value, then the cartesian product of those keys are used. See [expands block](./downstream_tasks.md#parameter-expansion) |
+
+::: {note}
+The `snapshot_path` parameter is injected automatically by `DownstreamTask`, you do not need
+to specify it in the config. It is also completely optional, if your Task does not accept it, then
+it will be dropped with an info message. The benefit is that you do not need to manually track the
+location of the training output directory in your DownstreamTasks.
+:::
+
+::: {hint}
 OmegaConf interpolations (`${...}`) are resolved before the task class is instantiated, so
 `root_dir` will have the actual path string by the time `MyAnalysisTask.__init__` is called.
+:::
 
-## Running it
+## Running your DownstreamTasks
 
 From `law`:
 
@@ -171,36 +195,6 @@ class ValidateNF(luigi.Task):
     root_dir: str = luigi.Parameter()
     ...
 ```
-
-## Accessing trained models from the snapshot
-
-The snapshot JSON has the following structure. Parse it to find your checkpoint paths:
-
-```json
-{
-    "est=model_A&syst=nominal&ensem=0&fold=0": "./runs/default/est__model_A/syst__nominal/ensem__0/fold__0/model.ckpt"
-}
-``` 
-
-The schema for the key is `est=<my_estimator>&syst=<my_systematics>&ensem=<ensemble_idx>&fold=<fold_idx>`.
-The key is produced using `urllib.parse.urlencode` and can be unfurled using `urllib.parse.parse_qs`, as show here:
-
-```python
-import json
-from urllib.parse import parse_qs
-
-with open(snapshot_path) as f:
-    snapshot = json.load(f)
-
-for node_name, node in snapshot["nodes"].items():
-    params = parse_qs(node_name)          # parses "est=nf_signal_1jet&syst=c_0p5&..."
-    estimator = params["est"][0]
-    ckpt_path = node["checkpoint_path"]
-    # Load with Lightning:
-    model = MyModel.load_from_checkpoint(ckpt_path)
-```
-
-The FAIR Universe demo's `HistogramTask.parse_snapshot()` is a good reference implementation.
 
 ## Chaining downstream tasks
 

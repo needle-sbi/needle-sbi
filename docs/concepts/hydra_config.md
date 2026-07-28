@@ -84,7 +84,7 @@ Each **estimator** has these fields. Adding any extra ones is forbidden.
 | `model_override`          | `Optional[Any]`             | Dictionary with the overrides (must match structure from the model sub-config) |
 | `trainer`                 | `str`                       | Name of the sub-config file for the trainer field |
 | `trainer_override`        | `Optional[Any]`             | Dictionary with the overrides (must match structure from the trainer sub-config) |
-| `requires`                | `Optional[List[str]]`       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
+| `requires`                | `Optional[List[str]]` See [requires block](./hydra_config.md#the-requires-block)       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
 | `expands`                 | See [expands block](./hydra_config.md#the-expands-block) | How to multiply this estimator for Systematics, Ensembles and Folds. |
 
 The `*_override` mechanism is explained in more detail in [Building the Config](./lightning_and_hydra_integration.md#building-the-config). In essence, you can override the values of the fields from your sub-configs.

@@ -1,10 +1,13 @@
 # NEEDLE – The Workflow Orchestrator for Neural Simulation Based Inference Methods
 
-**Docs**: https://needle-sbi.readthedocs.io/en/latest/
+NEEDLE organizes the training of large collections of neural networks in a typical HEP analysis
+environment, including deployment to batch systems (HTCondor, SLURM and LSF), config management and
+efficient dataloading.
+It supports two interchangeable workflow backends: [LAW](https://law.readthedocs.io/en/latest/) and
+[b2luigi](https://b2luigi.belle2.org/index.html).
 
-NEEDLE is a framework for the management and training of NSBI tools. It implements most functionalities
-needed to train a pool of ML models in a typical HEP analysis environment, meaning deployment to batch
-systems (htcondor or slurm), config management and efficient dataloading.
+For everything beyond this quickstart (config schema, the task DAG, downstream tasks, the Python API,
+the example, ...) see the full [NEEDLE Documentation](https://needle-sbi.readthedocs.io/en/latest/).
 
 ## Installation
 
@@ -60,10 +63,14 @@ uv when you run the script.
 
     This will copy:
 
-    - `law.cfg`: law/luigi config file for batch submissions
+    - `law.cfg`: law config file for batch submissions
+    - `settings.json`: b2luigi config file for batch submissions
     - `index`: law index file that lists all the available tasks. Can be updated using `law index`
     - `setup.sh`: script for activating the NEEDLE environment
     - `conf/`: template directory for your config files according to the hydra schema
+
+    You can also use `needle init --backend law` or `--backend b2luigi` to only initialize the project
+    with the backend that you want. Otherwise you keep both options open.
 
 3. Source the `setup.sh` script
 
@@ -93,70 +100,28 @@ export FAIR_UNIVERSE_DATA="</path/to/desired/directory>/input_data/train/data/da
 It is recommended to add the `$FAIR_UNIVERSE_DATA` environment variable to your `~/.bashrc` (or equivalent) 
 to have a persistent setup each time you reload your shell.
 
-## Running LAW tasks
+## Running your first Tasks
 
-The three top-level Tasks you can use are
- - `MainTask` (only training)
- - `SnapshotTask` (gather checkpoints in tree structure)
- - `DownstreamTask` (your hook for running custom luigi Tasks).
+We refer to the documentation for more information about each parameter. Run the default example (only
+training, assuming `conf/config.yaml` is the path to the config and `law` as the backend):
+
+```bash
+needle run
+```
+
+Run post-training analysis Tasks with
+
+```bash
+needle run DownstreamTask --param downstream=<my_downstream_task>
+```
+
+Once you register everything in the `conf/config.yaml` file.
+
 
 > **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling 
 issues with patched worker callbacks.
 
-### 1. Training: MainTask
-
-```bash
-law run MainTask \
-    --config-file conf/config.yaml \
-    --hydra-overrides ""                    # optional (must be a single string)
-```
-
-We try to avoid having arguments in the argparser as that makes it difficult to replicate previous work.
-Including all the parameters in the `config.yaml` is the better way to go for reproducibility.
-
-See the [LAW documentation](https://law.readthedocs.io/en/latest/) for more details on the law shell parameters.
-
-See the [hydra documentation](https://hydra.cc/docs/advanced/override_grammar/basic/) for more details
-on overriding the config from the CLI.
-
-### 2. Model Gathering: SnapshotTask
-
-This Task requires all the trainings to be complete by calling MainTask first. It will then recursively
-go through all upstream Tasks and gather the Lightning checkpoints of all the models that were trained.
-In this branch of the repo, the resulting `dag_snapshot.json` is a flat dict of all the models. The CLI
-args are the same as MainTask:
-
-```bash
-law run SnapshotTask \
-    --config-file conf/config.yaml \
-    --hydra-overrides ""
-```
-
-You can directly run `SnapshotTask` without first calling `MainTask`, as the later is already a dependency of the former.
-
-### 3. Custom Luigi Tasks: DownstreamTask
-
-If you are using `law` for your own downstream analysis, you can directly require our NEEDLE Tasks and
-build your DAG that way. This would make your whole setup completely uniform. In this case, take care
-of registering our and your Tasks in `law.cfg` and ensuring that you share the same `law.cfg` for the
-whole DAG.
-
-If instead you use plain luigi and want to append some new downstream post-training Tasks, the easiest
-way is to export your Tasks using the NEEDLE `config.yaml` and let NEEDLE (and law) run the luigi Tasks
-for you. Unfortunately, running law Tasks from a luigi base is prone to errors which we therefore want
-to discourage. Running the whole workflow (training + your luigi Tasks) would look like this
-
-```bash
-law run DownstreamTask \
-    --downstream "<name-of-your-luigi-task>"  # As defined in config.yaml
-```
-
-More info is given in the corresponding part of the documentation.
-
-
 ## Jupyter notebooks
-
-After installing dev dependencies, register the kernel:
 
 ```bash
 uv run python -m ipykernel install --user --name needle --display-name "NEEDLE"
@@ -164,50 +129,38 @@ uv run python -m ipykernel install --user --name needle --display-name "NEEDLE"
 
 Then select the **NEEDLE** kernel when opening notebooks.
 
-## Singularity (now apptainer) containers
+## Singularity / Apptainer containers
 
-Pre-built container definitions are in `containerization/`:
-
-- `singularity_base.def` — dependencies only (Python 3.12 + all packages)
-- `singularity_dev.def` — full image with source code copied in
+Container definitions live in `containerization/`:
 
 ```bash
-singularity build needle-base.sif containerization/singularity_base.def
-singularity build needle.sif containerization/singularity_dev.def
+singularity build needle-base.sif containerization/singularity_base.def   # deps only
+singularity build needle.sif containerization/singularity_dev.def         # + source code
 singularity run needle.sif <command>
 ```
 
-When using `singularity exec` or `singularity shell`, you still need to `source setup.sh` and `law index` manually.
+`source setup.sh` and `law index` still need to be run manually inside the container.
 
 ## Project structure
 
-The current structure is as follows:
-
 ```
 needle-sbi/
-├ containerization/      # singularity container definitions
-├ docs                   # documentation
-├ examples/              # examples with finished models, configs and more
-│  └ fair_universe_demo  # FAIR Universe Example code, config and test data
+├ containerization/      # singularity/apptainer container definitions
+├ docs/                  # documentation (Sphinx)
+├ examples/              # end-to-end examples (FAIR Universe demo, ...)
 ├ needle/                # source code
-|  ├ api                 # (WIP) python API
-|  ├ etl                 # data ingestion with dask
-|  ├ evaluation          # (WIP) unified evaluation
-|  ├ law_tasks           # DAG Workflow definition
-|  ├ ml                  # dataloading and model library
-|  ├ tui                 # Terminal UI (only for CLI)
-|  ├ templates           # files to copy to $CWD when running `needle init`
-|  └ utils               # further utilities
+│  ├ api/                # public Python API (Config, Model, Dataset, train)
+│  ├ cli.py              # `needle` CLI entry point
+│  ├ etl/                # data ingestion (Dask/Awkward)
+│  ├ evaluation/         # ensemble pseudo-model + DAG visualisation
+│  ├ ml/                 # Lightning DataModules, datasets, models
+│  ├ tasks/              # DAG task definitions
+│  │  ├ base/            # shared task logic
+│  │  ├ law/             # LAW/Luigi backend
+│  │  └ b2luigi/         # b2luigi backend
+│  ├ templates/          # files copied by `needle init`
+│  └ utils/              # config schema, config resolution, results, logging
 └ tests/                 # pytest
-```
-
-After `needle init`:
-
-```
-├ conf/config.yaml       # HYDRA config (can also be located elsewhere)
-├ index                  # Law Tasks listed with available args (reload with `law index`)
-├ setup.sh               # Set up the NEEDLE working environment
-└ law.cfg                # Law config (distinct from needle `conf/config.yaml`)
 ```
 
 ## Disclaimer on the use of Artificial Intelligence

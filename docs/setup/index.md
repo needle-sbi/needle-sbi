@@ -31,25 +31,19 @@ contain your tasks. `setup.sh` sets the `LAW_HOME` and `LAW_CONFIG_FILE` environ
 so LAW picks up `law.cfg` automatically. You need to re-run `source setup.sh` every time you
 open a new terminal.
 
-## Environment variables
+## Quick test
 
-| Variable | Purpose |
-|---|---|
-| `FAIR_UNIVERSE_DATA` | Path to the directory containing `FAIR_Universe_HiggsML_data.parquet` |
-| `CUDA_VISIBLE_DEVICES` | Which GPU(s) to expose to PyTorch (e.g. `0`, `1`, `0,1`) |
-
-Set them in your shell or in a `.env` file:
+Try out an absolutely minimal example with the default config (with a mock transformer model) using
 
 ```bash
-export FAIR_UNIVERSE_DATA=/path/to/fair_universe_data
-export CUDA_VISIBLE_DEVICES=0
+needle run
 ```
 
 ## Running your first task
 
 The two entry points you will use most are:
 
-### `MainTask` — train everything and collect checkpoints
+### `MainTask`: only training
 
 ```bash
 needle run MainTask \
@@ -60,18 +54,22 @@ This triggers the full training pipeline: all estimators, their systematic varia
 members, and cross-validation folds. At the end `MainTask` itself writes `dag_snapshot.json`
 which maps each trained model to its checkpoint path.
 
-### `DownstreamTask` — run analysis after training
+### `DownstreamTask`: training + post-run analysis
 
 ```bash
 needle run DownstreamTask \
     --config-file examples/fair_universe_demo/conf/config.yaml \
-    --param downstream=eval
+    --param downstream="eval"
 ```
 
-The `downstream` parameter names one of the keys in `downstream_tasks` inside your config.
-LAW automatically ensures all upstream tasks (training, snapshot) are complete before running.
+The `downstream` parameter names one of the keys in `downstream_tasks` inside your config, in this
+case we named the step `"eval"`.
+NEEDLE automatically runs the training before running the analysis.
+More in the [Downstream Tasks](../concepts/downstream_tasks.md) page.
 
-### Common flags
+### CLI args
+
+The NEEDLE CLI has these options
 
 | Flag | Effect |
 |---|---|
@@ -79,47 +77,66 @@ LAW automatically ensures all upstream tasks (training, snapshot) are complete b
 | `--results-path <path>` | Root directory for results |
 | `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
 
-Any flags not recognized by `needle run` itself (e.g. `--remove-output`, `--workers`,
-`--print-status`) can still be passed through to `law run` directly by invoking `law run <Task>`
-instead of `needle run`.
+::: {admonition} The `--param` wrapping
+:class: info
 
-### Quick smoke test with test data
+In order to have a shared CLI tool for both backends, we introduce an extra layer for differentiating
+pure `needle-sbi` args from the ones passed to either law or b2luigi. If you are using the `law` 
+backend (default), you can also use the `law` CLI tool instead, which avoids the `--param` wrapping.
+See the corresponding [LAW Tasks](../concepts/law_tasks.md) page.
 
-The FAIR Universe demo ships a small test dataset (`test_data/`) so you can verify the pipeline
-without the full dataset:
+The `--param` flag takes a single `key=value` pair or just a `value`. You can use `--param` as often
+as you want.
 
 ```bash
 needle run DownstreamTask \
-    --config-file examples/fair_universe_demo/conf/config.yaml \
-    --param downstream=eval \
-    --param hydra-overrides="custom_settings.use_test_data=True"
+    --param downstream=eval \       # key=value pair
+    --param help                    # just value
 ```
 
-This swaps the data path to `test_data/` and writes outputs to `runs/fair_universe_demo_test/`.
+This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
+dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
+:::
 
 ## Output directory layout
 
 After a successful run, outputs land under `results_path` from your config
-(default: `runs/fair_universe_demo_fixed_normalization/`):
 
 ```
-runs/fair_universe_demo_fixed_normalization/
-├── config.yaml                    # Resolved config snapshot (frozen at run time)
-├── dag_snapshot.json              # Maps every model node → checkpoint path
-└── stat_only_histogram_mu_one/    # results_path_downstream
-    ├── hist.json                  # Classifier score histograms on JES/TES grid
-    ├── neyman.json                # Neyman construction results
-    ├── eval.json                  # Evaluation results per pseudo-experiment
-    ├── scores/                    # Official FAIR Universe scores
-    └── plots/                     # Validation and results plots
-
-# Training checkpoints live inside the results_path tree:
-runs/.../est__nf_signal_1jet/syst__c_0p5/ensem__0/fold__0/
-    ├── best.ckpt                  # Best checkpoint (monitored by val_loss)
-    ├── model_config.yaml          # Exact config used to train this model
-    ├── metrics.json               # Final training metrics
-    └── logs/                      # TensorBoard logs
+runs
+├── config.yaml                         # Resolved config snapshot (frozen at run time)
+├── dag_snapshot.json                   # Map of all the checkpoints for easy cataloging
+└── est__model_A
+    └── syst__nominal
+        └── ensem__0
+            └── fold__0
+                ├── model.ckpt          # Last checkpoint
+                ├── model_config.yaml   # Exact config used to train this model
+                └── input_models.json   # List of models used as input
 ```
+
+For the directories we use the `est__<estimator_name>` and subsequent levels schema.
+
+## Accessing trained models
+
+The snapshot JSON has the following structure. Read it in your python scripts to access them.
+
+```json
+{
+    "est=model_A&syst=nominal&ensem=0&fold=0": "./runs/default/est__model_A/syst__nominal/ensem__0/fold__0/model.ckpt"
+}
+``` 
+
+The schema uses `=` for `key=value` separation and `&` for level separation. More precisely: `est=<my_estimator>&syst=<my_systematics>...`.
+The key is produced using `urllib.parse.urlencode` and can be unfurled using `urllib.parse.parse_qs`.
+
+```pycon
+>>> from urllib.parse import parse_qs
+>>> parse_qs('est=model_A&syst=nominal&ensem=0&fold=0')
+{'est': ['model_A'], 'syst': ['nominal'], 'ensem': ['0'], 'fold': ['0']}
+```
+
+The FAIR Universe demo's `HistogramTask.parse_snapshot()` is a good reference implementation
 
 ## Troubleshooting
 
