@@ -53,9 +53,20 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         default=0,
         significant=True,
     )  # type: ignore
+    single: bool = luigi.BoolParameter(
+        description="Train this estimator directly, ignoring `requires` and `expands` entirely "
+        "(no upstream estimators, no systematic/ensemble/fold fan-out). Writes flat output "
+        "directly under results_path with no est__/syst__/ensem__/fold__ nesting, so it can "
+        "never collide with a real DAG run's outputs in the same results_path.",
+        default=False,
+        significant=False,
+    )  # type: ignore
 
     @property
     def abs_results_path(self) -> Path:
+        if self.single:
+            return Path(os.path.abspath(self.results_path))
+
         return Path(
             os.path.join(
                 os.path.abspath(self.results_path),
@@ -131,7 +142,7 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         raise NotImplementedError("Backend subclass must implement _estimator_task_class()")
 
     def requires(self) -> List[Any]:
-        if not self.estimator_config.requires:
+        if self.single or not self.estimator_config.requires:
             return []
 
         EstimatorTask = self._estimator_task_class()
@@ -147,14 +158,17 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
 
     @property
     def mlflow_logger(self) -> MLFlowLogger:
-        experiment_name = urlencode(
-            {
-                "est": self.estimator,
-                "syst": self.systematic,
-                "ens": self.ensemble,
-                "fold": self.fold_index,
-            }
-        )
+        if self.single:
+            experiment_name = urlencode({"est": self.estimator, "mode": "single"})
+        else:
+            experiment_name = urlencode(
+                {
+                    "est": self.estimator,
+                    "syst": self.systematic,
+                    "ens": self.ensemble,
+                    "fold": self.fold_index,
+                }
+            )
         return MLFlowLogger(
             experiment_name=experiment_name,
             save_dir=os.path.join(self.results_path, "metrics"),  # type: ignore
@@ -164,10 +178,16 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
     def run(self) -> None:
         torch.set_float32_matmul_precision("high")
 
-        model_config = self.systematic_config.model_override
-        datamodule_config = self.systematic_config.datamodule_override
-        dataset_config = self.systematic_config.dataset_override
-        trainer_config = self.systematic_config.trainer_override
+        if self.single:
+            model_config = self.estimator_config.model_override
+            datamodule_config = self.estimator_config.datamodule_override
+            dataset_config = self.estimator_config.dataset_override
+            trainer_config = self.estimator_config.trainer_override
+        else:
+            model_config = self.systematic_config.model_override
+            datamodule_config = self.systematic_config.datamodule_override
+            dataset_config = self.systematic_config.dataset_override
+            trainer_config = self.systematic_config.trainer_override
 
         model: lightning.LightningModule = hydra_instantiate(
             model_config,
@@ -190,8 +210,8 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
             datamodule_config,  # type: ignore
             dataset_config=dataset_config,
             input_models=self.input_model_paths,
-            fold_index=self.fold_index,
-            n_folds=self.estimator_config.expands.folds,
+            fold_index=0 if self.single else self.fold_index,
+            n_folds=1 if self.single else self.estimator_config.expands.folds,
         )
 
         trainer: lightning.Trainer = hydra.utils.instantiate(

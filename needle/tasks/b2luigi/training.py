@@ -14,7 +14,8 @@ class TrainingTask(BaseTrainingTask, b2luigi.Task):
     This is the only task in the b2luigi backend that inherits from ``b2luigi.Task``.
     Batch dispatch is configured globally via ``configure_b2luigi()`` or per-task
     by overriding ``htcondor_settings`` / ``slurm_settings`` class attributes.
-    Output paths follow the needle convention (``est__X/syst__Y/ensem__Z/fold__N``).
+    Output paths follow the needle convention (``est__X/syst__Y/ensem__Z/fold__N``), unless
+    ``single=True`` is set, in which case outputs are written flat under ``results_path``.
     """
 
     task_namespace = "b2luigi"

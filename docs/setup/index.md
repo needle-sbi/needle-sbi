@@ -1,6 +1,7 @@
-# Setup and Usage
+# Setup
 
-This page covers everything you need to go from a fresh checkout to a running training.
+This page covers everything you need to go from a fresh checkout to a running training. For an
+overview of the different ways to actually run tasks once set up, see [Usage](usage.md).
 
 ## Prerequisites
 
@@ -67,10 +68,10 @@ Always source your virtual environment and then run the `setup.sh` script every 
 shell.
 :::
 
-::: {note}
-Why `source setup.sh` and not just `python -m law`? LAW needs to know which Python modules
-contain your tasks. `setup.sh` sets the `LAW_HOME` and `LAW_CONFIG_FILE` environment variables
-so LAW picks up `law.cfg` automatically.
+::: {admonition} Why `source setup.sh` and not just `python -m law`?
+:class: note
+LAW needs to know which Python modules contain your tasks. The `setup.sh` script sets the `LAW_HOME`
+and `LAW_CONFIG_FILE` environment variables so LAW can pick up the `law.cfg` file automatically.
 :::
 
 ## Quick test
@@ -81,115 +82,4 @@ Try out an absolutely minimal example with the default config (with a mock trans
 needle run
 ```
 
-## Running your first task
-
-The two entry points you will use most are:
-
-### `MainTask`: only training
-
-```bash
-needle run MainTask \
-    --config-file examples/fair_universe_demo/conf/config.yaml
-```
-
-This triggers the full training pipeline: all estimators, their systematic variants, ensemble
-members, and cross-validation folds. At the end `MainTask` itself writes `dag_snapshot.json`
-which maps each trained model to its checkpoint path.
-
-### `DownstreamTask`: training + post-run analysis
-
-```bash
-needle run DownstreamTask \
-    --config-file examples/fair_universe_demo/conf/config.yaml \
-    --param downstream="eval"
-```
-
-The `downstream` parameter names one of the keys in `downstream_tasks` inside your config, in this
-case we named the step `"eval"`.
-NEEDLE automatically runs the training before running the analysis.
-More in the [Downstream Tasks](../concepts/downstream_tasks.md) page.
-
-### CLI args
-
-The NEEDLE CLI has these options
-
-| Flag | Effect |
-|---|---|
-| `--config-file <path>` | Path to the Hydra config YAML |
-| `--results-path <path>` | Root directory for results |
-| `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
-
-::: {admonition} The `--param` wrapping
-:class: info
-
-In order to have a shared CLI tool for both backends, we introduce an extra layer for differentiating
-pure `needle-sbi` args from the ones passed to either law or b2luigi. If you are using the `law`
-backend (default), you can also use the `law` CLI tool instead, which avoids the `--param` wrapping.
-See the corresponding [LAW Tasks](../concepts/law_tasks.md) page.
-
-The `--param` flag takes a single `key=value` pair or just a `value`. You can use `--param` as often
-as you want.
-
-```bash
-needle run DownstreamTask \
-    --param downstream=eval \       # key=value pair
-    --param help                    # just value
-```
-
-This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
-dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
-:::
-
-## Output directory layout
-
-After a successful run, outputs land under `results_path` from your config
-
-```
-runs
-├── config.yaml                         # Resolved config snapshot (frozen at run time)
-├── dag_snapshot.json                   # Map of all the checkpoints for easy cataloging
-└── est__model_A
-    └── syst__nominal
-        └── ensem__0
-            └── fold__0
-                ├── model.ckpt          # Last checkpoint
-                ├── model_config.yaml   # Exact config used to train this model
-                └── input_models.json   # List of models used as input
-```
-
-For the directories we use the `est__<estimator_name>` and subsequent levels schema.
-
-## Accessing trained models
-
-The snapshot JSON has the following structure. Read it in your python scripts to access them.
-
-```json
-{
-    "est=model_A&syst=nominal&ensem=0&fold=0": "./runs/default/est__model_A/syst__nominal/ensem__0/fold__0/model.ckpt"
-}
-```
-
-The schema uses `=` for `key=value` separation and `&` for level separation. More precisely: `est=<my_estimator>&syst=<my_systematics>...`.
-The key is produced using `urllib.parse.urlencode` and can be unfurled using `urllib.parse.parse_qs`.
-
-```pycon
->>> from urllib.parse import parse_qs
->>> parse_qs('est=model_A&syst=nominal&ensem=0&fold=0')
-{'est': ['model_A'], 'syst': ['nominal'], 'ensem': ['0'], 'fold': ['0']}
-```
-
-The FAIR Universe demo's `HistogramTask.parse_snapshot()` is a good reference implementation
-
-## Troubleshooting
-
-**`ModuleNotFoundError: No module named 'needle.tasks.law'`**
-→ You might have forgotten to run `source setup.sh`. Either this or the modules are broken at import
- and `law` failed to load the Tasks.
-
-**`Unfulfilled dependencies at RunTime`**
-→ LAW expected an output file that doesn't exist. Check which file it reports and look at the
-task that should have created it. Often caused by a crashed run leaving partial outputs.
-
-**Task shows as complete but results look wrong**
-→ LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
-task to force a re-run.
+Once this works, head over to [Usage](usage.md) to learn about the different ways to run tasks.

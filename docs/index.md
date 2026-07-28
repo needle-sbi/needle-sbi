@@ -18,25 +18,25 @@ all your neural networks in one go.
 ::::{grid} 2
 :gutter: 3
 
-:::{grid-item-card} Setup
+:::{grid-item-card} Setup and Usage
 :link: setup/index
 :link-type: doc
 
-Installation and running your first workflow.
+Install the workspace and explore all the different ways to run your first Tasks
 :::
 
 :::{grid-item-card} Concepts
 :link: concepts/task_hierarchy
 :link-type: doc
 
-The DAG workflow and writing the Hydra config.
+Dive deeper into the mechanisms behind needle: the DAG Workflow, LAW and b2luigi backends and Hydra configs
 :::
 
 :::{grid-item-card} Examples
 :link: examples/fair_universe_demo/index
 :link-type: doc
 
-End-to-end example: FAIR Universe HiggsML demo with normalizing flows and classification.
+**NEW** The FAIR Universe HiggsML demo with normalizing flows and classification.
 :::
 
 :::{grid-item-card} API Reference
@@ -69,6 +69,7 @@ component that ensures all models are compatible with the framework. Finally, we
 :hidden:
 
 setup/index
+setup/usage
 ```
 
 ```{toctree}

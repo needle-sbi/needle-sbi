@@ -89,6 +89,16 @@ needle run DownstreamTask --param downstream=<my_downstream_task>
 
 Once you register everything in the `conf/config.yaml` file.
 
+You can also train a single model directly, without going through the full DAG, by running
+`TrainingTask` on its own with `single=true`, which ignores `requires`/`expands` entirely and
+writes output flat under `results_path`:
+
+```bash
+needle run TrainingTask --param estimator=<my_estimator> --param single=true
+```
+
+See the [Usage](https://needle-sbi.readthedocs.io/en/latest/setup/usage.html) docs for details.
+
 
 > **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling
 issues with patched worker callbacks.

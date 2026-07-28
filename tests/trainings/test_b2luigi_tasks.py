@@ -176,6 +176,33 @@ class TestB2LuiTrainingTask:
         )
         assert task._estimator_task_class() is EstimatorTask
 
+    def test_single_mode_writes_flat_output(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            results_path=str(tmp_path),
+            single=True,
+        )
+        out = task.output()
+
+        assert Path(out["ckpt"].path) == tmp_path / "model.ckpt"
+        assert Path(out["model_config"].path) == tmp_path / "model_config.yaml"
+        assert Path(out["input_models"].path) == tmp_path / "input_models.json"
+
+    def test_single_mode_ignores_requires(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        # model_B declares `requires: ["model_A"]` in tests/conf_tests/config.yaml.
+        task = TrainingTask(
+            config_file=config_file,
+            estimator="model_B",
+            results_path=str(tmp_path),
+            single=True,
+        )
+        assert task.requires() == []
+
 
 # ---------------------------------------------------------------------------
 # EnsembleTask
