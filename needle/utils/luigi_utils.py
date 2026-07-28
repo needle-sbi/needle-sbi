@@ -19,7 +19,7 @@ LuigiTargetCollection = Union[
 ]
 
 #: Any form a Law target collection can take: a single target, list, dict, or tuple.
-LawTarget = law.LocalFileTarget
+LawTarget: "law.LocalFileTarget"
 LawTargetCollection = Union[
     "law.LocalFileTarget",
     "List[law.LocalFileTarget]",
