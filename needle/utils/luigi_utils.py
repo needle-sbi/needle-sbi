@@ -19,6 +19,7 @@ LuigiTargetCollection = Union[
 ]
 
 #: Any form a Law target collection can take: a single target, list, dict, or tuple.
+LawTarget = law.LocalFileTarget
 LawTargetCollection = Union[
     "law.LocalFileTarget",
     "List[law.LocalFileTarget]",
@@ -96,11 +97,7 @@ def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LawTar
     if isinstance(luigi_targets, list):
         return [_to_law_file_target(target) for target in luigi_targets]
     if isinstance(luigi_targets, dict):
-        return {
-            key: _to_law_file_target(target)
-            for key, target in luigi_targets.items()
-            if target is not None
-        }
+        return {key: _to_law_file_target(target) for key, target in luigi_targets.items() if target is not None}
     if isinstance(luigi_targets, tuple):
         return tuple(_to_law_file_target(target) for target in luigi_targets)
     raise TypeError(f"Target(s) of type: {type(luigi_targets)} must be `LocalTarget`, list, dict, or tuple.")
