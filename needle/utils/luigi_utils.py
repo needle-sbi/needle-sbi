@@ -49,19 +49,27 @@ def _to_law_file_target(target: luigi.LocalTarget):  # type: ignore[return]
 
 
 @overload
-def convert_luigi_to_law_targets(luigi_targets: LuigiTarget) -> "law.LocalFileTarget": ...  # type: ignore[name-defined]
+def convert_luigi_to_law_targets(
+    luigi_targets: LuigiTarget,
+) -> LawTarget: ...
 
 
 @overload
-def convert_luigi_to_law_targets(luigi_targets: List[LuigiTarget]) -> "List[law.LocalFileTarget]": ...  # type: ignore[name-defined]
+def convert_luigi_to_law_targets(
+    luigi_targets: List[LuigiTarget],
+) -> List[LawTarget]: ...
 
 
 @overload
-def convert_luigi_to_law_targets(luigi_targets: Dict[str, LuigiTarget]) -> "Dict[str, law.LocalFileTarget]": ...  # type: ignore[name-defined]
+def convert_luigi_to_law_targets(
+    luigi_targets: Dict[str, LuigiTarget],
+) -> Dict[str, LawTarget]: ...
 
 
 @overload
-def convert_luigi_to_law_targets(luigi_targets: Tuple[LuigiTarget, ...]) -> "Tuple[law.LocalFileTarget, ...]": ...  # type: ignore[name-defined]
+def convert_luigi_to_law_targets(
+    luigi_targets: Tuple[LuigiTarget, ...],
+) -> Tuple[LawTarget, ...]: ...
 
 
 def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LawTargetCollection:
