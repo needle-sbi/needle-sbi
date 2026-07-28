@@ -25,7 +25,6 @@ from needle.tasks.b2luigi.training import TrainingTask
 from needle.utils.config_schema import MainConfig
 from tests.conftest import MainConfigFactory
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -66,9 +65,7 @@ class TestB2LuiFoldTask:
         assert "ensem__0" in out.path
         assert "fold__2" in out.path
 
-    def test_requires_returns_single_training_task(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_requires_returns_single_training_task(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -348,9 +345,7 @@ class TestB2LuiMainTask:
 
 @pytest.mark.b2luigi
 class TestB2LuiDownstreamTaskBranching:
-    def test_branch_params_empty_means_no_expansion(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_branch_params_empty_means_no_expansion(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
         dt = DownstreamTask(
@@ -361,9 +356,7 @@ class TestB2LuiDownstreamTaskBranching:
         )
         assert dt.branch_parameters == {}
 
-    def test_branch_params_roundtrip(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_branch_params_roundtrip(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         params = {"alpha": "0.1", "beta": "5"}
         encoded = urlencode(params)
@@ -378,9 +371,7 @@ class TestB2LuiDownstreamTaskBranching:
         assert decoded["alpha"] == "0.1"
         assert decoded["beta"] == "5"
 
-    def test_task_ids_differ_across_branches(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_task_ids_differ_across_branches(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
         dt_a = DownstreamTask(
@@ -428,9 +419,7 @@ class TestBackendIsolation:
         except ImportError:
             pass
 
-    def test_training_task_output_as_dict_is_identity(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_training_task_output_as_dict_is_identity(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 

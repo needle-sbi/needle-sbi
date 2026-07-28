@@ -42,8 +42,7 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
         default="",
         significant=True,
         description=(
-            "URL-encoded branch parameters for expansion combos. "
-            "Empty string means no expansion (default branch)."
+            "URL-encoded branch parameters for expansion combos. " "Empty string means no expansion (default branch)."
         ),
     )  # type: ignore
 

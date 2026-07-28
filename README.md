@@ -1,5 +1,12 @@
 # NEEDLE – The Workflow Orchestrator for Neural Simulation Based Inference Methods
 
+[![Tests](https://github.com/needle-sbi/needle-sbi/actions/workflows/tests.yml/badge.svg)](https://github.com/needle-sbi/needle-sbi/actions/workflows/tests.yml)
+[![Docs](https://github.com/needle-sbi/needle-sbi/actions/workflows/docs.yml/badge.svg)](https://needle-sbi.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/needle-sbi.svg)](https://pypi.org/project/needle-sbi/)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 NEEDLE organizes the training of large collections of neural networks in a typical HEP analysis
 environment, including deployment to batch systems (HTCondor, SLURM and LSF), config management and
 efficient dataloading.
@@ -11,66 +18,31 @@ the example, ...) see the full [NEEDLE Documentation](https://needle-sbi.readthe
 
 ## Installation
 
-### Option 1: Plain pip
-
 Create or use an existing virtual environment with `python3 -m venv`. Install the `needle` package with
 
 ```bash
 pip install "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
 ```
 
-### Option 2: Astral uv
-
-The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Install `uv` with
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Reload your shell or source the uv environment to make it active in your current shell, as stated by
-uv when you run the script.
-
- - Option 2.A: Download the `needle` package with `uv` (no source code)
-
-    ```bash
-    uv pip install --no-config "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
-    ```
-
- - Option 2.B: Cloning the whole repo (for devs, adds the source code)
-
-    ```bash
-    git clone git@github.com:needle-sbi/needle-sbi.git
-    uv python pin 3.12   # Use recommended python version
-    uv sync              # install runtime dependencies
-    ```
+For a guide on how to use `astral-uv` instead of `pip`, please refer to the Installation Guide in the docs.
 
 ### Set up the NEEDLE environment
 
-1. Source your newly built python environment with
+1. Source your newly built python environment to unlock the `needle` cli tool
+
 
     ```bash
     source .venv/bin/activate
     ```
 
-    This will unlock the `needle` cli tool that installs the files you need to make your project
-    work within NEEDLE.
-
-2. Initialize your project with
+2. Initialize your workspace with
 
     ```bash
     needle init
     ```
 
-    This will copy:
-
-    - `law.cfg`: law config file for batch submissions
-    - `settings.json`: b2luigi config file for batch submissions
-    - `index`: law index file that lists all the available tasks. Can be updated using `law index`
-    - `setup.sh`: script for activating the NEEDLE environment
-    - `conf/`: template directory for your config files according to the hydra schema
-
-    You can also use `needle init --backend law` or `--backend b2luigi` to only initialize the project
-    with the backend that you want. Otherwise you keep both options open.
+    You can also use `needle init --backend law` or `needle init --backend b2luigi` to only
+    initialize the workspace with the backend that you want. Otherwise you keep both options open.
 
 3. Source the `setup.sh` script
 
@@ -97,7 +69,7 @@ unzip public_data.zip
 export FAIR_UNIVERSE_DATA="</path/to/desired/directory>/input_data/train/data/data.parquet
 ```
 
-It is recommended to add the `$FAIR_UNIVERSE_DATA` environment variable to your `~/.bashrc` (or equivalent) 
+It is recommended to add the `$FAIR_UNIVERSE_DATA` environment variable to your `~/.bashrc` (or equivalent)
 to have a persistent setup each time you reload your shell.
 
 ## Running your first Tasks
@@ -118,7 +90,7 @@ needle run DownstreamTask --param downstream=<my_downstream_task>
 Once you register everything in the `conf/config.yaml` file.
 
 
-> **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling 
+> **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling
 issues with patched worker callbacks.
 
 ## Jupyter notebooks

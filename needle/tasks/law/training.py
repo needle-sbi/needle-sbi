@@ -12,13 +12,13 @@ from typing import Any, Dict, Type
 import law
 import luigi
 
+from needle.tasks.base.training import BaseTrainingTask
 from needle.tasks.law.workflows import (
     HTCondorWorkflow,
     LocalWorkflow,
     SlurmWorkflow,
     check_batch_system,
 )
-from needle.tasks.base.training import BaseTrainingTask
 
 TrainingTaskOutput = Dict[str, law.LocalFileTarget] | Dict[str, law.TargetCollection]
 

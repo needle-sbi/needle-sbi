@@ -3,7 +3,7 @@
 ## Why use a DAG for NSBI training?
 
 Many NSBI tools rely on large neural surrogates to estimate statistical quantities. The final estimator
-is usually composed of several sub-models, in some cases up to hundreds of networks. In `needle-sbi`, the 
+is usually composed of several sub-models, in some cases up to hundreds of networks. In `needle-sbi`, the
 training of the models is individualized into separate python Tasks, with each Task being
 a node in the larger Task graph. The edges of the graph represent a dependency: Task B depends
 on Task A meaning A must finish before B can start.
@@ -56,7 +56,7 @@ collaboration. It has excellent documentation and intuitive usage.
 (choosing-a-backend)=
 ## Choosing a backend
 
-|                                       | LAW                                       | b2luigi                       |  
+|                                       | LAW                                       | b2luigi                       |
 |---------------------------------------|-------------------------------------------|-------------------------------|
 | Compatible with plain luigi           |                                           | ✅                            |
 | local                                 | ✅                                        | ✅                            |
@@ -66,7 +66,7 @@ collaboration. It has excellent documentation and intuitive usage.
 | Settings file                         | `law.cfg`                                 | `settings.json`               |
 | Running natively (CLI)                | `law run MainTask ...`                    |                               |
 | Running from `needle-sbi` (CLI)       | `needle run MainTask ...`                 | `needle run --backend b2luigi MainTask`      |
-| Importing `needle-sbi` Tasks (python) | `from needle.tasks.law import MainTask `  | `from needle.tasks.b2luigi import MainTask`  | 
+| Importing `needle-sbi` Tasks (python) | `from needle.tasks.law import MainTask `  | `from needle.tasks.b2luigi import MainTask`  |
 
 Both backends implement the exact same DAG shape described above — pick whichever fits your
 batch system and existing tooling. See [LAW Tasks](law_tasks.md) and
@@ -95,7 +95,7 @@ using the same mechanism as `DownstreamTasks`.
 You can append your own tasks to the DAG, for example validation steps or even performing the
 fits using the trained weights. This is possible in the following ways:
 
- 1. Register your luigi Tasks in needle with [DownstreamTasks](downstream_tasks) to append regular 
+ 1. Register your luigi Tasks in needle with [DownstreamTasks](downstream_tasks) to append regular
     `luigi` Tasks to the workflow. Works in both `law` and `b2luigi` backends. Here the workflow is
     still controlled by `needle-sbi`.
  2. In `law`, import our Tasks into your workflow from `needle.tasks.law` (`MainTask` for example):

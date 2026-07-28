@@ -68,7 +68,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     backend: str = getattr(args, "backend", "both")
 
-    if backend == "law" or backend == "both":
+    if backend in ("law", "both"):
         _copy(
             src=_TEMPLATES / "law.cfg",
             dst=target / "law.cfg",
@@ -79,7 +79,7 @@ def cmd_init(args: argparse.Namespace) -> None:
             dst=target / "index",
             description="Index of needle.law_tasks, update with `law index`",
         )
-    elif backend == "b2luigi" or backend == "both":
+    if backend in ("b2luigi", "both"):
         settings_dst = target / "settings.json"
         if settings_dst.exists():
             print("Skipped 'settings.json' (b2luigi settings file)")

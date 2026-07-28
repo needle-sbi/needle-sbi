@@ -35,7 +35,7 @@ conf/
 ```
 
 The main `config.yaml` references the group files by filename stem (without `.yaml`). NEEDLE
-resolves these references at startup — see [Step 1 resolution](lightning_and_hydra_integration.md#config-resolution-initialize_hydra_config).
+resolves these references at startup — see [Step 1 resolution](lightning_and_hydra_integration.md#step-1-references-to-other-config-files).
 
 ## The main `config.yaml` file
 
@@ -67,7 +67,7 @@ The values inserted here are validated against `MainConfig`
 
 ## The Estimator field
 
-Instead of calling each training a model, we use the term Estimator to differentiate between a single 
+Instead of calling each training a model, we use the term Estimator to differentiate between a single
 neural networks (training by TrainingTask) and the neural surrogate that is potentially the combination
 of several folds, ensembles and merging of systematic uncertainties. If you have none of the expansions
 for a given estimator, then it reduces back to being a model.
@@ -84,7 +84,7 @@ Each **estimator** has these fields. Adding any extra ones is forbidden.
 | `model_override`          | `Optional[Any]`             | Dictionary with the overrides (must match structure from the model sub-config) |
 | `trainer`                 | `str`                       | Name of the sub-config file for the trainer field |
 | `trainer_override`        | `Optional[Any]`             | Dictionary with the overrides (must match structure from the trainer sub-config) |
-| `requires`                | `Optional[List[str]]` See [requires block](./hydra_config.md#the-requires-block)       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
+| `requires`                | `Optional[List[str]]` See [requires block](./hydra_config.md#the-requires-blockk)       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
 | `expands`                 | See [expands block](./hydra_config.md#the-expands-block) | How to multiply this estimator for Systematics, Ensembles and Folds. |
 
 The `*_override` mechanism is explained in more detail in [Building the Config](./lightning_and_hydra_integration.md#building-the-config). In essence, you can override the values of the fields from your sub-configs.

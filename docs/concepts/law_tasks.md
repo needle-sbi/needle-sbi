@@ -126,7 +126,7 @@ A Task might require:
 
 ## Example with requirements
 
-`EnsembleTask` reads the number of folds from the Hydra config 
+`EnsembleTask` reads the number of folds from the Hydra config
 (see [Writing the Config](lightning_and_hydra_integration.md)).
 
 ```python
@@ -162,7 +162,7 @@ Key points:
 ## `TrainingTask` and batch submissions
 
 The `TrainingTask` (`needle.tasks.law.training`) is the Task that runs an individual trainings. The
-batch submission capability is added using the three `LocalWorkflow`, `HTCondorWorkflow` and 
+batch submission capability is added using the three `LocalWorkflow`, `HTCondorWorkflow` and
 `SlurmWorkflow` mixins.
 
 ```python

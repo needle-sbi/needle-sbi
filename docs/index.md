@@ -1,9 +1,9 @@
 # NEEDLE
 
-**NEEDLE** is a workflow orchestrator for HEP machine learning pipelines, especially with 
+**NEEDLE** is a workflow orchestrator for HEP machine learning pipelines, especially with
 Neural Simulation Based Inference in mind. It combines
-[LAW](https://law.readthedocs.io/en/latest/) or 
-[b2luigi](https://b2luigi.belle2.org/index.html) task scheduling, 
+[LAW](https://law.readthedocs.io/en/latest/) or
+[b2luigi](https://b2luigi.belle2.org/index.html) task scheduling,
 [Lightning](https://lightning.ai/docs/pytorch/stable/) training modules, and
 [Hydra](https://hydra.cc/docs/intro/) configuration management.
 

@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Type
 
 import luigi
 from omegaconf import OmegaConf
-import json
 
+from needle.tasks.base.estimator import BaseEstimatorTask
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_utils import compare_configs, initialize_hydra_config
 from needle.utils.logging import ColorFormatter, LogOnce
-from needle.tasks.base.estimator import BaseEstimatorTask
 
 logger = ColorFormatter.get_logger("dag")
 
@@ -116,7 +116,7 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
     def run(self) -> None:
         self.print_config_path_once()
 
-        file = self.output()['dag_snapshot'].path
+        file = self.output()["dag_snapshot"].path
 
         with open(file, "w") as f:
             json.dump(self.snapshot_as_dict(), f, indent=4, sort_keys=True, default=str)

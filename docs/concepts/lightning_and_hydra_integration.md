@@ -27,7 +27,7 @@ The entry point is always:
 trainer.fit(model=model, datamodule=data_module)
 ```
 
-::: {important} 
+::: {important}
 NEEDLE uses the modern `lightning` package, not the legacy `pytorch_lightning`.
 Always import from the modern namespace:
 
@@ -80,7 +80,7 @@ at task runtime by the framework if your LightningModule accepts them. If you do
 simply do not add them to the `__init__` and hydra will drop them without errors.
 
  - `dataset_config` is an additional (optional) config group if using the NEEDLE built-in LightningDatamodules.
- - `input_models` provides you with a dictionary view on all the models referenced by the `requires` 
+ - `input_models` provides you with a dictionary view on all the models referenced by the `requires`
     keyword for the corresponding estimator. Meaning if model B depends on A, you can access the path to the model checkpoint from model A using this dictionary.
 
 ## Building the config
@@ -96,10 +96,10 @@ by using the string name of the file. These sub-config files must live in the sa
 for example `conf/` (the naming is not strictly enforced):
 
 ```
-conf/                   # main config folder
-    config.yaml         # main config file
-    models/             # group folder
-        my_model.yaml   # sub-config file
+conf/                               # main config folder
+    config.yaml                     # main config file
+    models/                         # group folder
+        my_model.yaml               # sub-config file
     datasets/
     datamodules/
     trainers/
@@ -181,7 +181,7 @@ estimators:
 ```
 
 
-Fields written directly in `*override` take precedence over fields loaded from the sub-config. This 
+Fields written directly in `*override` take precedence over fields loaded from the sub-config. This
 lets you set per-estimator overrides while sharing a base config.
 :::
 

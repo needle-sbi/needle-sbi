@@ -26,7 +26,6 @@ from needle.tasks.law.training import TrainingTask
 from needle.utils.config_schema import DownstreamTaskConfig, MainConfig
 from tests.conftest import MainConfigFactory
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -68,9 +67,7 @@ class TestLawFoldTask:
         assert "ensem__0" in out.path
         assert "fold__2" in out.path
 
-    def test_requires_returns_single_training_task(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_requires_returns_single_training_task(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -86,9 +83,7 @@ class TestLawFoldTask:
         assert len(deps) == 1
         assert isinstance(deps[0], TrainingTask)
 
-    def test_training_task_class_returns_law_training(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_training_task_class_returns_law_training(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -139,9 +134,7 @@ class TestLawTrainingTask:
         assert "ensem__0" in str(ckpt_path)
         assert "fold__2" in str(ckpt_path)
 
-    def test_output_as_dict_unwraps_plain_dict(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_output_as_dict_unwraps_plain_dict(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -157,9 +150,7 @@ class TestLawTrainingTask:
         out = task.output()
         assert TrainingTask.output_as_dict(out) is out
 
-    def test_create_branch_map_is_single_branch(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_create_branch_map_is_single_branch(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
 
@@ -361,9 +352,7 @@ class TestLawMainTask:
 
 @pytest.mark.law
 class TestLawDownstreamTaskBranching:
-    def test_no_expansion_yields_single_default_branch(
-        self, config_factory: MainConfigFactory, tmp_path: Path
-    ) -> None:
+    def test_no_expansion_yields_single_default_branch(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
 
         dt = DownstreamTask(

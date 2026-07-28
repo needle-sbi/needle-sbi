@@ -7,8 +7,8 @@ from typing import Any, Dict, Type
 import law
 import luigi
 
-from needle.tasks.law.estimator import EstimatorTask
 from needle.tasks.base.main import BaseMainTask
+from needle.tasks.law.estimator import EstimatorTask
 
 
 class MainTask(BaseMainTask, law.Task):

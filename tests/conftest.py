@@ -121,7 +121,9 @@ def fair_universe_sample(check_cli_path) -> str:
 
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-FAIR_UNIVERSE_DEMO_DATA = _REPO_ROOT / "examples" / "fair_universe_demo" / "test_data" / "FAIR_Universe_HiggsML_data.parquet"
+FAIR_UNIVERSE_DEMO_DATA = (
+    _REPO_ROOT / "examples" / "fair_universe_demo" / "test_data" / "FAIR_Universe_HiggsML_data.parquet"
+)
 
 
 @pytest.fixture(scope="session")

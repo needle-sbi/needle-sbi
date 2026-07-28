@@ -27,7 +27,7 @@ class FoldTask(BaseFoldTask, b2luigi.Task):
     task_namespace = "b2luigi"
 
     def _training_task_class(self) -> Type[luigi.Task]:
-        from needle.tasks.b2luigi.training import TrainingTask 
+        from needle.tasks.b2luigi.training import TrainingTask
         return TrainingTask  # <- just point to the b2luigi implementation
 ```
 
@@ -48,14 +48,14 @@ When running from `needle run` CLI, the settings are listed in the `settings.jso
 {
   "batch_system": "htcondor",
   "htcondor_settings": {
-    "request_memory": "2048MB",register-python-argcomplete gallery
+    "request_memory": "2048MB",
     "request_cpus": 2,
     "+RequestRuntime": 600
   }
 }
 ```
 
-For experts directly using `needle` Tasks in their own workflows, the settings can also be 
+For experts directly using `needle` Tasks in their own workflows, the settings can also be
 accessed from pure python using the `configure_b2luigi` function:
 
 ```python
@@ -79,4 +79,4 @@ needle run DownstreamTask --backend b2luigi --param downstream=<name_from_config
 `needle run --backend b2luigi` looks up the task class by name. It temporarily clears `sys.argv` around
 that call, since `b2luigi.process()` parses `sys.argv` itself for its own flags (`--batch`, `--test`, ...)
 and would otherwise conflict with needle's own argument parser.
-With this approach, you need to specify `--param downstream` instead of the direct `--downstream`. 
+With this approach, you need to specify `--param downstream` instead of the direct `--downstream`.

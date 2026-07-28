@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Type
 
-import luigi
 import b2luigi
+import luigi
 
 from needle.tasks.base.main import BaseMainTask
 

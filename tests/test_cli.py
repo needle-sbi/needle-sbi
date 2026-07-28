@@ -88,7 +88,7 @@ class TestCmdInit:
         args = mock_cmd_init.call_args.args[0]
         assert args.directory == "."
         assert args.no_conf is False
-        assert args.backend == "law"
+        assert args.backend == "both"
 
     def test_main_parses_init_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_cmd_init = MagicMock(return_value=None)

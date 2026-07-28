@@ -26,17 +26,16 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Type, NamedTuple
+from itertools import product
+from typing import Any, Dict, NamedTuple, Type
 
 import law
 import luigi
-
 from omegaconf import DictConfig, OmegaConf
-from itertools import product
 
+from needle.tasks.base.downstream import BaseDownstreamMixin
 from needle.tasks.law.mixins import CollectOutputMixin
 from needle.utils.config_utils import hydra_instantiate
-from needle.tasks.base.downstream import BaseDownstreamMixin
 from needle.utils.logging import ColorFormatter
 from needle.utils.luigi_utils import convert_luigi_to_law_targets
 

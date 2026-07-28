@@ -1,15 +1,15 @@
-from typing import List, Optional, Annotated
+from typing import Annotated, List, Optional
 
+import lightning as L
 import pandas as pd
 import torch
 import uproot
-from needle.utils.config_schema import DatasetConfig
-from needle.etl.array import resolve_paths
+from pydantic import Field
 from sklearn.model_selection import KFold, train_test_split
 from torch.utils.data import DataLoader, Dataset
-from pydantic import Field
 
-import lightning as L
+from needle.etl.array import resolve_paths
+from needle.utils.config_schema import DatasetConfig
 
 Percentage = Annotated[float, Field(ge=0.0, le=1.0)]
 

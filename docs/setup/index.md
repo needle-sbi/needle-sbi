@@ -11,25 +11,67 @@ You need:
     any other environment manager like `conda`, as long as it is compatible with `pyproject.toml`.
 - (Optional) The FAIR Universe dataset if running that example (see `FAIR_UNIVERSE_DATA` below)
 
-## Installation
+## First time package installation
+
+### Option 1: Plain pip
+
+Create or use an existing virtual environment with `python3 -m venv`. Install the `needle` package with
 
 ```bash
-# 1. Activate your virtual environment
-source .venv/bin/activate
-
-# 2. Source the LAW environment script — this registers task modules with LAW
-source setup.sh
-
-# 3. (First time only) install the package and dependencies
-pip install -e .
+pip install "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
 ```
 
-Or use [astral-uv](https://docs.astral.sh/uv/getting-started/installation/) then run `uv sync`.
+### Option 2: Astral uv
 
-**Note:** Why `source setup.sh` and not just `python -m law`? LAW needs to know which Python modules
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Install `uv` with
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Reload your shell or source the uv environment to make it active in your current shell, as stated by
+uv when you run the script.
+
+```bash
+uv pip install --no-config "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
+```
+
+### Initialize the workspace
+
+In order to run `needle` you need a few config files. These can be created automatically using the
+CLI tool. In your virtual environment run:
+
+```bash
+needle init
+```
+
+This will copy:
+
+- `setup.sh`: script for activating the NEEDLE environment
+- `conf/`: template directory for your config files according to the hydra schema
+- `law.cfg`: law config file for batch submissions
+- `settings.json`: b2luigi config file for batch submissions
+- `index`: law index file that lists all the available tasks. Can be updated using `law index`
+
+You can also use `needle init --backend law` or `needle init --backend b2luigi` to only
+initialize the project with the backend that you want. Otherwise you keep both options open.
+
+### Set up the NEEDLE environment
+
+```bash
+source setup.sh
+```
+
+::: {important}
+Always source your virtual environment and then run the `setup.sh` script every time you open a new
+shell.
+:::
+
+::: {note}
+Why `source setup.sh` and not just `python -m law`? LAW needs to know which Python modules
 contain your tasks. `setup.sh` sets the `LAW_HOME` and `LAW_CONFIG_FILE` environment variables
-so LAW picks up `law.cfg` automatically. You need to re-run `source setup.sh` every time you
-open a new terminal.
+so LAW picks up `law.cfg` automatically.
+:::
 
 ## Quick test
 
@@ -81,7 +123,7 @@ The NEEDLE CLI has these options
 :class: info
 
 In order to have a shared CLI tool for both backends, we introduce an extra layer for differentiating
-pure `needle-sbi` args from the ones passed to either law or b2luigi. If you are using the `law` 
+pure `needle-sbi` args from the ones passed to either law or b2luigi. If you are using the `law`
 backend (default), you can also use the `law` CLI tool instead, which avoids the `--param` wrapping.
 See the corresponding [LAW Tasks](../concepts/law_tasks.md) page.
 
@@ -125,7 +167,7 @@ The snapshot JSON has the following structure. Read it in your python scripts to
 {
     "est=model_A&syst=nominal&ensem=0&fold=0": "./runs/default/est__model_A/syst__nominal/ensem__0/fold__0/model.ckpt"
 }
-``` 
+```
 
 The schema uses `=` for `key=value` separation and `&` for level separation. More precisely: `est=<my_estimator>&syst=<my_systematics>...`.
 The key is produced using `urllib.parse.urlencode` and can be unfurled using `urllib.parse.parse_qs`.

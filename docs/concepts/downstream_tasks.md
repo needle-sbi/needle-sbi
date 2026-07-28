@@ -41,12 +41,12 @@ Whether a combination is known to work, based on what's actually exercised by th
 `DownstreamTask` calls the wrapped task's `output()`/`run()`/`complete()` directly rather than
 scheduling it, so the wrapped class only needs to look like a `luigi.Task` (duck typing, not an
 `isinstance` check). Therefore, a plain `luigi.Task`, a `law.Task`, or a `b2luigi.Task` all work with
-either backend's `DownstreamTask`. 
+either backend's `DownstreamTask`.
 
 ::: {warning}
 The `requires` method of your `luigi`/`law`/`b2luigi` Task is not used by `DownstreamTask`. You cannot
-use this method to defined the dependency graph of your post-training. Instead, use the `requires` 
-section in the config, as detailed in [Downstream Task Config](hydra_config.md#downstream-task-config).
+use this method to defined the dependency graph of your post-training. Instead, use the `requires`
+section in the config.
 :::
 
 ## Implementing a DownstreamTask
