@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import shutil
-import subprocess
+import subprocess  # noqa: F401 -- re-exported so tests can patch `cli.subprocess.call`
 import sys
-from pathlib import Path
 
 # Deferred: importing needle.utils.logging pulls in the full `needle` package
 # (needle.ml -> torch/lightning), which is slow to import. Argument parsing and
@@ -14,8 +12,6 @@ try:
     import argcomplete
 except ImportError:
     argcomplete = None
-
-_TEMPLATES = Path(__file__).parent / "templates"
 
 _TASK_CHOICES = [
     "MainTask",
@@ -32,138 +28,37 @@ def _complete_task(**kwargs: object) -> list[str]:
     return _TASK_CHOICES
 
 
-_SETTINGS_JSON_TEMPLATE = """\
-{
-  "batch_system": "local",
-  "htcondor_settings": {
-    "request_memory": "2048MB",
-    "request_cpus": 1,
-    "+RequestRuntime": 3600
-  },
-  "slurm_settings": {
-    "partition": "gpu",
-    "time": "01:00:00",
-    "mem": "4G",
-    "cpus-per-task": 2
-  }
-}
-"""
-
-
-def _copy(src: Path, dst: Path, description: str) -> None:
-    label = src.name
-    if dst.exists():
-        print(f"Skipped '{label}' ({description})")
-    else:
-        if src.is_dir():
-            shutil.copytree(src, dst)
-        else:
-            shutil.copy2(src, dst)
-        print(f"Created '{label}' ({description})")
-
-
 def cmd_init(args: argparse.Namespace) -> None:
-    target = Path(args.directory).resolve()
-    target.mkdir(parents=True, exist_ok=True)
+    from needle.api.init import init
 
-    backend: str = getattr(args, "backend", "both")
-
-    if backend in ("law", "both"):
-        _copy(
-            src=_TEMPLATES / "law.cfg",
-            dst=target / "law.cfg",
-            description="LAW config file for managing Tasks",
-        )
-        _copy(
-            src=_TEMPLATES / "index",
-            dst=target / "index",
-            description="Index of needle.law_tasks, update with `law index`",
-        )
-    if backend in ("b2luigi", "both"):
-        settings_dst = target / "settings.json"
-        if settings_dst.exists():
-            print("Skipped 'settings.json' (b2luigi settings file)")
-        else:
-            settings_dst.write_text(_SETTINGS_JSON_TEMPLATE)
-            print("Created 'settings.json' (b2luigi settings file)")
-
-    setup_dst = target / "setup.sh"
-    _copy(
-        src=_TEMPLATES / "setup.sh",
-        dst=setup_dst,
-        description="Setup script for setting up the NEEDLE environment",
-    )
-    if setup_dst.exists():
-        setup_dst.chmod(0o755)
-
-    if not args.no_conf:
-        _copy(
-            src=_TEMPLATES / "conf",
-            dst=target / "conf",
-            description="Config directory following the hydra schema",
-        )
+    init(args.directory, no_conf=args.no_conf, backend=getattr(args, "backend", "both"))
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    from needle.utils.logging import ColorFormatter
+    from needle.api.run import UnknownTaskError, run
 
-    logger = ColorFormatter.get_logger("cli")
-    backend: str = args.backend
-    task_name: str = args.task
-
-    if backend == "law":
-        logger.info("Running with `law` workflow backend")
-
+    if args.backend == "law":
         config_file = getattr(args, "config_file", None)
         results_path = getattr(args, "results_path", None)
-
-        law_args = ["law", "run", task_name]
-        if config_file:
-            law_args += ["--config-file", config_file]
-        if results_path:
-            law_args += ["--results-path", results_path]
-        for param in args.params:
-            key, sep, value = param.partition("=")
-            flag = f"--{key.replace('_', '-')}"
-            law_args += [flag, value] if sep else [flag]
-
-        sys.exit(subprocess.call(law_args))
-
-    elif backend == "b2luigi":
-        import b2luigi
-
-        import needle.tasks.b2luigi as b2luigi_tasks
-        from needle.tasks.b2luigi.workflows.common import configure_b2luigi
-
-        logger.info("Running with `b2luigi` workflow backend")
-
-        task_cls = getattr(b2luigi_tasks, task_name, None)
-        if task_cls is None:
-            available = ", ".join(b2luigi_tasks.__all__)
-            raise SystemExit(f"Unknown b2luigi task '{task_name}'. Available: {available}")
-
+    else:
         config_file = getattr(args, "config_file", "conf/config.yaml")
         results_path = getattr(args, "results_path", "runs")
-        batch_system = getattr(args, "batch_system", "local")
-        workers = getattr(args, "workers", 1)
 
-        extra_params: dict[str, str | bool] = {}
-        for param in args.params:
-            key, sep, value = param.partition("=")
-            extra_params[key] = value if sep else True
+    try:
+        result = run(
+            task=args.task,
+            backend=args.backend,
+            config_file=config_file,
+            results_path=results_path,
+            batch_system=getattr(args, "batch_system", "local"),
+            workers=getattr(args, "workers", 1),
+            params=args.params,
+        )
+    except UnknownTaskError as e:
+        raise SystemExit(str(e))
 
-        configure_b2luigi(results_path=results_path, batch_system=batch_system)
-
-        task = task_cls(config_file=config_file, results_path=results_path, **extra_params)
-
-        # b2luigi.process() parses sys.argv itself (for --batch/--test/... flags).
-        # Hide needle's own argv from it so the two parsers never fight over the
-        # same flags; behavior is instead driven explicitly via kwargs below.
-        original_argv, sys.argv = sys.argv, sys.argv[:1]
-        try:
-            b2luigi.process(task, workers=workers, batch=batch_system != "local")
-        finally:
-            sys.argv = original_argv
+    if args.backend == "law":
+        sys.exit(result.returncode)
 
 
 def main() -> None:

@@ -1,47 +1,50 @@
-from typing import Any, Dict
+from __future__ import annotations
 
-import lightning
-
-from needle.utils.config_schema import DatasetConfig
-from needle.utils.config_utils import hydra_instantiate
+from pathlib import Path
+from typing import Dict, Optional, Sequence, Union
 
 
-def train_single_lightning_module(
-    model_config: Any,
-    datamodule_config: Any,
-    trainer_config: Any,
-    dataset_config: DatasetConfig,
-    input_model_paths: Dict[str, str],
-) -> lightning.Trainer:
-    """Train a single instance of your Lightning module
+def train_single(
+    config_file: Union[str, Path],
+    estimator: str,
+    results_path: Union[str, Path] = "runs",
+    *,
+    hydra_overrides: Optional[Sequence[str]] = None,
+) -> Dict[str, Path]:
+    """Train a single estimator directly, bypassing the DAG fan-out.
+
+    Equivalent to ``needle run TrainingTask --backend b2luigi --param single=true
+    --param estimator=<estimator>``: ignores `requires`/systematics/ensembles/folds
+    entirely and writes output flat under `results_path` (no `est__/syst__/...`
+    nesting), so it can never collide with a real DAG run's outputs in the same
+    `results_path`.
+
+    Instantiates and runs a real b2luigi ``TrainingTask`` with ``single=True``,
+    reusing its exact training logic (MLflow logging and checkpoint saving).
+
+    Note:
+        The law backend has no in-process execution, only subprocess `law run`, while
+        the b2luigi backend does provide it. Therefore there is no choice in backend
+        in this function
 
     Args:
-        model_config (Any): Config for your model according to hydra instantiate() protocol
-        datamodule_config (Any)
-        trainer_config (Any)
-        dataset_config (DatasetConfig)
-        input_model_paths (Dict[str, str])
+        config_file: Path to the Hydra config file.
+        estimator: Name of the estimator to train (must be a key in `config.estimators`).
+        results_path: Root directory for results.
+        hydra_overrides: Optional list of Hydra override strings.
 
     Returns:
-        lightning.Trainer: Trained instance of your model
+        Dict[str, Path]: output paths keyed by ``"ckpt"``, ``"model_config"``, ``"input_models"``.
     """
-    # 1. Load model
-    model = lightning.LightningModule = hydra_instantiate(
-        model_config,
-        dataset_config=dataset_config,
-        input_models=input_model_paths,
-    )
+    from needle.tasks.b2luigi.training import TrainingTask
 
-    # 2. Load datamodule
-    data_module: lightning.LightningDataModule = hydra_instantiate(
-        datamodule_config,
-        dataset_config=dataset_config,
-        input_models=input_model_paths,
+    task = TrainingTask(
+        config_file=str(config_file),  # type: ignore
+        hydra_overrides=" ".join(hydra_overrides) if hydra_overrides else "",  # type: ignore
+        estimator=estimator,
+        results_path=str(results_path),
+        single=True,
     )
-
-    # 3. Load trainer
-    trainer: lightning.Trainer = hydra_instantiate(
-        trainer_config,
-    )
-    trainer.fit(model=model, datamodule=data_module)
-    return trainer
+    task.run()
+    outputs = task.output()
+    return {name: Path(target.path) for name, target in outputs.items()}
