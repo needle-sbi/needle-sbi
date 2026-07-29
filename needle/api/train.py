@@ -14,13 +14,17 @@ def train_single(
     """Train a single estimator directly, bypassing the DAG fan-out.
 
     Equivalent to ``needle run TrainingTask --backend b2luigi --param single=true
-    --param estimator=<estimator>``: ignores `requires`/systematics/ensembles/folds
+    --param estimator=<estimator> --batch-system "local"``
+
+    Ignores `requires`/systematics/ensembles/folds
     entirely and writes output flat under `results_path` (no `est__/syst__/...`
     nesting), so it can never collide with a real DAG run's outputs in the same
     `results_path`.
 
     Instantiates and runs a real b2luigi ``TrainingTask`` with ``single=True``,
-    reusing its exact training logic (MLflow logging and checkpoint saving).
+    reusing its exact training logic (MLflow logging and checkpoint saving). The training
+    will be executed locally. For the same single-training option but with batch
+    system access you should use ``needle.run()``.
 
     Note:
         The law backend has no in-process execution, only subprocess `law run`, while

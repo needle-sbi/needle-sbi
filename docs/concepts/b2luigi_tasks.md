@@ -61,7 +61,7 @@ accessed from pure python using the `configure_b2luigi` function:
 ```python
 from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 
-configure_b2luigi(results_path="runs", batch_system="htcondor")
+configure_b2luigi(batch_system="htcondor")
 ```
 
 Or per-task, by overriding `htcondor_settings`/`slurm_settings` class attributes in the given

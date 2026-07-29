@@ -23,7 +23,7 @@ Usage (local):
 
 Usage (HTCondor):
     from needle.tasks.b2luigi.workflows.common import configure_b2luigi
-    configure_b2luigi(results_path="runs", batch_system="htcondor")
+    configure_b2luigi(batch_system="htcondor")
     b2luigi.process(MainTask(config_file="conf/config.yaml"))
 """
 

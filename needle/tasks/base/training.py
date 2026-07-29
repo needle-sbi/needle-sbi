@@ -232,3 +232,6 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
 
         with open(self.output()["input_models"].path, "w") as f:
             json.dump(self.input_model_paths, f)
+
+        if self.single:
+            logger.info(f"Successfully completed training for Estimator '{self.estimator}'")

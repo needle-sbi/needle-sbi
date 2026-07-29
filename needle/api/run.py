@@ -51,8 +51,8 @@ def run(
     task: str = "MainTask",
     *,
     backend: Literal["law", "b2luigi"] = "law",
-    config_file: Optional[str] = None,
-    results_path: Optional[str] = None,
+    config_file: str = "conf/config.yaml",
+    results_path: str = "runs",
     batch_system: str = "local",
     workers: int = 1,
     params: Union[Mapping[str, ParamValue], Sequence[str], None] = None,
@@ -65,21 +65,18 @@ def run(
             to already be set, e.g. by sourcing ``setup.sh`` or calling
             ``needle.api.configure_law()``). ``"b2luigi"`` runs fully in-process via
             ``b2luigi.process()``.
-        config_file: Path to the Hydra config file. If ``None``, the flag/kwarg is omitted
-            for the ``law`` backend (letting `law.cfg` defaults apply); defaults to
-            ``"conf/config.yaml"`` for the ``b2luigi`` backend.
-        results_path: Root directory for results. Same ``None``-omits-for-law,
-            defaults-to-``"runs"``-for-b2luigi behavior as ``config_file``.
+        config_file: Path to the Hydra config file. Defaults to `conf/config.yaml`
+        results_path: Root directory for results. Defaults to `runs`
         batch_system: One of ``"local"``, ``"htcondor"``, ``"slurm"``, ``"lsf"`` (b2luigi only).
         workers: Number of parallel workers (b2luigi only).
-        params: Extra task parameters, either a ``dict`` (native Python callers) or a list of
-            ``"KEY=VALUE"``/bare-flag strings (CLI-style).
+        params: Extra task parameters. Either a ``dict`` (native Python callers) or a list of
+            ``"KEY=VALUE"`` and bare-flag strings (CLI-style).
 
     Returns:
         RunResult: the subprocess return code (law) or ``None`` (b2luigi).
 
     Raises:
-        UnknownTaskError: if ``task`` is not a known b2luigi task class name.
+        UnknownTaskError: if the Task name is not a known b2luigi task class name.
     """
     normalized_params = _normalize_params(params)
 
@@ -115,7 +112,7 @@ def run(
 
         extra_params: Dict[str, ParamValue] = dict(normalized_params)
 
-        configure_b2luigi(results_path=resolved_results_path, batch_system=batch_system)
+        configure_b2luigi(batch_system=batch_system)
 
         task_instance = task_cls(
             config_file=resolved_config_file,

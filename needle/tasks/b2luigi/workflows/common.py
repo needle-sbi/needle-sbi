@@ -38,7 +38,6 @@ def get_project_root() -> str:
 
 
 def configure_b2luigi(
-    results_path: str,
     batch_system: str = "local",
     env_script: str | None = None,
     **kwargs: Any,
@@ -46,10 +45,9 @@ def configure_b2luigi(
     """Configure the b2luigi runtime settings programmatically.
 
     Equivalent to placing the same values in ``settings.json`` at the project root.
-    Call this before ``b2luigi.process()``.
+    Call this before ``b2luigi.process()``. The ``results_dir```global b2luigi parameter is unused.
 
     Args:
-        results_path: Root directory for all task outputs.
         batch_system: One of ``"local"``, ``"htcondor"``, ``"slurm"``, ``"lsf"``.
         env_script: Path to the environment setup script (default: ``setup.sh`` in
             the project root). Passed to batch workers so the Python environment is
@@ -62,7 +60,6 @@ def configure_b2luigi(
 
     project_root = get_project_root()
 
-    b2luigi.set_setting("result_dir", results_path)
     b2luigi.set_setting("batch_system", batch_system)
     b2luigi.set_setting("working_dir", project_root)
 

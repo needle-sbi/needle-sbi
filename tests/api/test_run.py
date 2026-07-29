@@ -96,7 +96,7 @@ class TestRunB2luigiBackend:
         )
 
         assert result == RunResult(returncode=None)
-        mock_configure.assert_called_once_with(results_path="runs", batch_system="local")
+        mock_configure.assert_called_once_with(batch_system="local")
         assert mock_process.call_count == 1
         (task_instance,), kwargs = mock_process.call_args
         assert type(task_instance).__name__ == "EnsembleTask"
