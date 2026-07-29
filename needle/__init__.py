@@ -63,5 +63,8 @@ def __dir__() -> list[str]:
     # PEP 562 module __dir__: without this, `dir(needle)` only shows names
     # already cached in globals() by __getattr__, so tab completion in a
     # plain python3 REPL or a notebook wouldn't list `ml`/`Config`/etc. until
-    # they'd already been accessed once.
-    return sorted(set(__all__) | set(globals()))
+    # they'd already been accessed once. Returning only `__all__` (rather than
+    # unioning with globals()) keeps implementation details -- `importlib`,
+    # `TYPE_CHECKING`, incidental submodule imports like `needle.tasks` -- out
+    # of tab completion.
+    return sorted(__all__)
