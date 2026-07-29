@@ -54,7 +54,6 @@ class SystematicConfig(SerializableDataclass):
 @dataclass
 class EnsembleConfig(SerializableDataclass):
     num_ensembles: int = 1
-    aggregation_method: str | None = None
 
 
 @dataclass
@@ -102,25 +101,9 @@ class DownstreamTaskConfig(SerializableDataclass):
 
 
 @dataclass
-class AggregationConfig(SerializableDataclass):
-    """Configuration for model aggregation at each DAG level"""
-
-    fold_method: str = "mean"
-    ensemble_method: str = "mean"
-    systematic_method: str = "mean"
-    estimator_method: str = "sum"
-
-    fold_weights: Optional[List[float]] = None
-    ensemble_weights: Optional[List[float]] = None
-    systematic_weights: Optional[List[float]] = None
-    estimator_weights: Optional[List[float]] = None
-
-
-@dataclass
 class MainConfig(SerializableDataclass):
     estimators: dict[str, EstimatorConfig] = field(default_factory=dict)
     downstream_tasks: Optional[dict[str, DownstreamTaskConfig]] = field(default_factory=dict)
-    aggregation: AggregationConfig = field(default_factory=AggregationConfig)
     results_path: Optional[str] = None
     results_path_downstream: Optional[str] = None
     custom_settings: Any = None

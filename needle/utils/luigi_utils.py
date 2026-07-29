@@ -1,17 +1,16 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Union, overload
+from typing import TYPE_CHECKING, Dict, List, Set, Tuple, Union, overload
 
-import law
 import luigi
 
-#: A single Luigi ``LocalTarget`` file handle.
-LuigiTarget = luigi.LocalTarget
-#: A single LAW ``LocalFileTarget`` file handle.
-LawTarget = law.LocalFileTarget
+if TYPE_CHECKING:
+    import law
 
 #: Any form a Luigi target collection can take: a single target, list, dict, or tuple.
+LuigiTarget = luigi.LocalTarget
 LuigiTargetCollection = Union[
     LuigiTarget,
     List[LuigiTarget],
@@ -19,34 +18,27 @@ LuigiTargetCollection = Union[
     Tuple[LuigiTarget, ...],
 ]
 
-#: Any form a LAW target collection can take: a single target, list, dict, or tuple.
+#: Any form a Law target collection can take: a single target, list, dict, or tuple.
+LawTarget: "law.LocalFileTarget"
 LawTargetCollection = Union[
-    LawTarget,
-    List[LawTarget],
-    Dict[str, LawTarget],
-    Tuple[LawTarget, ...],
+    "law.LocalFileTarget",
+    "List[law.LocalFileTarget]",
+    "Dict[str, law.LocalFileTarget]",
+    "Tuple[law.LocalFileTarget, ...]",
 ]
 
 
-def _convert_single_luigi_to_law_target(target: luigi.LocalTarget) -> law.LocalFileTarget:
-    """Convert a Luigi LocalTarget to a law LocalFileTarget. If already a law LocalFileTarget, the
-    input target is simply returned. Otherwise create a new law LocalFileTarget from scratch.
+def _to_law_file_target(target: luigi.LocalTarget):  # type: ignore[return]
+    """Convert a single ``luigi.LocalTarget`` to ``law.LocalFileTarget``.
 
-    Args:
-        target: A Luigi LocalTarget instance to be converted to a law LocalFileTarget.
-
-    Returns:
-        law.LocalFileTarget
-
-    Warns:
-        warnings: If the target is a temporary Luigi target, a warning is issued
-            indicating that conversion may be unpredictable.
+    Importing law is deferred so that this module remains importable without LAW
+    installed (e.g. when using the b2luigi backend exclusively).
     """
+    import law
+
     if isinstance(target, law.LocalFileTarget):
         return target
     if target.is_tmp:
-        import warnings
-
         warnings.warn(
             f"Converting a temporary luigi.LocalTarget at {target.path!r} may be unpredictable.",
             stacklevel=3,
@@ -60,34 +52,28 @@ def _convert_single_luigi_to_law_target(target: luigi.LocalTarget) -> law.LocalF
 @overload
 def convert_luigi_to_law_targets(
     luigi_targets: LuigiTarget,
-) -> LawTarget:
-    ...
+) -> LawTarget: ...
 
 
 @overload
 def convert_luigi_to_law_targets(
     luigi_targets: List[LuigiTarget],
-) -> List[LawTarget]:
-    ...
+) -> List[LawTarget]: ...
 
 
 @overload
 def convert_luigi_to_law_targets(
     luigi_targets: Dict[str, LuigiTarget],
-) -> Dict[str, LawTarget]:
-    ...
+) -> Dict[str, LawTarget]: ...
 
 
 @overload
 def convert_luigi_to_law_targets(
     luigi_targets: Tuple[LuigiTarget, ...],
-) -> Tuple[LawTarget, ...]:
-    ...
+) -> Tuple[LawTarget, ...]: ...
 
 
-def convert_luigi_to_law_targets(
-    luigi_targets: LuigiTargetCollection,
-) -> LawTargetCollection:
+def convert_luigi_to_law_targets(luigi_targets: LuigiTargetCollection) -> LawTargetCollection:
     """Convert Luigi targets to Law targets.
 
     Takes a Luigi target or collection of targets and converts them to their
@@ -95,45 +81,43 @@ def convert_luigi_to_law_targets(
 
     Args:
         luigi_targets:
-            - single `luigi.LocalTarget `instance
-            - `list` of` luigi.LocalTarget` instances
-            - `dict` mapping keys to `luigi.LocalTarget` instances with None values filtered out
-            - `tuple` of `luigi.LocalTarget`
+            - single ``luigi.LocalTarget`` instance
+            - ``list`` of ``luigi.LocalTarget`` instances
+            - ``dict`` mapping keys to ``luigi.LocalTarget`` instances with None values filtered out
+            - ``tuple`` of ``luigi.LocalTarget``
 
     Returns:
-        LawTargetCollection: Same collection as the input, just with law instead of luigi targets.
+        LawTargetCollection: Same collection structure, with ``law.LocalFileTarget`` instances.
 
     Raises:
-        TypeError: If luigi_targets is not a LocalTarget, list, or dict.
+        TypeError: If luigi_targets is not a LocalTarget, list, dict, or tuple.
     """
     if isinstance(luigi_targets, luigi.LocalTarget):
-        return _convert_single_luigi_to_law_target(luigi_targets)
+        return _to_law_file_target(luigi_targets)
     if isinstance(luigi_targets, list):
-        return [_convert_single_luigi_to_law_target(target) for target in luigi_targets]
+        return [_to_law_file_target(target) for target in luigi_targets]
     if isinstance(luigi_targets, dict):
-        return {
-            key: _convert_single_luigi_to_law_target(target)
-            for key, target in luigi_targets.items()
-            if target is not None
-        }
+        return {key: _to_law_file_target(target) for key, target in luigi_targets.items() if target is not None}
     if isinstance(luigi_targets, tuple):
-        return tuple(_convert_single_luigi_to_law_target(target) for target in luigi_targets)
-    raise TypeError(f"Target(s) of type: {type(luigi_targets)} must be `LocalTarget`, list or dict.")
+        return tuple(_to_law_file_target(target) for target in luigi_targets)
+    raise TypeError(f"Target(s) of type: {type(luigi_targets)} must be `LocalTarget`, list, dict, or tuple.")
 
 
 def collect_output_paths(
-    task: luigi.Task | law.Task,
-    visited: Set[str] = None,
+    task: luigi.Task,
+    visited: Set[str] | None = None,
     current_depth: int = 0,
     max_depth: int = -1,
 ) -> List[str]:
-    visited = visited or set()
+    """Recursively collect all output file paths from a task and its dependencies.
 
+    Works with any ``luigi.Task`` subclass (including LAW and b2luigi tasks).
+    """
+    visited = visited or set()
     task_id = task.task_id
 
     if task_id in visited:
         return []
-
     visited.add(task_id)
 
     paths = []

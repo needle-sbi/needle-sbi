@@ -1,14 +1,52 @@
-import warnings
+import importlib
+from typing import TYPE_CHECKING
 
-warnings.warn(
-    "needle.api is a work in progress.",
-    FutureWarning,
-    stacklevel=2,
-)
+if TYPE_CHECKING:
+    from needle.api.config import Config
+    from needle.api.init import InitResult, init
+    from needle.api.law_settings import configure_law
+    from needle.api.run import RunResult, UnknownTaskError, run
+    from needle.api.train import train_single
+    from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 
-from needle.api.config import Config, config
-from needle.api.dataset import Dataset, dataset
-from needle.api.model import Model, model
-from needle.api.train import train_single_lightning_module
+__all__ = [
+    "Config",
+    "train_single",
+    "run",
+    "RunResult",
+    "UnknownTaskError",
+    "init",
+    "InitResult",
+    "configure_law",
+    "configure_b2luigi",
+]
 
-__all__ = ["Config", "config", "Dataset", "dataset", "Model", "model", "train_single_lightning_module"]
+_MODULE_BY_NAME = {
+    "Config": "needle.api.config",
+    "Model": "needle.api.model",
+    "Dataset": "needle.api.dataset",
+    "train_single": "needle.api.train",
+    "run": "needle.api.run",
+    "RunResult": "needle.api.run",
+    "UnknownTaskError": "needle.api.run",
+    "init": "needle.api.init",
+    "InitResult": "needle.api.init",
+    "configure_law": "needle.api.law_settings",
+    "configure_b2luigi": "needle.tasks.b2luigi.workflows.common",
+}
+
+
+def __getattr__(name: str) -> object:
+    module_name = _MODULE_BY_NAME.get(name)
+
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module = importlib.import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)

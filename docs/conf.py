@@ -97,6 +97,7 @@ autodoc_mock_imports = [
     "omegaconf",
     "law",
     "luigi",
+    "b2luigi",
     "dask",
     "dask_awkward",
     "uproot",
@@ -126,6 +127,7 @@ nitpick_ignore = [
     ("py:class", "law.Task"),
     ("py:class", "law.Parameter"),
     ("py:class", "luigi.IntParameter"),
+    ("py:class", "b2luigi.Task"),
     ("py:class", "L.LightningModule"),
     ("py:class", "L.LightningDataModule"),
 ]

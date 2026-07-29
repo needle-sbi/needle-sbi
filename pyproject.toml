@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "needle-sbi"
-version = "0.1.2"
+version = "0.2.0"
 description = "Workflow manager for NSBI tools in HEP"
 authors = [
     {name = "Kylian Schmidt", email = "kylian.schmidt@kit.edu"},
@@ -48,6 +48,7 @@ dependencies = [
     "tensorboard>=2.19",
     "matplotlib>=3.10",
     # misc and useful packages
+    "argcomplete>=3.5",
     "numpy>=2.2",
     "pandas>=2.2",
     "psutil>=7.0",
@@ -56,6 +57,7 @@ dependencies = [
     "tabulate>=0.9.0",
     "seaborn>=0.13.2",
     "mplhep>=0.4.1",
+    "b2luigi>=1.2.9",
 ]
 
 [project.urls]
@@ -102,8 +104,8 @@ members = ["examples/fair_universe_demo"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m='not slow' -m 'not law'"
-markers = ["slow"]
+addopts = "-ra --tb=short --disable-warnings --benchmark-skip --benchmark-autosave -m 'not slow and not law and not b2luigi'"
+markers = ["slow", "law", "b2luigi"]
 
 [tool.isort]
 profile = "black"

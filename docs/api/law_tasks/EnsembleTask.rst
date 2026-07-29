@@ -1,9 +1,11 @@
 EnsembleTask
 ============
 
-Manages training for a single ensemble group across all cross-validation folds.
+``.done``-marker task for a single ensemble member. Requires one ``FoldTask`` per
+cross-validation fold.
 
-.. automodule:: law_tasks.ensemble
+.. automodule:: needle.tasks.law.ensemble
    :members:
    :undoc-members:
    :show-inheritance:
+   :inherited-members: law.Task

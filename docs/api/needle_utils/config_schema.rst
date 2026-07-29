@@ -21,6 +21,12 @@ Config Schema
    :no-members:
    :no-undoc-members:
 
+.. note::
+   ``AggregationConfig`` is currently **orphaned**: its only consumer, the fold/ensemble/
+   systematic/estimator result-aggregation code in the old ``needle.utils.results`` and
+   ``needle.tasks.base.snapshot`` modules, was removed. The dataclass still exists on
+   ``MainConfig.aggregation`` but nothing in the current task DAG reads it.
+
 .. autoclass:: needle.utils.config_schema.AggregationConfig
    :no-members:
    :no-undoc-members:
