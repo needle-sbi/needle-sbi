@@ -27,13 +27,17 @@ Usage (HTCondor):
     b2luigi.process(MainTask(config_file="conf/config.yaml"))
 """
 
-from needle.tasks.b2luigi.downstream import DownstreamTask
-from needle.tasks.b2luigi.ensemble import EnsembleTask
-from needle.tasks.b2luigi.estimator import EstimatorTask
-from needle.tasks.b2luigi.fold import FoldTask
-from needle.tasks.b2luigi.main import MainTask
-from needle.tasks.b2luigi.systematic import SystematicTask
-from needle.tasks.b2luigi.training import TrainingTask
+import importlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from needle.tasks.b2luigi.downstream import DownstreamTask
+    from needle.tasks.b2luigi.ensemble import EnsembleTask
+    from needle.tasks.b2luigi.estimator import EstimatorTask
+    from needle.tasks.b2luigi.fold import FoldTask
+    from needle.tasks.b2luigi.main import MainTask
+    from needle.tasks.b2luigi.systematic import SystematicTask
+    from needle.tasks.b2luigi.training import TrainingTask
 
 __all__ = [
     "MainTask",
@@ -44,3 +48,30 @@ __all__ = [
     "TrainingTask",
     "DownstreamTask",
 ]
+
+#: name -> submodule providing it. Only `TrainingTask` pulls in torch/lightning/mlflow
+#: (see needle/tasks/base/training.py), so keeping these lazy avoids paying that cost
+#: for callers who only need e.g. MainTask or DownstreamTask.
+_SUBMODULE_BY_NAME = {
+    "DownstreamTask": "needle.tasks.b2luigi.downstream",
+    "EnsembleTask": "needle.tasks.b2luigi.ensemble",
+    "EstimatorTask": "needle.tasks.b2luigi.estimator",
+    "FoldTask": "needle.tasks.b2luigi.fold",
+    "MainTask": "needle.tasks.b2luigi.main",
+    "SystematicTask": "needle.tasks.b2luigi.systematic",
+    "TrainingTask": "needle.tasks.b2luigi.training",
+}
+
+
+def __getattr__(name: str) -> object:
+    module_name = _SUBMODULE_BY_NAME.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__) | set(globals()))

@@ -4,15 +4,14 @@ import difflib
 import graphlib
 import inspect
 from pathlib import Path
-from typing import Any, List, Literal, Mapping, Optional, Type, cast
+from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Type, cast
 
 import hydra
-import luigi
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
-from pytorch_lightning import LightningDataModule as LegacyDataModule
-from pytorch_lightning import LightningModule as LegacyModule
-from pytorch_lightning import Trainer as LegacyTrainer
+
+if TYPE_CHECKING:
+    from luigi import Task
 
 from needle.utils.config_schema import MainConfig
 from needle.utils.logging import ColorFormatter
@@ -190,9 +189,11 @@ def hydra_check_if_arg_supported(
         logger.debug(f"  {caller.code_context[0].strip()}")  # type: ignore
         return False
 
+    from luigi import Task
+
     cls = hydra.utils.get_class(cfg._target_)
 
-    if issubclass(cls, luigi.Task):
+    if issubclass(cls, Task):
         is_luigi_parameter = hydra_check_if_luigi_parameter_supported(cls, arg_name=arg_name)
     else:
         is_luigi_parameter = False
@@ -201,7 +202,7 @@ def hydra_check_if_arg_supported(
     return (arg_name in sig) or is_luigi_parameter  # check luigi parameters
 
 
-def hydra_check_if_luigi_parameter_supported(task: Type[luigi.Task], arg_name: str) -> bool:
+def hydra_check_if_luigi_parameter_supported(task: Type[Task], arg_name: str) -> bool:
     """Check if an argument is a luigi.Parameter. These are not regular Args, but instead class
     attributes that are set during the requires() and run() methods.
 
@@ -212,8 +213,10 @@ def hydra_check_if_luigi_parameter_supported(task: Type[luigi.Task], arg_name: s
     Returns:
         bool: True if the arg is a valid luigi.Parameter attribute of the Task, False otherwise
     """
+    from luigi import Parameter
+
     for name, var in vars(task).items():
-        if isinstance(var, luigi.Parameter) and (name == arg_name):
+        if isinstance(var, Parameter) and (name == arg_name):
             return True
     else:
         return False
@@ -280,6 +283,10 @@ def check_for_lightning_import_mismatch(cfg: DictConfig) -> None:
         TypeError: If the target class inherits from `pytorch_lightning` instead of
             `lightning.pytorch`.
     """
+    from pytorch_lightning import LightningDataModule as LegacyDataModule
+    from pytorch_lightning import LightningModule as LegacyModule
+    from pytorch_lightning import Trainer as LegacyTrainer
+
     cls = hydra.utils.get_class(cfg._target_)
 
     mro_module_paths = [f"{c.__module__}.{c.__qualname__}" for c in inspect.getmro(cls)]
