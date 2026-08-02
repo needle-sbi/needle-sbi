@@ -83,6 +83,63 @@ def brute_force_length(
     return brute_force_divisions(paths)[-1]
 
 
+def brute_force_row_group_divisions(
+    path: str,
+) -> tuple[int, ...]:
+    """Resolve per-row-group divisions directly from a single parquet file's metadata.
+
+    Used as a fallback for a single input file whose partitions were split by row group (e.g.
+    via ``dak.from_parquet(..., split_row_groups=True)``), matching one partition per row group.
+    Unlike :func:`brute_force_divisions`, which produces only one boundary per *file*, this
+    produces one boundary per *row group* within a single file.
+
+    Args:
+        path (str): Path to a single parquet file (not a glob pattern, not a list).
+
+    Returns:
+        tuple[int, ...]: Cumulative row counts, one entry per row group, starting at zero. Has
+            length `num_row_groups + 1`, matching dask's `npartitions + 1` divisions convention.
+    """
+    parquet_file = pq.ParquetFile(path)
+    divisions: list[int] = [0]
+
+    for row_group_index in range(parquet_file.num_row_groups):
+        divisions.append(parquet_file.metadata.row_group(row_group_index).num_rows)
+
+    array = np.cumsum(np.array(divisions))
+    return tuple(array.tolist())  # type: ignore
+
+
+def are_divisions_valid(
+    divisions: tuple[int, ...],
+) -> bool:
+    """Check that a dask divisions tuple is a valid, strictly increasing boundary sequence.
+
+    A dask_awkward Array's divisions must start at zero and strictly increase — each entry marks
+    the cumulative event count up to and including that partition.
+
+    Note:
+        `eager_compute_divisions()` can silently register `0` for every interior/trailing boundary
+        when a single parquet file is split into several partitions via `split_row_groups=True`
+        (each row-group partition's length lookup fails and defaults to zero), producing a
+        `(0, 0, 0, ..., 0)` division tuple. A naive `not any(divisions)` check (as used previously)
+        happens to catch this specific all-zero case, but the fix must still reconstruct the
+        correct *per-row-group* boundaries (not just the file-level total) — see
+        :func:`brute_force_row_group_divisions`.
+
+    Args:
+        divisions (tuple[int, ...]): Divisions tuple to validate, as returned by
+            `dask_awkward.Array.divisions`.
+
+    Returns:
+        bool: True if `divisions` starts at zero and is strictly increasing.
+    """
+    if not divisions or divisions[0] != 0:
+        return False
+
+    return all(upper > lower for lower, upper in zip(divisions, divisions[1:]))
+
+
 class NestedArrayIndexer:
     VALID_SEPARATORS = {".", "_", "/"}
 
