@@ -26,28 +26,84 @@ class PseudoModelParallel(nn.Module):
     - GPU stream-based parallelization for CUDA devices
     """
 
-    def __init__(self, snapshot_path: str, device: Optional[str] = None, num_workers: int = 4):
+    def __init__(
+        self,
+        snapshot_path: str,
+        device: Optional[str] = None,
+        num_workers: int = 4,
+        n_gpus: int = 1,
+        n_streams_per_device: int = 0,
+    ):
+        """
+        Args:
+            n_gpus: Number of physical GPUs to distribute fold models across (round-robin).
+                Ignored (falls back to a single device) when CUDA is unavailable. If more GPUs
+                are requested than are available, the available count is used and a warning is
+                logged.
+            n_streams_per_device: Number of CUDA streams to create per physical GPU. Each fold is
+                round-robined across these streams, letting the hardware scheduler overlap kernels
+                when SM occupancy allows. 0 (default) means one stream per fold on that device
+                (maximum potential concurrency). Use 1 to force serial execution within a device.
+        """
         super().__init__()
         self.snapshot = DAGSnapshot.from_json(snapshot_path)
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.num_workers = num_workers
-        logger.info(f"Loading PseudoModelParallel on device: {self.device}")
+        self._n_streams_per_device_cfg = n_streams_per_device  # 0 = auto
+
+        # Build the list of devices to round-robin folds across. If n_gpus > 1 and CUDA is
+        # available, use cuda:0 ... cuda:n_gpus-1. Falls back gracefully to a single device when
+        # fewer GPUs are present, or to CPU when CUDA is unavailable.
+        if device is None and torch.cuda.is_available():
+            n_available = torch.cuda.device_count()
+            n_use = min(n_gpus, n_available)
+            if n_use < n_gpus:
+                logger.warning(f"Requested {n_gpus} GPU(s) but only {n_available} available. Using {n_use}.")
+            self.devices = [f"cuda:{i}" for i in range(n_use)]
+        elif device is not None:
+            self.devices = [device]
+        else:
+            self.devices = ["cpu"]
+
+        # Primary device used for aggregation outputs and non-fold tensors.
+        self.device = self.devices[0]
+        logger.info(f"Loading PseudoModelParallel across {len(self.devices)} device(s): {self.devices}")
 
         self._load_models()
         self._build_execution_levels()
 
+        # Resolve n_streams_per_device now that we know how many folds there are.
+        # 0 = one stream per fold on each device (maximum scheduled concurrency).
+        n_folds_per_dev = (
+            max(sum(1 for d in self.fold_devices.values() if d == dev) for dev in self.devices)
+            if self.fold_devices
+            else 1
+        )
+        if self._n_streams_per_device_cfg == 0:
+            self.n_streams_per_device = max(1, n_folds_per_dev)
+        else:
+            self.n_streams_per_device = max(1, self._n_streams_per_device_cfg)
+        logger.info(f"Using {self.n_streams_per_device} CUDA stream(s) per device ({n_folds_per_dev} fold(s) per device)")
+
     def _load_models(self):
-        """Load all leaf node models (same as base implementation)"""
-        # [Same implementation as PseudoModel._load_models()]
+        """Load fold models, distributing them across self.devices round-robin."""
         self.models = nn.ModuleDict()
+        # Map each node_id -> the device it lives on.
+        self.fold_devices: Dict[str, str] = {}
+        # Map each node_id -> stream index (within its device) to use.
+        self.fold_stream_idx: Dict[str, int] = {}
         fold_nodes = [
             (node_id, metadata) for node_id, metadata in self.snapshot.nodes.items() if metadata.task_type == "fold"
         ]
-        logger.info(f"Loading {len(fold_nodes)} fold models...")
+        logger.info(f"Loading {len(fold_nodes)} fold models across {self.devices}...")
 
-        for node_id, metadata in fold_nodes:
+        for idx, (node_id, metadata) in enumerate(fold_nodes):
+            target_device = self.devices[idx % len(self.devices)]
+            # Which stream slot within that device this fold will use. Assignment is finalized
+            # post-init once n_streams_per_device is known; store the raw per-device fold index
+            # for now and resolve it in _parallel_folds_gpu using self.n_streams_per_device.
+            self.fold_stream_idx[node_id] = idx // len(self.devices)
             try:
-                checkpoint = torch.load(metadata.checkpoint_path, map_location=self.device, weights_only=False)
+                checkpoint = torch.load(metadata.checkpoint_path, map_location=target_device, weights_only=False)
 
                 estimator_name = metadata.estimator_name
                 estimators_config = self.snapshot.config_snapshot.get("estimators")
@@ -71,7 +127,8 @@ class PseudoModelParallel(nn.Module):
                     model = model.model
 
                 model.eval()
-                model.to(self.device)
+                model.to(target_device)
+                self.fold_devices[node_id] = target_device
 
                 for param in model.parameters():
                     param.requires_grad = False
@@ -79,7 +136,7 @@ class PseudoModelParallel(nn.Module):
                 self.models[node_id] = model
 
             except Exception as e:
-                logger.error(f"Failed to load model {node_id}: {e}")
+                logger.error(f"Failed to load model {node_id} on {target_device}: {e}")
                 raise
 
         logger.info(f"Successfully loaded {len(self.models)} models")
@@ -173,18 +230,63 @@ class PseudoModelParallel(nn.Module):
         return mean, std
 
     def _parallel_folds_gpu(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Execute fold models in parallel using CUDA streams."""
-        outputs = {}
-        streams = [torch.cuda.Stream() for _ in range(min(len(self.models), 8))]
+        """Execute fold models in parallel using multiple CUDA streams per device.
 
-        for idx, (node_id, model) in enumerate(self.models.items()):
-            stream = streams[idx % len(streams)]
+        Each physical device gets ``self.n_streams_per_device`` independent CUDA streams. Fold
+        models are round-robined across those streams so the GPU hardware scheduler can overlap
+        kernel execution whenever SM occupancy permits (especially beneficial for small models
+        that leave most SMs idle during a single forward pass).
+
+        With ``n_streams_per_device == n_folds_per_device`` every fold gets its own stream --
+        maximum scheduling latitude. With ``== 1`` all folds on a device share one stream and
+        execute serially.
+        """
+        outputs: Dict[str, torch.Tensor] = {}
+
+        # (device, stream_index) -> Stream
+        stream_map: Dict[tuple, torch.cuda.Stream] = {
+            (dev, s): torch.cuda.Stream(device=dev) for dev in self.devices for s in range(self.n_streams_per_device)
+        }
+
+        # Pre-scatter the input to every device exactly once using stream 0 on each device. This
+        # avoids issuing N_folds redundant PCIe copies of the same tensor when len(self.devices) > 1.
+        x_per_dev: Dict[str, torch.Tensor] = {}
+        for dev in self.devices:
+            if dev == self.device:
+                x_per_dev[dev] = x  # already on primary device - no copy
+            else:
+                with torch.cuda.stream(stream_map[(dev, 0)]):
+                    x_per_dev[dev] = x.to(dev, non_blocking=True)
+
+        for node_id, model in self.models.items():
+            dev = self.fold_devices[node_id]
+            s_idx = self.fold_stream_idx[node_id] % self.n_streams_per_device
+            stream = stream_map[(dev, s_idx)]
             with torch.cuda.stream(stream):
-                outputs[node_id] = model(x.clone())
+                outputs[node_id] = model(x_per_dev[dev])
 
-        # Synchronize all streams
-        for stream in streams:
-            stream.synchronize()
+        # Synchronise every stream on every device.
+        for (dev, _), stream in stream_map.items():
+            with torch.cuda.device(dev):
+                stream.synchronize()
+
+        # Move results back to primary device for aggregation. Issue all transfers non-blocking
+        # first, then synchronise once per secondary device so the PCIe copies overlap as much as
+        # possible.
+        if len(self.devices) > 1:
+            gather_streams = {
+                dev: torch.cuda.Stream(device=self.device) for dev in self.devices if dev != self.device
+            }
+            gathered: Dict[str, torch.Tensor] = {}
+            for k, v in outputs.items():
+                if v.device.type == "cuda" and str(v.device) != self.device:
+                    with torch.cuda.stream(gather_streams[str(v.device)]):
+                        gathered[k] = v.to(self.device, non_blocking=True)
+                else:
+                    gathered[k] = v
+            for gs in gather_streams.values():
+                gs.synchronize()
+            outputs = gathered
 
         return outputs
 
@@ -284,8 +386,15 @@ class PseudoModelParallel(nn.Module):
 class NEEDLEParallel:
     """High-level API for parallelized NEEDLE model evaluation"""
 
-    def __init__(self, snapshot_path: str, device: Optional[str] = None, num_workers: int = 4):
-        self.model = PseudoModelParallel(snapshot_path, device, num_workers)
+    def __init__(
+        self,
+        snapshot_path: str,
+        device: Optional[str] = None,
+        num_workers: int = 4,
+        n_gpus: int = 1,
+        n_streams_per_device: int = 0,
+    ):
+        self.model = PseudoModelParallel(snapshot_path, device, num_workers, n_gpus, n_streams_per_device)
 
     def eval(self, x: torch.Tensor) -> torch.Tensor:
         """Simple evaluation returning mean prediction"""
