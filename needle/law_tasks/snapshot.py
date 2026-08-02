@@ -11,8 +11,11 @@ Output:
 - config.yaml: The resolved configuration used for training
 
 Dependencies:
-- Waits for all MainTask dependencies to complete
-- Runs after the complete training DAG is finished
+- Requires all EstimatorTasks directly (one per estimator in the config), which in turn drive the
+  rest of the training DAG (SystematicTask -> EnsembleTask -> FoldTask)
+- Is itself required by MainTask, making it the task that gates completion of `law run MainTask`
+- Remains independently runnable (e.g. via `law run SnapshotTask` or from DownstreamTask) without
+  needing MainTask
 
 Usage:
 The snapshot can be loaded by NEEDLE's pseudo-models for evaluation and inference:
@@ -28,7 +31,7 @@ from urllib.parse import urlencode
 import law
 from omegaconf import OmegaConf
 
-from needle.law_tasks.main import MainTask
+from needle.law_tasks.estimator import EstimatorTask
 from needle.law_tasks.mixins import HydraMixin
 from needle.utils.logging import ColorFormatter
 from needle.utils.results import (
@@ -54,25 +57,26 @@ class SnapshotTask(HydraMixin, law.Task):
         significant=False,
     )  # type: ignore
 
-    def requires(self):
-        """Ensure all training is completed by requiring MainTask.
+    def requires(self) -> List[EstimatorTask]:
+        """Create EstimatorTask instances for all estimators in the config.
 
-        Also caches the resolved config to the results directory for reference.
+        Note:
+            Config caching/consistency-checking is handled upstream by ``MainTask``. This Task
+            remains independently runnable (e.g. from ``DownstreamTask``) using whatever
+            ``config_file`` it is given directly.
 
         Returns:
-            MainTask: Root task that triggers all training.
+            List[EstimatorTask]: Tasks for each estimator key in the config.
         """
-        cache_config_file = os.path.join(self.results_path, "config.yaml")
-        self.config._resolved = True
-
-        with open(cache_config_file, "w") as f:
-            f.write(OmegaConf.to_yaml(OmegaConf.structured(self.config), resolve=True))
-
-        return MainTask(
-            config_file=self.config_file,
-            hydra_overrides=self.hydra_overrides,
-            results_path=self.abs_results_path,
-        )
+        return [
+            EstimatorTask(
+                config_file=self.config_file,
+                hydra_overrides=self.hydra_overrides,
+                estimator=estimator_key,
+                results_path=self.abs_results_path,
+            )
+            for estimator_key in self.config.estimators.keys()
+        ]
 
     def output(self):
         """Define output target for the DAG snapshot.
@@ -107,7 +111,7 @@ class SnapshotTask(HydraMixin, law.Task):
         evaluation/inference without re-running training.
 
         The DAG hierarchy traversed is:
-            MainTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
+            SnapshotTask → EstimatorTask → SystematicTask → EnsembleTask → FoldTask
         """
         self.print_config_path_once()
 
@@ -125,10 +129,9 @@ class SnapshotTask(HydraMixin, law.Task):
         all_estimator_nodes = []
 
         logger.info("Processing...")
-        main_task = self.requires()
 
         # Traverse EstimatorTasks
-        for estimator_task in main_task.requires():
+        for estimator_task in self.requires():
             estimator_name = estimator_task.estimator
             logger.info(f"|  Estimator:    {estimator_name}")
 

@@ -5,13 +5,15 @@ systematic variations and cross-validation folds using law.
 
 Task Hierarchy:
     MainTask (entry point)
-    └── EstimatorTask (one per estimator)
-         └── SystematicTask (one per systematic variation)
-              └── EnsembleTask (one per ensemble group)
-                   └── FoldTask (actual training with PyTorch Lightning)
+    └── SnapshotTask (drives training, then collects the trained DAG into a snapshot)
+         └── EstimatorTask (one per estimator)
+              └── SystematicTask (one per systematic variation)
+                   └── EnsembleTask (one per ensemble group)
+                        └── FoldTask (actual training with PyTorch Lightning)
 
 Supporting Components:
-    - SnapshotTask: Collects trained models into a snapshot for evaluation
+    - SnapshotTask: Drives all EstimatorTasks and collects trained models into a snapshot for
+      evaluation. Required by MainTask, and independently runnable (e.g. from DownstreamTask).
     - DownstreamTask: Runs post-training analysis and evaluation tasks
     - Mixins: HydraMixin for configuration, CollectOutputMixin for debugging
     - Workflows: Support for local, HTCondor, and SLURM execution
