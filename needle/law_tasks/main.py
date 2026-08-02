@@ -1,13 +1,12 @@
 import os
 from enum import Enum
 from pathlib import Path
-from typing import List
 
 import law
 from omegaconf import OmegaConf
 
-from needle.law_tasks.estimator import EstimatorTask
 from needle.law_tasks.mixins import HydraMixin
+from needle.law_tasks.snapshot import SnapshotTask
 from needle.utils.config_utils import compare_configs, initialize_hydra_config
 from needle.utils.logging import ColorFormatter, LogOnce
 
@@ -26,8 +25,10 @@ class MainTask(HydraMixin, law.WrapperTask):
     It is responsible for:
 
     - Loading and resolving Hydra configuration
-    - Creating EstimatorTask instances for all estimators in the config
-    - Managing the complete training DAG
+    - Resolving and caching results paths, then propagating all settings down the Task tree
+    - Requiring the terminal SnapshotTask, which in turn drives the full training DAG
+      (EstimatorTask -> SystematicTask -> EnsembleTask -> FoldTask) and produces the final
+      ``dag_snapshot.json`` used by ``needle-api``/``Model`` to build pseudo-models.
 
     The Task resolves configuration conflicts and manages results paths, then propagates all the settings
     down the Task tree.
@@ -71,13 +72,13 @@ class MainTask(HydraMixin, law.WrapperTask):
 
         return Path(os.path.abspath(self.results_path))
 
-    def requires(self) -> List[EstimatorTask]:
-        """Create EstimatorTask instances for all estimators in the config.
+    def requires(self) -> SnapshotTask:
+        """Require the terminal SnapshotTask, which drives the complete training DAG.
 
         Also caches the resolved config to ensure consistency across all dependent tasks to `<results_path>/config.yaml`
 
         Returns:
-            List[EstimatorTask]: Tasks for each estimator key in the config.
+            SnapshotTask: Task that requires all EstimatorTasks and produces the DAG snapshot.
         """
         os.makedirs(self.abs_results_path, exist_ok=True)
         cache_config_filepath = Path(os.path.join(self.abs_results_path, "config.yaml"))
@@ -112,12 +113,8 @@ class MainTask(HydraMixin, law.WrapperTask):
         with open(cache_config_filepath, "w") as f:
             f.write(OmegaConf.to_yaml(OmegaConf.structured(self.config), resolve=True))
 
-        return [
-            EstimatorTask(
-                config_file=cache_config_filepath,
-                hydra_overrides=self.hydra_overrides,
-                estimator=estimator_key,
-                results_path=self.abs_results_path,
-            )
-            for estimator_key in self.config.estimators.keys()
-        ]
+        return SnapshotTask(
+            config_file=cache_config_filepath,
+            hydra_overrides=self.hydra_overrides,
+            results_path=self.abs_results_path,
+        )
