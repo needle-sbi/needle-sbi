@@ -48,11 +48,6 @@ class PartitionQueue:
     file at a time.
     """
 
-    dask.config.set(  # type: ignore
-        scheduler="single-threaded",
-        num_workers=1,
-    )
-
     array: dak.Array  # type: ignore
     total_num_partitions: int
 
@@ -65,6 +60,11 @@ class PartitionQueue:
         Args:
             array (dak.Array): Dask Awkward Array to manage partitions.
         """
+        dask.config.set(  # type: ignore
+            scheduler="single-threaded",
+            num_workers=1,
+        )
+
         self.array = array
         self.total_num_partitions = array.npartitions
 
