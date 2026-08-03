@@ -87,3 +87,41 @@ class TestKFold:
             )
             fold_ratio = length_fold[fold] / array.divisions[-1]
             assert math.isclose(desired_ratio, fold_ratio, rel_tol=0.01)
+
+
+class TestLoadPartitionNegativeSlice:
+    """Regression tests for load_partition's negative event_index branch.
+
+    `array.partitions[pid][abs(event_index):-1]` silently excluded the last event of the
+    partition, and produced a zero-length `EmptyArray` (losing all record/field type info)
+    whenever exactly one event should have remained after slicing - which then crashed any
+    downstream field access (e.g. `array['some_field']`) with `IndexError: cannot slice
+    EmptyArray ... not an array of records`. Fixed to `array.partitions[pid][abs(event_index):]`.
+    """
+
+    @pytest.fixture
+    def ten_event_array(self, tmp_path: Path) -> dak.Array:
+        from needle.etl.dask_ingestor import Ingestor
+
+        path = tmp_path / "ten_events.parquet"
+        arr = ak.Array({"x": np.arange(10, dtype=np.float32)})
+        ak.to_parquet(arr, path)
+        return Ingestor(str(path)).array
+
+    @pytest.mark.parametrize("remaining", [5, 2, 1])
+    def test_negative_slice_keeps_correct_remaining_events(
+        self,
+        ten_event_array: dak.Array,
+        remaining: int,
+    ) -> None:
+        event_index = -(10 - remaining)
+
+        sliced = load_partition(
+            ten_event_array,
+            partition_id=0,
+            event_index=event_index,
+        ).compute()
+
+        assert len(sliced) == remaining
+        assert list(sliced.fields) == ["x"]
+        assert sliced["x"].to_list() == list(range(10 - remaining, 10))
