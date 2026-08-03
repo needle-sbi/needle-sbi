@@ -6,7 +6,7 @@ custom_settings:  # extra user-defined settings (not managed by hydra/OmegaConf)
 estimators:
   model_A:  # name of this estimator
     model: mock_transformer  # reads file 'models/mock_transformer.yaml'
-    datamodule: pandas  # reads file 'datamodules/pandas.yaml'
+    datamodule: padded  # reads file 'datamodules/padded.yaml'
     dataset: default  # reads file 'datasets/default.yaml'
     trainer: default  # reads file 'trainers/default.yaml'
     requires: []  # another estimator field
