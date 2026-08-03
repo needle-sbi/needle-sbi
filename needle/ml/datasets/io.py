@@ -11,6 +11,18 @@ import dask_awkward as dak
 logger = logging.getLogger("ml")
 
 
+def _has_valid_divisions(divisions) -> bool:  # type: ignore
+    """Check that a dask divisions tuple is a valid, strictly increasing boundary sequence.
+
+    A dask_awkward Array's divisions must start at zero and strictly increase. Used to avoid
+    blindly re-running `eager_compute_divisions()` on an array whose divisions were already
+    correctly computed/repaired upstream (see :class:`PartitionQueue`).
+    """
+    if not divisions or divisions[0] != 0:
+        return False
+    return all(upper > lower for lower, upper in zip(divisions, divisions[1:]))
+
+
 def load_partition(
     array: dak.Array,  # type: ignore
     partition_id: int,
@@ -69,7 +81,8 @@ class PartitionQueue:
         self.total_num_partitions = array.npartitions
 
         if self.total_num_partitions > 1:
-            self.array.eager_compute_divisions()
+            if not _has_valid_divisions(self.array.divisions):
+                self.array.eager_compute_divisions()
             self.read_lock = mp.Lock()
             self.manager = mp.Manager()
 
