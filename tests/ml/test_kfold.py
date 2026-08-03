@@ -125,3 +125,42 @@ class TestLoadPartitionNegativeSlice:
         assert len(sliced) == remaining
         assert list(sliced.fields) == ["x"]
         assert sliced["x"].to_list() == list(range(10 - remaining, 10))
+
+
+class TestPartitionQueuePreservesDivisions:
+    """Regression test: PartitionQueue must not silently re-corrupt already-valid divisions.
+
+    `PartitionQueue.__init__` unconditionally called `array.eager_compute_divisions()` again
+    whenever `npartitions > 1`, even if the array's divisions had already been correctly
+    computed upstream. Re-running dask_awkward's own `eager_compute_divisions()` can
+    re-corrupt an already-valid divisions tuple (collapsing interior/trailing boundaries back
+    to zero for certain array shapes), which then makes downstream partition slicing (via
+    `load_partition`) silently return an empty, typeless `EmptyArray` instead of the real data.
+
+    Uses a multi-file array (like the `array` fixture above) to obtain reliably correct,
+    already-valid divisions independent of any single-file/row-group-split repair logic.
+    """
+
+    def test_kfold_partitions_are_non_empty_after_partition_queue_construction(
+        self,
+        array: dak.Array,
+    ) -> None:
+        from needle.ml.datasets.io import PartitionQueue
+
+        assert array.divisions[0] == 0
+        assert all(b > a for a, b in zip(array.divisions, array.divisions[1:]))
+
+        # PartitionQueue construction must not alter already-valid divisions.
+        divisions_before = array.divisions
+        queue = PartitionQueue(array)
+        assert queue.array.divisions == divisions_before
+
+        kfold = KFold(fold_index=0, n_folds=3, divisions=array.divisions, is_training=False)
+
+        total = 0
+        for pid, slicing_index in kfold.partitions.items():
+            sub_array = queue.load_partition_thread_safe(pid, slicing_index).compute()
+            assert len(sub_array) > 0, f"partition {pid} (slice={slicing_index}) was unexpectedly empty"
+            total += len(sub_array)
+
+        assert math.isclose(total, array.divisions[-1] / 3, rel_tol=0.01)
