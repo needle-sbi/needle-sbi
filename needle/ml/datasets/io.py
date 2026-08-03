@@ -37,7 +37,7 @@ def load_partition(
     if event_index > 0:
         return array.partitions[partition_id][0:event_index]
     if event_index < 0:
-        return array.partitions[partition_id][abs(event_index) : -1]
+        return array.partitions[partition_id][abs(event_index) :]
 
 
 class PartitionQueue:
