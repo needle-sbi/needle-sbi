@@ -27,10 +27,11 @@ above.
 """
 
 from pathlib import Path
-from typing import Annotated, Callable, Dict, List, Literal
+from typing import Annotated, Callable, Dict, List, Literal, cast
 
 import pydantic
 import pytest
+from omegaconf import OmegaConf
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
@@ -43,24 +44,33 @@ from needle.utils.config_schema import DatasetConfig, EstimatorConfig, Expansion
 Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
 
 
+DELPHES_DATASET_CONFIG = Path(__file__).parents[1] / "conf_tests" / "datasets" / "delphes.yaml"
+
+
 @pytest.fixture()
 def benchmark_config() -> EstimatorConfig:
     """Fixture that provides a standalone EstimatorConfig instance for benchmark tests.
 
-    Creates a minimal EstimatorConfig with a default estimator configuration.
-    No external config files or hydra loading is used.
+    The dataset entry (most importantly the feature columns) is read from the dedicated test
+    config directory `tests/conf_tests/datasets/delphes.yaml`, so that the benchmarks use the
+    same columns as the rest of the test suite. Everything else is a minimal default; no hydra
+    composition is performed.
 
     Returns:
         EstimatorConfig
     """
-    # Create a default dataset configuration for ingestion tests
-    dataset_config = DatasetConfig(
-        paths="",  # Will be overridden by the test
-        features_columns=[],  # Will be set by BenchmarkUtility.get_column()
-        labels_columns=[],
-        format="automatic",
-        max_number_events=-1,  # Will be set by the test
+    dataset_config = cast(
+        DatasetConfig,
+        OmegaConf.to_object(
+            OmegaConf.merge(
+                OmegaConf.structured(DatasetConfig),
+                OmegaConf.load(DELPHES_DATASET_CONFIG),
+            )
+        ),
     )
+    # `paths` and `max_number_events` are overridden by the test itself
+    dataset_config.paths = ""
+    dataset_config.max_number_events = -1
 
     # Create a default estimator configuration
     estimator_config = EstimatorConfig(
