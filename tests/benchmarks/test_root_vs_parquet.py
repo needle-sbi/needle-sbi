@@ -3,7 +3,7 @@ Compare the speed up between root and parquet files on the same Delphes dataset.
 the Environment variable for both the root and parquet version of the datasets are defined. Will
 convert the root files to parquet if not already done so.
 
-Disclaimer: Part of this code was written with the help of GPT-5
+Disclaimer: Part of this code was written with the help of GPT-5 and Claude
 
 Run these tests using the following command:
 
@@ -41,7 +41,7 @@ from needle.etl.dask_ingestor import Ingestor
 from needle.ml.datasets import PaddedDataset
 from needle.utils.config_schema import DatasetConfig, EstimatorConfig, ExpansionConfig
 
-Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
+Percentage = Annotated[float, pydantic.Field(ge=0.0, le=100.0)]
 
 
 DELPHES_DATASET_CONFIG = Path(__file__).parents[1] / "conf_tests" / "datasets" / "delphes.yaml"
@@ -52,9 +52,8 @@ def benchmark_config() -> EstimatorConfig:
     """Fixture that provides a standalone EstimatorConfig instance for benchmark tests.
 
     The dataset entry (most importantly the feature columns) is read from the dedicated test
-    config directory `tests/conf_tests/datasets/delphes.yaml`, so that the benchmarks use the
-    same columns as the rest of the test suite. Everything else is a minimal default; no hydra
-    composition is performed.
+    config directory `DELPHES_DATASET_CONFIG`, so that the benchmarks use the same columns as the
+    rest of the test suite.
 
     Returns:
         EstimatorConfig
@@ -72,7 +71,6 @@ def benchmark_config() -> EstimatorConfig:
     dataset_config.paths = ""
     dataset_config.max_number_events = -1
 
-    # Create a default estimator configuration
     estimator_config = EstimatorConfig(
         datamodule="default",
         datamodule_override=None,
