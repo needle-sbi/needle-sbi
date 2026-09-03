@@ -125,7 +125,8 @@ class BenchmarkUtility:
     @staticmethod
     @pydantic.validate_call
     def get_files(file_percentage: Percentage, paths: List[str]) -> List[str]:
-        return paths[: max(1, int(len(paths) * file_percentage))]
+        """`file_percentage` is a percentage (0-100), not a fraction (0-1)."""
+        return paths[: max(1, int(len(paths) * file_percentage / 100))]
 
 
 def run_test(
