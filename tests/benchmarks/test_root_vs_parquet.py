@@ -38,7 +38,7 @@ from torch.utils.data import DataLoader
 from needle.etl.array import resolve_paths
 from needle.etl.conversion import convert_root_to_parquet
 from needle.etl.dask_ingestor import Ingestor
-from needle.ml.datasets import PaddedDataset
+from needle.ml.datasets import PaddedDaskDataset
 from needle.utils.config_schema import DatasetConfig, EstimatorConfig, ExpansionConfig
 
 Percentage = Annotated[float, pydantic.Field(ge=0.0, le=100.0)]
@@ -206,7 +206,7 @@ def run_test(
         """Test function to iterate through a dataloader with padded dataset.
 
         This function creates an Ingestor instance and filters the columns based on the filter
-        function, combines them into a PaddedDataset, and then iterates through a DataLoader to
+        function, combines them into a PaddedDaskDataset, and then iterates through a DataLoader to
         verify that the data pipeline works correctly without errors.
 
         The test verifies that:
@@ -221,7 +221,7 @@ def run_test(
             max_number_events=config.dataset_override.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
-        datamodule = PaddedDataset(ingestor, ingestor)
+        datamodule = PaddedDaskDataset(ingestor, ingestor)
         dataloader = DataLoader(datamodule)
 
         for _ in dataloader:
