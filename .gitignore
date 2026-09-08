@@ -9,6 +9,7 @@ mlruns*
 lightning_logs*
 *.log
 .benchmarks
+tests/benchmarks/plots/
 .claude
 .law
 .mypy_cache
