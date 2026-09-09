@@ -30,7 +30,7 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
     )  # type: ignore
     strict_config: str = luigi.Parameter(
         description="Config conflict strictness: IGNORE, WARN, or RAISE.",
-        default="WARN",
+        default="RAISE",
         significant=False,
     )  # type: ignore
 
@@ -64,9 +64,13 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
 
             if config_diff:
                 msg = (
-                    "The cached version of your config does not match the new instance. Training results "
-                    "might differ based on the changed lines. Use `--remove-output` to delete the cached "
-                    "files from the previous run if you want a fresh run. Offending entries are (new, old):"
+                    f"The cached version of your config does not match the new instance."
+                    f"\n  Cached: {cache_config_filepath}"
+                    f"\n  New:    {Path(self.config_file).absolute()}"
+                    "\nTraining results might differ based on the changed lines. Either:"
+                    "\n   1. Clear the cached files using `--remove-output` for a fresh run."
+                    "\n   2. Set a different `results_path` (or --results-path) to start a new run"
+                    "\n   3. Ignore using the `strict-config=[WARN|RAISE|IGNORE]` CLI arg"
                     f"\n{config_diff}"
                 )
                 match self.strict_config.upper():
