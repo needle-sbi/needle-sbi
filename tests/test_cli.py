@@ -167,6 +167,120 @@ class TestCmdRunArgParsing:
         finally:
             sys.argv = old_argv
 
+    def test_main_parses_downstream_name_positional(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_cmd_run = MagicMock(return_value=None)
+        monkeypatch.setattr(cli, "cmd_run", mock_cmd_run)
+
+        _run_main(["run", "DownstreamTask", "my_downstream"])
+
+        args = mock_cmd_run.call_args.args[0]
+        assert args.task == "DownstreamTask"
+        assert args.downstream_name == "my_downstream"
+
+    def test_main_downstream_name_defaults_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_cmd_run = MagicMock(return_value=None)
+        monkeypatch.setattr(cli, "cmd_run", mock_cmd_run)
+
+        _run_main(["run"])
+
+        args = mock_cmd_run.call_args.args[0]
+        assert args.downstream_name is None
+
+
+# ---------------------------------------------------------------------------
+# `needle run DownstreamTask <name>` — positional shorthand for
+# `--param downstream=<name>`
+# ---------------------------------------------------------------------------
+
+
+class TestCmdRunDownstreamShorthand:
+    def test_downstream_name_becomes_downstream_param(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_call = MagicMock(return_value=0)
+        monkeypatch.setattr(cli.subprocess, "call", mock_call)
+
+        with pytest.raises(SystemExit):
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="DownstreamTask",
+                    downstream_name="my_downstream",
+                    backend="law",
+                    config_file="conf/config.yaml",
+                    results_path="runs",
+                    params=[],
+                )
+            )
+
+        called_argv = mock_call.call_args.args[0]
+        assert "--downstream" in called_argv
+        assert called_argv[called_argv.index("--downstream") + 1] == "my_downstream"
+
+    def test_downstream_name_prepended_before_other_params(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_call = MagicMock(return_value=0)
+        monkeypatch.setattr(cli.subprocess, "call", mock_call)
+
+        with pytest.raises(SystemExit):
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="DownstreamTask",
+                    downstream_name="my_downstream",
+                    backend="law",
+                    config_file="conf/config.yaml",
+                    results_path="runs",
+                    params=["dry-run"],
+                )
+            )
+
+        called_argv = mock_call.call_args.args[0]
+        assert "--downstream" in called_argv
+        assert "--dry-run" in called_argv
+
+    def test_downstream_name_rejected_for_other_tasks(self) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="MainTask",
+                    downstream_name="my_downstream",
+                    backend="law",
+                    config_file="conf/config.yaml",
+                    results_path="runs",
+                    params=[],
+                )
+            )
+        assert "DownstreamTask" in str(exc_info.value)
+
+    def test_downstream_name_conflicts_with_explicit_param(self) -> None:
+        with pytest.raises(SystemExit) as exc_info:
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="DownstreamTask",
+                    downstream_name="my_downstream",
+                    backend="law",
+                    config_file="conf/config.yaml",
+                    results_path="runs",
+                    params=["downstream=other_downstream"],
+                )
+            )
+        assert "not both" in str(exc_info.value)
+
+    def test_no_downstream_name_leaves_params_untouched(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_call = MagicMock(return_value=0)
+        monkeypatch.setattr(cli.subprocess, "call", mock_call)
+
+        with pytest.raises(SystemExit):
+            cli.cmd_run(
+                argparse.Namespace(
+                    task="DownstreamTask",
+                    backend="law",
+                    config_file="conf/config.yaml",
+                    results_path="runs",
+                    params=["downstream=my_downstream"],
+                )
+            )
+
+        called_argv = mock_call.call_args.args[0]
+        assert "--downstream" in called_argv
+        assert called_argv[called_argv.index("--downstream") + 1] == "my_downstream"
+
 
 # ---------------------------------------------------------------------------
 # `needle run --backend law` — builds and forwards the correct `law run` argv

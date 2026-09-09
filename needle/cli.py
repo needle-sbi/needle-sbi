@@ -45,6 +45,21 @@ def cmd_run(args: argparse.Namespace) -> None:
         config_file = getattr(args, "config_file", "conf/config.yaml")
         results_path = getattr(args, "results_path", "runs")
 
+    downstream_name = getattr(args, "downstream_name", None)
+    params = list(args.params)
+    if downstream_name is not None:
+        if args.task != "DownstreamTask":
+            raise SystemExit(
+                f"The <downstream_name> positional argument is only valid with the DownstreamTask "
+                f"task, got task={args.task!r}"
+            )
+        if any(p == "downstream" or p.startswith("downstream=") for p in params):
+            raise SystemExit(
+                "Specify the downstream task either positionally "
+                "(`needle run DownstreamTask <name>`) or via `--param downstream=<name>`, not both"
+            )
+        params = [f"downstream={downstream_name}", *params]
+
     try:
         result = run(
             task=args.task,
@@ -53,7 +68,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             results_path=results_path,
             batch_system=getattr(args, "batch_system", "local"),
             workers=getattr(args, "workers", 1),
-            params=args.params,
+            params=params,
         )
     except (UnknownTaskError, NeedleConfigError) as e:
         raise SystemExit(str(e))
@@ -97,6 +112,13 @@ def main() -> None:
         "DownstreamTask (default: MainTask)",
     )
     run_task_arg.completer = _complete_task  # type: ignore[attr-defined]
+    run.add_argument(
+        "downstream_name",
+        nargs="?",
+        default=None,
+        help="Shorthand for `DownstreamTask`: equivalent to --param downstream=<name>. "
+        "Only valid when task=DownstreamTask, e.g. `needle run DownstreamTask my_downstream`.",
+    )
     run.add_argument(
         "--backend",
         choices=["law", "b2luigi"],
