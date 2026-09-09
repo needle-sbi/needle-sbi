@@ -1,21 +1,28 @@
 # Writing Custom Downstream Tasks
 
-Downstream tasks are how you attach your own analysis code to the NEEDLE pipeline. After all
+Downstream tasks allow you to attach your own analysis code to the NEEDLE pipeline. After all
 models are trained and the snapshot is written, `DownstreamTask` instantiates and runs whatever
 Luigi `Task` you specify in the config.
 
 ::: {admonition} When to use `DownstreamTask`
-:class: info
-`DownstreamTask` exists so you can point NEEDLE to your Task purely through config. If you are already have a `luigi`/`law`/`b2luigi` workflow or plan to build
-one then importing `needle-sbi` as a package is simpler than to use `DownstreamTask`. In this case,
-you only need to point your own `require()` method to NEEDLE's `MainTask` directly from your own
+:class: tip
+`DownstreamTask` exists so you can point NEEDLE to your Task purely through config. If you already have a `luigi`/`law`/`b2luigi` workflow or plan to build
+one then importing `needle-sbi` as a package is simpler than using `DownstreamTask`. In this case,
+you only need to point your own `requires()` method to NEEDLE's `MainTask` directly from your own
 workflow, see the [Scenarios](#scenarios) section below.
 :::
 
-::: {question} Why is the luigi Task not in the DAG?
+::: {admonition} Why is my luigi Task not shown in the DAG?
+:class: info
 When using the DownstreamTask wrapper for your luigi Task, it is not possible for luigi or the other
 schedulers to inspect your Task. This is because it would have to read the config file first in order
-to see which DownstreamTasks are registered, but luigi only performs a static analysis. Therefore,
+to see which DownstreamTasks are registered, but luigi only performs a static analysis.
+
+Therefore, `DownstreamTask` cannot simply `require()` your Task the normal luigi way: luigi
+would need to know its class and parameters *before* the config is parsed. Instead,
+`DownstreamTask` reads the config first, then instantiates and drives your Task directly
+(`output()`/`run()`/`complete()`), which is why it shows up in the DAG only as a generic
+`DownstreamTask` node rather than as your own Task class.
 :::
 
 (scenarios)=
@@ -31,22 +38,39 @@ There are two ways to combine your own tasks with NEEDLE's:
 
 ## Compatibility matrix
 
-Whether a combination is known to work, based on what's actually exercised by the test suite:
-
 |                       | plain `luigi`             | `law`                     | `b2luigi`             |
 |-----------------------|---------------------------|---------------------------|-----------------------|
-| **NEEDLE-in-Yours**   | Not supported (breaks batch submissions) | ☑ `needle.tasks.law`| ☑ `needle.tasks.b2luigi` |
-| **Yours-in-NEEDLE** (`DownstreamTask`) |        ☑ |                         ☑ |                     ☑ |
+| **NEEDLE-in-Yours**   |  Not supported (breaks batch submissions) | ☑ `needle.tasks.law`| ☑ `needle.tasks.b2luigi` |
+| **Yours-in-NEEDLE** (using `DownstreamTask`) |        ☑ |                         ☑ |                     ☑ |
 
-`DownstreamTask` calls the wrapped task's `output()`/`run()`/`complete()` directly rather than
-scheduling it, so the wrapped class only needs to look like a `luigi.Task` (duck typing, not an
-`isinstance` check). Therefore, a plain `luigi.Task`, a `law.Task`, or a `b2luigi.Task` all work with
+Note: `DownstreamTask` calls the wrapped task's `output()`/`run()`/`complete()` directly rather than
+scheduling it, so the wrapped class only needs to *look* like a `luigi.Task`. Therefore, a plain `luigi.Task`, a `law.Task`, or a `b2luigi.Task` all work with
 either backend's `DownstreamTask`.
 
 ::: {warning}
-The `requires` method of your `luigi`/`law`/`b2luigi` Task is not used by `DownstreamTask`. You cannot
-use this method to defined the dependency graph of your post-training. Instead, use the `requires`
+The `requires()` method of your `luigi`/`law`/`b2luigi` Task cannot be to define the dependency graph of your post-training with `DownstreamTask`. Instead, use the `requires`
 section in the config.
+
+Wrong: Using the `require()` method in your Luigi Task:
+```python
+class MyAnalysisTask(luigi.Task):
+    def requires(self):  # Will be silently ignored.
+        return OtherAnalysisTask()
+
+    def run(self):
+        ...
+```
+
+Correct: Declare the dependency in the config instead, see [Chaining_Downstream_Tasks](#chaining-downstream-tasks)
+
+```yaml
+downstream_tasks:
+  other_analysis:
+    args: { _target_: my_package.tasks.OtherAnalysisTask }
+  my_analysis:
+    requires: ["other_analysis"]
+    args: { _target_: my_package.tasks.MyAnalysisTask }
+```
 :::
 
 ## Implementing a DownstreamTask
@@ -60,7 +84,7 @@ import json
 
 class MyAnalysisTask(luigi.Task):
     snapshot_path: str = luigi.Parameter()  # optional, see next Section
-    output_path: "..."
+    output_path: str = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget(self.output_path)
@@ -81,7 +105,7 @@ Key rules:
 - Luigi checks `output()` to decide if the task is already done. If all output files exist, the
   task is skipped.
 - The `run()` method must create all output files before it exits. If it raises an exception,
-  the task is marked failed and downstream tasks will not run.
+  the task is marked as failed.
 
 ::: {hint}
 Ensure that the content of the files at the end of the `run()` method are correct. Otherwise, if the
@@ -109,16 +133,17 @@ number of DownstreamTasks (here just one named `my_analysis`). The valid sub-fie
 | Field                   | Python Type                       | Description                       |
 |-------------------------|-----------------------------------|-----------------------------------|
 | `requires`              | `Optional[List[str]]`             | Reference other entries by name    |
-| `args`                  | `dict[Any]`                       | Required. Needs at least the `_target_` field as an entry. All the other args are passed to your Task |
+| `args`                  | `dict[Any]`                       | Required. Needs at least the `_target_` field as an entry. All the other args are passed to your Task. See [Schema for the `args` entry](#the-args-target-structure) |
 | `expands`               | `Optional[dict[str, list[Any]]]`  | How to duplicate this task. Use a descriptive name for each key and use a list of values to iterate over. If passing more than one key-value, then the cartesian product of those keys are used. See [expands block](./downstream_tasks.md#parameter-expansion) |
 
-::: {note}
-The `snapshot_path` parameter is injected automatically by `DownstreamTask`, you do not need
-to specify it in the config. It is also completely optional, if your Task does not accept it, then
-it will be dropped with an info message. The benefit is that you do not need to manually track the
+::: {admonition} The `snapshot_path` parameter
+:class: note
+This parameter is injected automatically by `DownstreamTask` and points to the path of the snapshot of the trained models.
+While you do not need to specify it in the config, you have to accept it as an argument in your Task if you want to access it. It is completely optional, so if your Task *does not* accept it, then
+it will be dropped with an info message. This parameter exists to automatically track the
 location of the training output directory in your DownstreamTasks. This uses the same
-kwarg-injection mechanism as `model`/`datamodule` classes — see
-[Runtime-injected arguments](hydra_config.md#runtime-injected-arguments) for the full picture.
+kwarg-injection mechanism as `model`/`datamodule` classes (See
+[Runtime-injected arguments](hydra_config.md#runtime-injected-arguments) for the full picture).
 :::
 
 ::: {hint}
@@ -126,30 +151,72 @@ OmegaConf interpolations (`${...}`) are resolved before the task class is instan
 `root_dir` will have the actual path string by the time `MyAnalysisTask.__init__` is called.
 :::
 
+(the-args-target-structure)=
+## Schema for the `args` entry
+
+Unlike `estimators`, the entries for `downstream_tasks.<my_analysis>` are freeform dicts. NEEDLE cannot know or validate the shape of your Task ahead of time. The only requirement is the Hydra `_target_` key that point to the python module with your Task.
+
+For example:
+
+```yaml
+downstream_tasks:
+  my_analysis:
+    args:
+      _target_: my_package.tasks.my_task.MyAnalysisTask
+      root_dir: "${custom_settings.root_dir}"
+      output_path: "${results_path_downstream}/my_results.json"
+```
+
+This gets unpacked in three steps:
+
+```python
+# 1. args, with OmegaConf interpolations resolved to plain Python values
+base_args = OmegaConf.to_container(self.downstream_config.args, resolve=True)
+# base_args = {
+#   "_target_": "my_package.tasks.my_task.MyAnalysisTask",
+#   "root_dir": "/abs/path/from/custom_settings.root_dir",
+#   "output_path": "runs/default/analysis/my_results.json"
+# }
+
+# 2. The `expands` values for this specific branch are merged in on top
+# (see Parameter expansion below)
+merged_args = {**base_args, **branch_args}
+
+# 3. hydra_instantiate resolves `_target_` to a class and calls it with the filtered kwargs
+return hydra_instantiate(merged_args, snapshot_path=self.snapshot_path)
+```
+
+What this means concretely:
+
+- Every other key in `args` must match a `luigi.Parameter` name your Task declares
+  (`root_dir`, `output_path` in the example above). An `args` key with no matching parameter on the
+  Task raises a normal `TypeError: unexpected keyword argument` from luigi's own parameter
+  resolution.
+- `snapshot_path` is the one extra kwarg NEEDLE injects on every call regardless of what's in
+  `args`. If your Task does not declare a `snapshot_path` luigi parameter, it is dropped with a
+  warning. This preferential treatment only applies to `snapshot_path` (being a `kwarg` and not 
+  part of the Config dict).
+- Values are passed as-is after OmegaConf parsing. Make sure your Task's `luigi.Parameter` type   
+  matches what the config actually produces.
+
 ## Running your DownstreamTasks
 
 From `law`:
 
 ```bash
-law run DownstreamTask \
-    --downstream my_analysis \
-    --config-file conf/config.yaml
+law run DownstreamTask --downstream my_analysis
 ```
 
-From `needle` with law backend:
+From `needle` (as a positional argument):
 
 ```bash
-needle run DownstreamTask --backend law \
-    --param downstream=my_analysis \
-    --config-file conf/config.yaml
+needle run DownstreamTask my_analysis
 ```
 
-Or with the b2luigi backend:
+Or explicitly:
 
 ```bash
-needle run DownstreamTask --backend b2luigi \
-    --param downstream=my_analysis \
-    --config-file conf/config.yaml
+needle run DownstreamTask --param downstream=my_analysis
 ```
 
 Either way:
@@ -159,10 +226,17 @@ Either way:
 
 See [DAG Workflow](task_hierarchy.md) for how the two backends differ.
 
+(parameter-expansion)=
 ## Parameter expansion
 
 If you want to run the same downstream task with different parameter values (e.g. validate each
-model variant separately), use `expands`:
+model variant separately), use `expands`. This is the downstream-task equivalent of the
+estimator-level [`expands` block](hydra_config.md#the-expands-block), but simpler: instead of the
+fixed `folds`/`ensembles`/`systematics` schema, `expands` here is an arbitrary
+`dict[str, list[Any]]`. Any key you name becomes a keyword argument on your Task, as long as your
+Task declares a matching `luigi.Parameter`.
+
+For example, lets create 3 duplicates of the `validate_nf` DownstreamTask:
 
 ```yaml
 downstream_tasks:
@@ -174,8 +248,22 @@ downstream_tasks:
       model_name: ["nf_signal_1jet", "nf_background_1jet", "nf_signal_2jet"]
 ```
 
-When `expands` lists multiple keys, NEEDLE spawns one branch per combination of the **cartesian
-product** of all value lists (via `itertools.product`), not one branch per key. For example:
+This spawns one `DownstreamTask` instance per value in the expanded list, one per `model_name`.
+For each branch, the single `{model_name: "nf_signal_1jet"}` pair is merged on top of
+`args` and both are handed to `hydra_instantiate` (see
+[Schema for the args entry](#the-args-target-structure) above) as keyword arguments, so your
+Task must declare the matching parameter:
+
+```python
+class ValidateNF(luigi.Task):
+    model_name: str = luigi.Parameter()   # <- filled from `expands.model_name` per branch
+    root_dir: str = luigi.Parameter()
+```
+
+When `expands` lists multiple keys, it will spawn one branch per combination of the **cartesian
+product** of all value lists (via `itertools.product`).
+
+For example, if we want 2 × 2 branches:
 
 ```yaml
 expands:
@@ -183,20 +271,18 @@ expands:
   jet_bin: ["1jet", "2jet"]
 ```
 
-produces 2 × 2 = 4 branches (`(nf_signal_1jet, 1jet)`, `(nf_signal_1jet, 2jet)`,
-`(nf_background_1jet, 1jet)`, `(nf_background_1jet, 2jet)`), each getting its own
-`model_name`/`jet_bin` pair passed to the task constructor.
+This will create four duplicates, the first instance being 
 
-NEEDLE spawns one `DownstreamTask` per value in the expanded list. Each gets the extra parameter
-passed to the task constructor:
-
-```python
-class ValidateNF(luigi.Task):
-    model_name: str = luigi.Parameter()
-    snapshot_path: str = luigi.Parameter()
-    root_dir: str = luigi.Parameter()
-    ...
 ```
+DownstreamTask(downstream="validate_nf", model_name="nf_signal_1jet", jet_bin="1jet")
+```
+
+Of course, the `ValidateNF` Task above would then also need a new `jet_bin: str = luigi.Parameter()` field.
+
+::: {hint}
+The plain naming for each branch is determined using `urlencode(sorted(branch_params.items()))`, e.g. `jet_bin=1jet&model_name=nf_signal_1jet`.
+(See [Output directory layout](../setup/usage.md#output-directory-layout)).
+:::
 
 ## Chaining downstream tasks
 
@@ -207,7 +293,7 @@ downstream_tasks:
   histogram:
     args: { ... }
   neyman:
-    requires: ["histogram"]
+    requires: ["histogram"]  # points to the previous entry
     args: { ... }
   eval:
     requires: ["neyman"]

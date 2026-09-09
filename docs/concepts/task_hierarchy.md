@@ -106,7 +106,7 @@ fits using the trained weights. This is possible in the following ways:
 
 
       class SimpleTask(law.Task):
-          def requires():
+          def requires(self):
               return MainTask()
       ```
 

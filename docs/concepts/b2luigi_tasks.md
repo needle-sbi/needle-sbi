@@ -31,7 +31,7 @@ class FoldTask(BaseFoldTask, b2luigi.Task):
         return TrainingTask  # <- just point to the b2luigi implementation
 ```
 
-::: {admonition} "Why `task_namespace = "b2luigi"`?"
+::: {admonition} Why `task_namespace = "b2luigi"`?
 :class: info
 Luigi's global task registry keys tasks by `family = f"{namespace}.{classname}"` when a task is
 namespaced. Without it, `b2luigi.FoldTask`/`EnsembleTask`/etc. would collide in the registry

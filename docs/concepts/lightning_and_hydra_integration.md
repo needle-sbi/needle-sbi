@@ -121,7 +121,7 @@ We found it logical to use plural for the group folders `models`, `datasets`, `d
 Using the config structure shown above, we have a sub-config `models/my_model.yaml` with the
 following hyperparameters:
 
-    _target_: my_package.classifier.py
+    _target_: my_package.classifier.MyClassifier
     lr: 0.001
     hidden_dim: 128
     latend_dim: 128
@@ -144,7 +144,7 @@ estimators:
     my_estimator:
         model: my_model  # unchanged
         model_override:
-            _target_: my_package.classifier.py
+            _target_: my_package.classifier.MyClassifier
             lr: 0.001
             hidden_dim: 128
             latend_dim: 128
@@ -174,7 +174,7 @@ estimators:
     my_estimator:
         model: my_model
         model_override:
-            _target_: my_package.classifier.py
+            _target_: my_package.classifier.MyClassifier
             lr: 0.001
             hidden_dim: 256  # manual override
             latend_dim: 128

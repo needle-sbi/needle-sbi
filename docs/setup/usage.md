@@ -2,6 +2,13 @@
 
 This page assumes you've completed [Setup](index.md) and have a working `conf/config.yaml`.
 
+::: {admonition} Overview
+:class: note
+
+NEEDLE takes your Lightning modules, populates the hyperparameters using Hydra and submits the models
+to HPCs.
+:::
+
 ## Running your first task
 
 There are three entry points you will use:
@@ -26,7 +33,8 @@ needle run DownstreamTask \
 ```
 
 The `downstream` parameter names one of the keys in `downstream_tasks` inside your config, in this
-case we named the step `"eval"`.
+case we named the step `"eval"`. For DownstreamTask, the `downstream_name` is a also a positional 
+argument, so passing `needle run DownstreamTask eval ...` will also point to the "eval" entry.
 NEEDLE automatically runs the training before running the analysis.
 More in the [Downstream Tasks](../concepts/downstream_tasks.md) page.
 
@@ -74,8 +82,8 @@ The `TrainingTask` will behave like a normal DAG leaf and train the single
  - The `expands` block will be dropped silently, since the leaf node is not aware of its sibling Tasks.
  - The output will be nested as if the Task ran as part of the whole DAG workflow.
 
-This case is safe if you are aware of what will run and what wont. You can also run the full DAG and
-luigi will pick up the Tasks that ran successfully from this singular TrainingTask.
+This case is safe if you are aware of what will run and what wont. You can also run the full DAG later
+on and luigi will pick up the Tasks that ran successfully from this singular TrainingTask.
 :::
 
 ### CLI args
@@ -87,14 +95,12 @@ The NEEDLE CLI has these options
 | `--config-file <path>` | Path to the Hydra config YAML |
 | `--results-path <path>` | Root directory for results |
 | `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
+| `--backend` | Either `"law"` (default) or `"b2luigi"` |
+| `--batch-system` | One of `"local"` (default), `"htcondor"`, `"slurm"` or `"lsd"` |
+| `--workers` | An `int` indicating the number of workers to request for this task |
 
 ::: {admonition} The `--param` wrapping
 :class: info
-
-In order to have a shared CLI tool for both backends, we introduce an extra layer for differentiating
-pure `needle-sbi` args from the ones passed to either law or b2luigi. If you are using the `law`
-backend (default), you can also use the `law` CLI tool instead, which avoids the `--param` wrapping.
-See the corresponding [LAW Tasks](../concepts/law_tasks.md) page.
 
 The `--param` flag takes a single `key=value` pair or just a `value`. You can use `--param` as often
 as you want.
@@ -107,7 +113,29 @@ needle run DownstreamTask \
 
 This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
 dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
+
+If you are using the `law` backend (default), you can also use the `law` CLI tool directly instead
+of `needle run`, which avoids the `--param` wrapping entirely and gets you tab-completion. See the
+corresponding [LAW Tasks](../concepts/law_tasks.md) page. There is no equivalent native CLI for
+`b2luigi` (yet). The `needle run --backend b2luigi` is currently the only CLI entry point.
 :::
+
+More worked examples:
+
+```bash
+# Run a single model (named "model_A")
+needle run TrainingTask --param estimator=model_A --param single
+law run TrainingTask --estimator model_A --single  # same as above
+```
+
+```bash
+# DownstreamTask, b2luigi backend 
+needle run DownstreamTask eval --backend b2luigi
+# --> DownstreamTask(downstream="eval")
+
+# passing a hydra override through --param (quote the whole value, spaces stay inside it)
+needle run MainTask --param hydra_overrides="estimators.model_A.model_override.lr=0.01"
+```
 
 ## Output directory layout
 
@@ -123,10 +151,15 @@ runs
             └── fold__0
                 ├── model.ckpt          # Last checkpoint
                 ├── model_config.yaml   # Exact config used to train this model
-                └── input_models.json   # List of models used as input
+                └── input_models.json   # List of models that were used as input
 ```
 
-For the directories we use the `est__<estimator_name>` and subsequent levels schema.
+For the directories we use the `est__<estimator_name>` and subsequent levels schema. 
+
+::: {note}
+You are not expected to walk through this structure by hand. Thats where the `dag_snapshot.json` below comes into
+play.
+:::
 
 ## Accessing trained models
 
@@ -147,18 +180,36 @@ The key is produced using `urllib.parse.urlencode` and can be unfurled using `ur
 {'est': ['model_A'], 'syst': ['nominal'], 'ensem': ['0'], 'fold': ['0']}
 ```
 
-The FAIR Universe demo's `HistogramTask.parse_snapshot()` is a good reference implementation
+The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference implementation.
 
 ## Troubleshooting
 
-**`ModuleNotFoundError: No module named 'needle.tasks.law'`**
-→ You might have forgotten to run `source setup.sh`. Either this or the modules are broken at import
- and `law` failed to load the Tasks.
+### Using `--backend law` (default)
 
-**`Unfulfilled dependencies at RunTime`**
-→ LAW expected an output file that doesn't exist. Check which file it reports and look at the
-task that should have created it. Often caused by a crashed run leaving partial outputs.
+ - **`task family '<MissingTask>' not found in index`**
+    → Ensure the Task you want to run is indexed in the `index` file. Refresh with `law index`. The modules
+    to be indexed must be listed in `law.cfg`. 
+    
+    Make sure this section exists in your `law.cfg`, as it adds all the needle Tasks to the law index:
 
-**Task shows as complete but results look wrong**
-→ LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
+    ```cfg
+    [modules]
+    needle.tasks.law
+    ```
+
+ - **`ModuleNotFoundError: No module named 'needle.tasks.law'`**
+    → You might have forgotten to run `source setup.sh`. Either this or the modules are broken at import
+    and `law` failed to load the Tasks. You can debug this by opening python in the terminal and check if
+    you can import the module with the current interpreter.
+
+ - **`Unfulfilled dependencies at RunTime`**
+    → LAW expected an output file that doesn't exist. Check which file it reports and look at the
+    task that should have created it. Often caused by a crashed run leaving partial outputs.
+
+ - **Task shows as complete but results look wrong**
+    → LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
 task to force a re-run.
+
+### Using `--backend b2luigi`
+
+The Error messages from b2luigi are more detailed than law, and should point you into the right direction.

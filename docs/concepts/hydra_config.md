@@ -35,11 +35,11 @@ conf/
 ```
 
 The main `config.yaml` references the group files by filename stem (without `.yaml`). NEEDLE
-resolves these references at startup — see [Step 1 resolution](lightning_and_hydra_integration.md#step-1-references-to-other-config-files).
+resolves these references at startup (See [Step 1 resolution](lightning_and_hydra_integration.md#step-1-references-to-other-config-files)).
 
 ## The main `config.yaml` file
 
-These are the **top level fields**. Adding any extra fields is forbidden.
+These are the allowed top level fields.
 
 | Field | Python Type | Description |
 |---|---|---|
@@ -84,7 +84,7 @@ Each **estimator** has these fields. Adding any extra ones is forbidden.
 | `model_override`          | `Optional[Any]`             | Dictionary with the overrides (must match structure from the model sub-config) |
 | `trainer`                 | `str`                       | Name of the sub-config file for the trainer field |
 | `trainer_override`        | `Optional[Any]`             | Dictionary with the overrides (must match structure from the trainer sub-config) |
-| `requires`                | `Optional[List[str]]` See [requires block](./hydra_config.md#the-requires-blockk)       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
+| `requires`                | `Optional[List[str]]` See [requires block](./hydra_config.md#the-requires-block)       | List of the keys of other estimators. This will require their training to complete before starting this estimator |
 | `expands`                 | See [expands block](./hydra_config.md#the-expands-block) | How to multiply this estimator for Systematics, Ensembles and Folds. |
 
 The `*_override` mechanism is explained in more detail in [Building the Config](./lightning_and_hydra_integration.md#building-the-config). In essence, you can override the values of the fields from your sub-configs.
@@ -95,11 +95,11 @@ Controls how many training tasks are spawned per estimator.
 
 | Field                     | Python Type                 | Description                 |
 |---------------------------|-----------------------------|-----------------------------|
-| `ensembles`               | See `EnsembleConfig`        | How many ensembles to use. Contains one nested field: `ensembles.num_ensembles` which is an `int`   |
+| `ensembles`               | See `EnsembleConfig`        | How many ensembles to use. Contains one nested field: `ensembles.num_ensembles` which is an `int`. This is because we want to accommodate different ways of ensembling in the future |
 | `systematics`             | See `SystematicConfig`      | How to set up Systematics. Is a dictionary with the same fields as `EstimatorConfig`   |
 | `folds`                   | `int`                       | Number of folds             |
 
-
+Continuing with the example from above, with extra `expands` entries as needed:
 ```yaml
 estimators:
   my_estimator:
@@ -119,6 +119,19 @@ estimators:
 
 This config spawns 5 × 3 × 2 = 30 `TrainingTask` instances. Each systematic can override any
 component (model, datamodule, dataset, trainer) relative to the base estimator config.
+
+::: {hint}
+Each of these 30 combinations gets its own output directory and its own key in
+`dag_snapshot.json`, e.g. `est=my_estimator&syst=high_lr&ensem=1&fold=3`. See
+[Output directory layout](../setup/usage.md#output-directory-layout) to see how to read this
+back into your own code.
+:::
+
+::: {hint}
+In luigi, parameters are an integral part of a Task's identity. This means that two Task instances
+with the same `estimator`/`systematic`/`ensemble`/`fold_index` parameters are considered to be the
+same Task by the scheduler. **This applies to the parameter names, not their values**!
+:::
 
 ### The `requires` block
 
@@ -235,7 +248,7 @@ This is an extra config for using the NEEDLE LightningDatamodules which is valid
 | `labels_columns`        | `Optional[List[str]]`             | List of column names for the labels   |
 | `format`                | `str`                             | "automatic" or "parquet" or "root"    |
 | `dak_reader_kwargs`     | `dict[str, Any]`                  | Extra kwargs for `dask` reader        |
-| `max_number_of_events`  | `int`                             | Either `-1` for all or number of events to read |
+| `max_number_events`     | `int`                             | Either `-1` for all or number of events to read |
 
 The dataset can be specified inline in the estimator config (without a group file):
 
@@ -317,7 +330,7 @@ To change the config and rerun, either change `results_path` or manually delete 
 config file.
 :::
 
-::: {info}
+::: {note}
 For a complete working example of a multi-estimator config with systematics and downstream tasks,
 see the [FAIR Universe demo](../examples/fair_universe_demo/index.md).
 :::

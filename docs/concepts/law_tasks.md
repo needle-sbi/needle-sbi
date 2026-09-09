@@ -196,7 +196,14 @@ From `needle` CLI tool:
 ```bash
 needle run MainTask --config-file conf/config.yaml
 needle run --backend law MainTask --config-file conf/config.yaml
-needle run DownstreamTask --downstream my_analysis_task --config-file conf/config.yaml
+needle run DownstreamTask --param downstream=my_analysis_task --config-file conf/config.yaml
 ```
 
-The advantage from using `law` directly is that it provides tab-completion.
+::: {warning}
+`needle run` always wraps task-specific parameters in `--param key=value` (see
+["CLI args"](../setup/usage.md#cli-args) on the Usage page), even for the `law` backend.
+The bare `--downstream my_analysis_task` flag only works when calling `law run` directly, not
+through `needle run`.
+:::
+
+Another advantage of using `law` directly is that it provides tab-completion.

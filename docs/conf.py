@@ -80,6 +80,11 @@ myst_enable_extensions = [
 
 myst_dmath_double_inline = True
 
+# Auto-generate an anchor id for every heading up to this depth (####), so headings can be
+# linked with `#the-heading-slug` without a manual `(name)=` target above each one. Several
+# concept pages already link to heading slugs this way; without this option those are dead links.
+myst_heading_anchors = 4
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "torch": ("https://pytorch.org/docs/stable/", None),

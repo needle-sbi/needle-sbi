@@ -18,7 +18,7 @@ all your neural networks in one go.
 ::::{grid} 2
 :gutter: 3
 
-:::{grid-item-card} Setup and Usage
+:::{grid-item-card} Setup and Introduction
 :link: setup/index
 :link-type: doc
 
@@ -45,8 +45,41 @@ Dive deeper into the mechanisms behind needle: the DAG Workflow, LAW and b2luigi
 
 Auto-generated reference for all public modules.
 :::
-
 ::::
+
+::: {admonition} Basic features
+:class: note
+
+With a minimal setup, NEEDLE gives you:
+
+- Job submission to HTCondor or Slurm clusters, with no batch-system code to write
+- [Automatic branching](concepts/hydra_config.md#the-expands-block) over estimators, systematic variations, ensembles and
+    cross-validation folds for managing O(100)s of models
+- A powerful [Hydra-based config composition](concepts/lightning_and_hydra_integration.md#hydra-from-the-cli)
+    that allows flexible model exchange, experiment tracking and CLI overrides.
+- [PyTorch Lightning training](concepts/lightning_and_hydra_integration.md#lightning) with check-pointing and MLflow logging built in
+- [Easily access trained models](setup/usage.md#accessing-trained-models) using the `dag_snapshot.json` mapping every trained model to its
+    checkpoint path, produced automatically at the end of a run
+- Accessible from the Command Line Interface with the `needle run` tool or as a python package
+:::
+
+::: {admonition} Advanced features
+:class: note
+
+As your needs grow, NEEDLE also supports:
+
+- Build complex model [inter-dependencies](concepts/hydra_config.md#the-requires-block)
+- Two interchangeable backends, [LAW](concepts/law_tasks.md) and [b2luigi](concepts/b2luigi_tasks.md),
+    sharing the same task definitions and config
+- Extend your analysis post-training by importing needle Tasks or with needle's [DownstreamTasks](concepts/downstream_tasks.md),
+    wired into the same dependency graph and with their own branch expansion.
+- [Dask-Awkward](concepts/dask_awkward.md) data ingestion for parquet and ROOT files
+- Training a single model directly, bypassing the full DAG, for fast iteration and debugging
+:::
+
+The starting point for using NEEDLE is the [Setup](setup/index.md) page, which shows how to install
+the software.
+
 
 ## Libraries
 
