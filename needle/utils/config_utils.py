@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import difflib
 import graphlib
 import inspect
@@ -9,6 +10,7 @@ from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Type, c
 import hydra
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
+from omegaconf.errors import ConfigKeyError, MissingMandatoryValue, OmegaConfBaseException
 
 if TYPE_CHECKING:
     from luigi import Task
@@ -18,6 +20,59 @@ from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("config")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
+
+
+class NeedleConfigError(Exception):
+    """A concise, user-facing error for problems found in a NEEDLE Hydra config file.
+
+    Raised in place of the raw omegaconf/hydra exception (whose message is buried under a
+    long internal traceback) so CLI/API users see just the actionable part: which config
+    key is the problem, and why.
+    """
+
+
+def _first_line(exc: BaseException) -> str:
+    text = str(exc).strip()
+    return text.splitlines()[0] if text else exc.__class__.__name__
+
+
+def _describe_config_key_error(exc: ConfigKeyError) -> str:
+    full_key = getattr(exc, "full_key", "") or _first_line(exc)
+    obj_type = getattr(exc, "object_type", None)
+
+    msg = f"Unknown config key '{full_key}'. "
+
+    if obj_type is not None and dataclasses.is_dataclass(obj_type):
+        valid_keys = sorted(f.name for f in dataclasses.fields(obj_type))
+        leaf_key = full_key.rsplit(".", 1)[-1]
+        close_matches = difflib.get_close_matches(leaf_key, valid_keys, n=3)
+
+        if close_matches:
+            msg += f"Did you mean: {', '.join(close_matches)}?"
+        elif valid_keys:
+            msg += f"Valid keys for {obj_type.__name__}: {', '.join(valid_keys)}."
+
+    return msg
+
+
+def _describe_missing_mandatory(exc: MissingMandatoryValue) -> str:
+    full_key = getattr(exc, "full_key", None) or _first_line(exc)
+    return (
+        f"Missing required config value for '{full_key}'. "
+        f"Set it in your config file, or pass it as a hydra override (e.g. '{full_key}=...')."
+    )
+
+
+def _describe_omegaconf_error(exc: OmegaConfBaseException) -> str:
+    full_key = getattr(exc, "full_key", None)
+    detail = _first_line(exc)
+    if full_key:
+        return f"Invalid value for config key '{full_key}': {detail}"
+    return f"Invalid config: {detail}"
+
+
+def _describe_composition_error(exc: ConfigCompositionException, config_name: str) -> str:
+    return f"Failed to compose Hydra config '{config_name}': {_first_line(exc)}"
 
 
 def validate_graph(self: "MainConfig") -> None:
@@ -69,21 +124,33 @@ def initialize_hydra_config(
             estimator dependency graph validated.
 
     Raises:
-        ValueError: If default resolution fails or graph validation detects missing dependencies.
+        NeedleConfigError: If the config file contains an unknown key, a missing required
+            value, an invalid value, or fails Hydra composition (e.g. unknown config group).
+        ValueError: If graph validation detects missing estimator dependencies.
     """
-    with hydra.initialize_config_dir(
-        config_dir=config_dir,
-        version_base=None,
-    ):
-        cfg_as_dict: DictConfig = OmegaConf.merge(
-            OmegaConf.structured(MainConfig),
-            hydra.compose(config_name=config_name, overrides=overrides),
-        )  # type: ignore
-        cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
-        OmegaConf.resolve(cfg_as_dict)
-        cfg: MainConfig = cast(MainConfig, cfg_as_dict)
-        validate_graph(cfg)
-        return cfg
+    try:
+        with hydra.initialize_config_dir(
+            config_dir=config_dir,
+            version_base=None,
+        ):
+            cfg_as_dict: DictConfig = OmegaConf.merge(
+                OmegaConf.structured(MainConfig),
+                hydra.compose(config_name=config_name, overrides=overrides),
+            )  # type: ignore
+            cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
+            OmegaConf.resolve(cfg_as_dict)
+            cfg: MainConfig = cast(MainConfig, cfg_as_dict)
+    except ConfigKeyError as e:
+        raise NeedleConfigError(_describe_config_key_error(e)) from None
+    except MissingMandatoryValue as e:
+        raise NeedleConfigError(_describe_missing_mandatory(e)) from None
+    except ConfigCompositionException as e:
+        raise NeedleConfigError(_describe_composition_error(e, config_name)) from None
+    except OmegaConfBaseException as e:
+        raise NeedleConfigError(_describe_omegaconf_error(e)) from None
+
+    validate_graph(cfg)
+    return cfg
 
 
 def resolve_defaults(

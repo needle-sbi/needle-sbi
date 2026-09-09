@@ -176,8 +176,8 @@ batch_size: 512
 num_workers: 4
 ```
 
-NEEDLE passes `dataset_config`, `fold_index`, and `n_folds` as extra kwargs at runtime. If your
-datamodule accepts them, it receives them automatically; if not, they are dropped with a warning.
+NEEDLE passes `dataset_config`, `fold_index`, and `n_folds` as extra kwargs at runtime — see
+[Runtime-injected arguments](#runtime-injected-arguments) below.
 
 ### `trainer`
 
@@ -250,6 +250,36 @@ estimators:
 ```
 
 Or referenced by name using a group file (`dataset: my_dataset` → `conf/datasets/my_dataset.yaml`).
+
+(runtime-injected-arguments)=
+## Runtime-injected arguments
+
+Your `model`, `datamodule`, and downstream task classes aren't instantiated from the YAML alone.
+NEEDLE also passes a handful of extra keyword arguments carrying information that's only known at
+runtime — which fold is currently training, where an upstream estimator's checkpoints ended up, etc.
+
+| Consumer | Extra kwargs passed |
+|---|---|
+| `model` | `dataset_config`, `input_models` |
+| `datamodule` | `dataset_config`, `input_models`, `fold_index`, `n_folds` |
+| Downstream task (`args._target_`) | `snapshot_path` |
+
+You don't need to accept every one of these — NEEDLE inspects your class's `__init__` signature
+(and `luigi.Parameter` attributes for downstream tasks), passes only the kwargs it actually
+supports, and silently drops the rest, logging a warning (an info message for `snapshot_path`) for
+whatever gets skipped. So a class only declares the parameters it actually uses; no `**kwargs`
+catch-all required:
+
+```python
+class MyDataModule(lightning.LightningDataModule):
+    def __init__(self, batch_size: int, fold_index: int, n_folds: int):
+        ...  # receives fold_index/n_folds automatically; dataset_config and input_models are dropped
+```
+
+This is the same mechanism behind the `snapshot_path` parameter described in
+[Writing Custom Downstream Tasks](downstream_tasks.md). For the implementation — how supported
+kwargs are detected and why the wrapper exists — see
+[`hydra_instantiate`: filtered class instantiation](lightning_and_hydra_integration.md#hydra_instantiate-filtered-class-instantiation).
 
 ## Downstream task config
 

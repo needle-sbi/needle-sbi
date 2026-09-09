@@ -116,7 +116,9 @@ number of DownstreamTasks (here just one named `my_analysis`). The valid sub-fie
 The `snapshot_path` parameter is injected automatically by `DownstreamTask`, you do not need
 to specify it in the config. It is also completely optional, if your Task does not accept it, then
 it will be dropped with an info message. The benefit is that you do not need to manually track the
-location of the training output directory in your DownstreamTasks.
+location of the training output directory in your DownstreamTasks. This uses the same
+kwarg-injection mechanism as `model`/`datamodule` classes — see
+[Runtime-injected arguments](hydra_config.md#runtime-injected-arguments) for the full picture.
 :::
 
 ::: {hint}

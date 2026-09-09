@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Literal
 
 import luigi
 from omegaconf import OmegaConf
@@ -88,10 +88,10 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
         EstimatorTask = self._estimator_task_class()
         return [
             EstimatorTask(
-                config_file=cache_config_filepath,
+                config_file=str(cache_config_filepath),
                 hydra_overrides=self.hydra_overrides,
                 estimator=estimator_key,
-                results_path=self.abs_results_path,
+                results_path=str(self.abs_results_path),
             )
             for estimator_key in self.config.estimators.keys()
         ]
@@ -130,3 +130,7 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
             return ckpt_path
 
         raise FileNotFoundError(f"No checkpoint found at {ckpt_path}")
+
+    def complete(self) -> Literal[False]:
+        """Always force a re-check of the config first"""
+        return False

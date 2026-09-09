@@ -36,6 +36,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 def cmd_run(args: argparse.Namespace) -> None:
     from needle.api.run import UnknownTaskError, run
+    from needle.utils.config_utils import NeedleConfigError
 
     if args.backend == "law":
         config_file = getattr(args, "config_file", None)
@@ -54,7 +55,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             workers=getattr(args, "workers", 1),
             params=args.params,
         )
-    except UnknownTaskError as e:
+    except (UnknownTaskError, NeedleConfigError) as e:
         raise SystemExit(str(e))
 
     if args.backend == "law":
