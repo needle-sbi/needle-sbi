@@ -27,6 +27,7 @@ def test_b2luigi_backend_creates_settings_json(tmp_path: Path) -> None:
     init(tmp_path, no_conf=False, backend="b2luigi")
 
     assert (tmp_path / "settings.json").exists()
+    assert (tmp_path / "tasks.py").exists()
     assert (tmp_path / "setup.sh").exists()
     assert not (tmp_path / "law.cfg").exists()
     assert not (tmp_path / "index").exists()

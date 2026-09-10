@@ -21,10 +21,19 @@ Usage (local):
     from needle.tasks.b2luigi import MainTask
     b2luigi.process(MainTask(config_file="conf/config.yaml"))
 
-Usage (HTCondor):
+Usage (HTCondor/Slurm/LSF):
+    Batch submission re-invokes the task on the worker node through the real
+    ``b2luigi`` CLI (``b2luigi batch-runner --classname ...``). Make sure a ``tasks.py`` re-exporting the task classes exists at
+    the project root (scaffolded by ``needle init --backend b2luigi``) and that the
+    ``b2luigi`` console script is on ``PATH`` on worker nodes:
+
+    from b2luigi.cli.utils import process_task_instance
     from needle.tasks.b2luigi.workflows.common import configure_b2luigi
     configure_b2luigi(batch_system="htcondor")
-    b2luigi.process(MainTask(config_file="conf/config.yaml"))
+    process_task_instance(MainTask(config_file="conf/config.yaml"), task_file="tasks.py", batch=True)
+
+    Equivalently, from the command line: ``needle run MainTask --backend b2luigi
+    --batch-system htcondor``, or directly via ``b2luigi run MainTask --batch``.
 """
 
 import importlib

@@ -6,7 +6,6 @@ calling needle.api.run.run() directly instead of through the CLI.
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -82,7 +81,7 @@ class TestRunB2luigiBackend:
     def test_instantiates_task_and_calls_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_process = MagicMock()
         mock_configure = MagicMock()
-        monkeypatch.setattr("b2luigi.process", mock_process)
+        monkeypatch.setattr("b2luigi.cli.utils.process_task_instance", mock_process)
         monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", mock_configure)
 
         result = run(
@@ -102,11 +101,11 @@ class TestRunB2luigiBackend:
         assert type(task_instance).__name__ == "EnsembleTask"
         assert task_instance.estimator == "model_A"
         assert task_instance.systematic == "nominal"
-        assert kwargs == {"workers": 2, "batch": False}
+        assert kwargs == {"task_file": "tasks.py", "workers": 2, "batch": False}
 
     def test_accepts_dict_params(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_process = MagicMock()
-        monkeypatch.setattr("b2luigi.process", mock_process)
+        monkeypatch.setattr("b2luigi.cli.utils.process_task_instance", mock_process)
         monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
         mock_task_cls = MagicMock()
         monkeypatch.setattr("needle.tasks.b2luigi.FakeTask", mock_task_cls, raising=False)
@@ -119,7 +118,7 @@ class TestRunB2luigiBackend:
 
     def test_valueless_param_becomes_boolean_true_kwarg(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_process = MagicMock()
-        monkeypatch.setattr("b2luigi.process", mock_process)
+        monkeypatch.setattr("b2luigi.cli.utils.process_task_instance", mock_process)
         monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
         mock_task_cls = MagicMock()
         monkeypatch.setattr("needle.tasks.b2luigi.FakeTask", mock_task_cls, raising=False)
@@ -130,7 +129,7 @@ class TestRunB2luigiBackend:
 
     def test_batch_system_other_than_local_sets_batch_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
         mock_process = MagicMock()
-        monkeypatch.setattr("b2luigi.process", mock_process)
+        monkeypatch.setattr("b2luigi.cli.utils.process_task_instance", mock_process)
         monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
 
         run("MainTask", backend="b2luigi", batch_system="htcondor", params=[])
@@ -138,37 +137,15 @@ class TestRunB2luigiBackend:
         _, kwargs = mock_process.call_args
         assert kwargs["batch"] is True
 
-    def test_restores_sys_argv_after_process(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        captured_argv_during_call = []
-
-        def fake_process(task, **kwargs):
-            captured_argv_during_call.append(list(sys.argv))
-
-        monkeypatch.setattr("b2luigi.process", fake_process)
+    def test_passes_task_file_for_batch_worker_resolution(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        mock_process = MagicMock()
+        monkeypatch.setattr("b2luigi.cli.utils.process_task_instance", mock_process)
         monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
 
-        original_argv = ["needle", "run", "MainTask", "--backend", "b2luigi"]
-        monkeypatch.setattr(sys, "argv", original_argv)
+        run("MainTask", backend="b2luigi", batch_system="htcondor", params=[])
 
-        run("MainTask", backend="b2luigi", params=[])
-
-        assert captured_argv_during_call == [["needle"]]
-        assert sys.argv == original_argv
-
-    def test_restores_sys_argv_even_if_process_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def raising_process(task, **kwargs):
-            raise RuntimeError("boom")
-
-        monkeypatch.setattr("b2luigi.process", raising_process)
-        monkeypatch.setattr("needle.tasks.b2luigi.workflows.common.configure_b2luigi", MagicMock())
-
-        original_argv = ["needle", "run", "MainTask", "--backend", "b2luigi"]
-        monkeypatch.setattr(sys, "argv", original_argv)
-
-        with pytest.raises(RuntimeError):
-            run("MainTask", backend="b2luigi", params=[])
-
-        assert sys.argv == original_argv
+        _, kwargs = mock_process.call_args
+        assert kwargs["task_file"] == "tasks.py"
 
     def test_unknown_task_raises_unknown_task_error(self) -> None:
         with pytest.raises(UnknownTaskError) as exc_info:
