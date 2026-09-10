@@ -163,12 +163,11 @@ circular dependencies at config-load time.
 ### The `resources` block
 
 Usually, the batch resource requests are handled by `b2luigi` (`settings.json`) or `law` (`law.cfg`)
-using their own config files or per-Tas
+using their own config files or per-Task properties.
 
-Both `TrainingTask` and `DownstreamTask` also override `htcondor_settings`/`slurm_settings` as
-properties that read the `resources` field from `config.yaml` (per estimator/systematic for
-`TrainingTask`, per downstream_task entry for `DownstreamTask`) and merge it over the global
-`settings.json`/`configure_b2luigi()` settings, winning on conflicting keys:
+The config provides a block to override the global batch requests for each estimator or systematic.
+This applies to `TrainingTask` and `DownstreamTask`. The order of merging is systematics > estimator > global.
+
 
 ```yaml
 estimators:
@@ -188,10 +187,20 @@ downstream_tasks:
       request_memory: "2048MB"
 ```
 
-Keys/values are forwarded verbatim - use whatever `htcondor_settings`/`slurm_settings` keys your
-batch system expects. An estimator's `resources` and its active systematic's `resources` are
-shallow-merged, with the systematic's keys winning on conflict. `resources` is optional; if unset
-or empty, only the global `settings.json`/`configure_b2luigi()` settings apply.
+Keys/values are forwarded as-is to whatever `htcondor_settings`/`slurm_settings` keys your
+batch system expects. If you dont use `resources` at all, the global `law.cfg`, `settings.json`
+or `configure_b2luigi()` settings apply.
+
+::: {warning}
+This block is provided as a convenience, but clearly breaks the "reproducible" configs idea that NEEDLE
+tries to enforce. This is because resource allocation is site-dependent and the keys change between
+HTCondor and Slurm. A config that works on one site will break on another if the resources need to
+be requested in a different manner.
+
+A potential solution is to use OmegaConf interpolation to request resources in the correct way using
+if-else statements for each site.
+:::
+
 
 ## Estimator groups
 
