@@ -86,9 +86,9 @@ This case is safe if you are aware of what will run and what wont. You can also 
 on and luigi will pick up the Tasks that ran successfully from this singular TrainingTask.
 :::
 
-### CLI args
+## The NEEDLE CLI
 
-The NEEDLE CLI has these options
+The `needle run` tool has the following arguments:
 
 | Flag | Effect |
 |---|---|
@@ -96,13 +96,15 @@ The NEEDLE CLI has these options
 | `--results-path <path>` | Root directory for results |
 | `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
 | `--backend` | Either `"law"` (default) or `"b2luigi"` |
-| `--batch-system` | One of `"local"` (default), `"htcondor"`, `"slurm"` or `"lsd"` |
+| `--batch-system` | One of `"local"` (default), `"htcondor"`, `"slurm"` or `"lsf"` |
 | `--workers` | An `int` indicating the number of workers to request for this task |
+| `--help` | Shows the `needle run` help. Different from `--param help`, which displays the help menu for the given Task instead |
 
 ::: {admonition} The `--param` wrapping
 :class: info
 
-The `--param` flag takes a single `key=value` pair or just a `value`. You can use `--param` as often
+In order to accommodate both `law` and `b2luigi` backends, we use a generic `--param` flag that takes
+a single `key=value` pair or just a `value` and passes it further. You can use `--param` as often
 as you want.
 
 ```bash
@@ -110,6 +112,7 @@ needle run DownstreamTask \
     --param downstream=eval \       # key=value pair
     --param help                    # just value
 ```
+:::
 
 This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
 dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
@@ -118,14 +121,14 @@ If you are using the `law` backend (default), you can also use the `law` CLI too
 of `needle run`, which avoids the `--param` wrapping entirely and gets you tab-completion. See the
 corresponding [LAW Tasks](../concepts/law_tasks.md) page. There is no equivalent native CLI for
 `b2luigi` (yet). The `needle run --backend b2luigi` is currently the only CLI entry point.
-:::
 
-More worked examples:
+
+Examples:
 
 ```bash
 # Run a single model (named "model_A")
 needle run TrainingTask --param estimator=model_A --param single
-law run TrainingTask --estimator model_A --single  # same as above
+law run TrainingTask --estimator model_A --single
 ```
 
 ```bash
@@ -133,7 +136,8 @@ law run TrainingTask --estimator model_A --single  # same as above
 needle run DownstreamTask eval --backend b2luigi
 # --> DownstreamTask(downstream="eval")
 
-# passing a hydra override through --param (quote the whole value, spaces stay inside it)
+# passing a hydra override through --param 
+# (quote the whole value and spaces stay inside it)
 needle run MainTask --param hydra_overrides="estimators.model_A.model_override.lr=0.01"
 ```
 

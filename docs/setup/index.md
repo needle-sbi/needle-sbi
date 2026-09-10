@@ -37,6 +37,8 @@ uv when you run the script.
 uv pip install --no-config "git+ssh://git@github.com/needle-sbi/needle-sbi.git"
 ```
 
+This will directly create a virtual environment named `.venv`.
+
 ### Initialize the workspace
 
 In order to run `needle` you need a few config files. These can be created automatically using the
@@ -57,7 +59,7 @@ This will copy:
 You can also use `needle init --backend law` or `needle init --backend b2luigi` to only
 initialize the project with the backend that you want. Otherwise you keep both options open.
 
-### Set up the NEEDLE environment
+## Set up the NEEDLE environment
 
 ```bash
 source setup.sh

@@ -19,6 +19,10 @@ on Task A meaning A must finish before B can start.
   only user settings.
 :::
 
+::: {warning}
+Currently, the `venv` and `setup.sh` require a shared filesystem between worker and submission node.
+:::
+
 ## Python based workflows: Luigi, b2luigi and law
 
 The `needle-sbi` package ships this DAG in three forms, all in python, depending on your needs:
