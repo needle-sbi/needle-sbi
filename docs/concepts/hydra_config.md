@@ -65,7 +65,7 @@ estimators:
 The values inserted here are validated against `MainConfig`
 ([`needle/utils/config_schema.py`](../../needle/utils/config_schema.py)).
 
-## The Estimator field
+## Estimator blocks
 
 Instead of calling each training a model, we use the term Estimator to differentiate between a single
 neural networks (training by TrainingTask) and the neural surrogate that is potentially the combination
@@ -160,7 +160,43 @@ checkpoint paths of `first_stage` are made available to `second_stage`'s `FoldTa
 NEEDLE validates that all `requires` entries name existing estimators and that there are no
 circular dependencies at config-load time.
 
-## Groups: models, datamodules, trainers
+### The `resources` block
+
+Usually, the batch resource requests are handled by `b2luigi` (`settings.json`) or `law` (`law.cfg`)
+using their own config files or per-Tas
+
+Both `TrainingTask` and `DownstreamTask` also override `htcondor_settings`/`slurm_settings` as
+properties that read the `resources` field from `config.yaml` (per estimator/systematic for
+`TrainingTask`, per downstream_task entry for `DownstreamTask`) and merge it over the global
+`settings.json`/`configure_b2luigi()` settings, winning on conflicting keys:
+
+```yaml
+estimators:
+  my_estimator:
+    resources:
+      request_memory: "4096MB"
+      request_cpus: 2
+    expands:
+      systematics:
+        jec_up:
+          resources:
+            request_memory: "8192MB"  # overrides just this key for this systematic
+
+downstream_tasks:
+  my_downstream_task:
+    resources:
+      request_memory: "2048MB"
+```
+
+Keys/values are forwarded verbatim - use whatever `htcondor_settings`/`slurm_settings` keys your
+batch system expects. An estimator's `resources` and its active systematic's `resources` are
+shallow-merged, with the systematic's keys winning on conflict. `resources` is optional; if unset
+or empty, only the global `settings.json`/`configure_b2luigi()` settings apply.
+
+## Estimator groups
+
+In contrast to regular configs blocks as above, groups point to a further sub-config file with the
+same name. This allows you to defined self-contained and reusable config entries. 
 
 Each group file is a YAML dict that Hydra merges into the `*_override` field of the estimator.
 The only required field is `_target_`, which points to the Python class to instantiate. This is
@@ -269,7 +305,7 @@ Or referenced by name using a group file (`dataset: my_dataset` → `conf/datase
 
 Your `model`, `datamodule`, and downstream task classes aren't instantiated from the YAML alone.
 NEEDLE also passes a handful of extra keyword arguments carrying information that's only known at
-runtime — which fold is currently training, where an upstream estimator's checkpoints ended up, etc.
+runtime.
 
 | Consumer | Extra kwargs passed |
 |---|---|
@@ -277,11 +313,10 @@ runtime — which fold is currently training, where an upstream estimator's chec
 | `datamodule` | `dataset_config`, `input_models`, `fold_index`, `n_folds` |
 | Downstream task (`args._target_`) | `snapshot_path` |
 
-You don't need to accept every one of these — NEEDLE inspects your class's `__init__` signature
-(and `luigi.Parameter` attributes for downstream tasks), passes only the kwargs it actually
-supports, and silently drops the rest, logging a warning (an info message for `snapshot_path`) for
-whatever gets skipped. So a class only declares the parameters it actually uses; no `**kwargs`
-catch-all required:
+NEEDLE inspects your class's `__init__` signature and `luigi.Parameter` attributes for downstream tasks,
+passes only the kwargs it actually supports and silently drops the rest, logging a warning
+(an info message for `snapshot_path`) for whatever gets skipped. Your class only needs to declare
+the parameters it actually uses, no `**kwargs` catch-all required.
 
 ```python
 class MyDataModule(lightning.LightningDataModule):
@@ -289,10 +324,54 @@ class MyDataModule(lightning.LightningDataModule):
         ...  # receives fold_index/n_folds automatically; dataset_config and input_models are dropped
 ```
 
-This is the same mechanism behind the `snapshot_path` parameter described in
-[Writing Custom Downstream Tasks](downstream_tasks.md). For the implementation — how supported
-kwargs are detected and why the wrapper exists — see
-[`hydra_instantiate`: filtered class instantiation](lightning_and_hydra_integration.md#hydra_instantiate-filtered-class-instantiation).
+Current runtime-injected arguments are:
+
+ - `dataset_config`
+ 
+    An additional config group for switching datasets independently of 
+    `datamodule`. It adheres to the Config schema for the NEEDLE built-in `LightningDatamodule`
+    (See `needle.utils.config_schema.DatasetConfig`).
+
+ - `input_models` 
+ 
+    Provides you with a dictionary view on all the models referenced by the `requires`
+    keyword for the corresponding estimator. Meaning if model B depends on A, you can access the path
+    to the model A's checkpoint using this dictionary.
+
+    The keys are encoded with `urlencode` (<key>=<value>&...). For example, in the FAIR Universe Demo the input models for the classifier as such:
+
+    ```
+    {
+      "est=nf_background_1jet&syst=c_0.5&ensem=0&fold=0": "./runs/fair_universe_demo/est__nf_background_1jet/syst__c_0.5/ensem__0/fold__0/model.ckpt",
+      "est=nf_background_1jet&syst=c_2.0&ensem=0&fold=0": "./runs/fair_universe_demo/est__nf_background_1jet/syst__c_2.0/ensem__0/fold__0/model.ckpt",
+      ...
+    }
+    ```
+      The dict is also stored as `input_model.json` for completeness. For loading checkpoints, refer to the [Checkpoint Loading](https://pytorch-lightning.readthedocs.io/en/1.2.10/common/weights_loading.html#checkpoint-loading) page from the Lightning docs.
+
+ - `snapshot_path` 
+ 
+    Points to the file path for the `dag_snapshot.json` file which lists all trained 
+    models and their Lightning checkpoints. See [Accessing trained models](../setup/usage.md#accessing-trained-models).
+
+
+::: {admonition} Example with LightningModule
+:class: tip
+```
+class MyModel(L.LightningModule):
+    def __init__(
+        self,
+        hidden_dim: int,
+        lr: float,
+        dataset_config: dict,   # <- optional args injected by hydra
+        input_models: dict,     #
+    ) -> None:
+        feature_columns: List[str] = dataset_config.feature_columns
+        upstream_model = MyUpstreamModel.load_from_checkpoint(
+            input_models["est=nf_background_1jet&syst=c_2.0&ensem=0&fold=0"]
+        )
+```
+:::
 
 ## Downstream task config
 

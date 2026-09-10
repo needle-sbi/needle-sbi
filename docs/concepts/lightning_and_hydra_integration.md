@@ -53,8 +53,6 @@ class MyModel(L.LightningModule):
         self,
         hidden_dim: int,
         lr: float,
-        dataset_config: dict,   # <- optional args injected by hydra
-        input_models: dict,     # <-
     ) -> None:
         super().__init__()
         self.lr = lr
@@ -74,14 +72,6 @@ _target_: my_package.models.my_model.MyModel
 hidden_dim: 256
 lr: 1e-3
 ```
-
-NEEDLE provides additional arguments like `dataset_config` and `input_models` which are injected
-at task runtime by the framework if your LightningModule accepts them. If you dont need these inputs,
-simply do not add them to the `__init__` and hydra will drop them without errors.
-
- - `dataset_config` is an additional (optional) config group if using the NEEDLE built-in LightningDatamodules.
- - `input_models` provides you with a dictionary view on all the models referenced by the `requires`
-    keyword for the corresponding estimator. Meaning if model B depends on A, you can access the path to the model checkpoint from model A using this dictionary.
 
 ## Building the config
 

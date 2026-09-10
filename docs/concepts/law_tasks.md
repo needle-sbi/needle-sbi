@@ -94,36 +94,14 @@ the `HTCondorWorkflow`/`SlurmWorkflow` mixins (`needle.tasks.law.workflows`) let
 task on a batch system automatically. `DownstreamTask` (`needle.tasks.law.downstream`) uses the
 same three mixins, so it supports batch dispatch too.
 
-Job resource requests (`request_memory`, `RequestCpus`, `mem`, `time`, ...) are configured
-**per estimator/systematic/downstream_task** via the `resources` field in `config.yaml` - a
-plain dict forwarded verbatim to the batch backend (no key/value validation, so use the keys
-your batch system expects):
-
-```yaml
-estimators:
-  my_estimator:
-    resources:
-      RequestMemory: 4096
-      RequestCpus: 2
-    expands:
-      systematics:
-        jec_up:
-          resources:
-            RequestMemory: 8192  # overrides just this key for this systematic
-
-downstream_tasks:
-  my_downstream_task:
-    resources:
-      RequestMemory: 2048
+```bash
+law run MainTask --TrainingTask-workflow htcondor
+law run TrainingTask --workflow htcondor
 ```
 
-An estimator's `resources` and its active systematic's `resources` are shallow-merged, with the
-systematic's keys winning on conflict. If a Task's `resources` dict is empty/unset, settings fall
-back to the legacy per-Task-family `law.cfg` section (`[luigi_TrainingTask_htcondor]`, etc. - see
-below) for backward compatibility.
-
-For a complete working example of this pattern in a real HEP analysis pipeline, see the
-[FAIR Universe demo](../examples/fair_universe_demo/index.md).
+Notice that `--TrainingTask-workflow` is a law pattern that indicates that TrainingTask should run
+remotely, while MainTask, which is only a wrapper, remains local. You can replace `htcondor` with `slurm`
+to change the batch system.
 
 
 ## The LAW config file (`law.cfg`)
