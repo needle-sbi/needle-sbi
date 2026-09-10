@@ -12,6 +12,7 @@ class FoldTask(BaseFoldTask, b2luigi.Task):
     """b2luigi FoldTask — marker wrapper around a single TrainingTask fold."""
 
     task_namespace = "b2luigi"
+    batch_system = "local"
 
     def _training_task_class(self) -> Type[luigi.Task]:
         from needle.tasks.b2luigi.training import TrainingTask

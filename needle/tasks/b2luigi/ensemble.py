@@ -12,6 +12,7 @@ class EnsembleTask(BaseEnsembleTask, b2luigi.Task):
     """b2luigi EnsembleTask — marker wrapper aggregating FoldTask instances."""
 
     task_namespace = "b2luigi"
+    batch_system = "local"
 
     def _fold_task_class(self) -> Type[luigi.Task]:
         from needle.tasks.b2luigi.fold import FoldTask

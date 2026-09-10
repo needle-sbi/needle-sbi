@@ -9,8 +9,9 @@ collaboration. Compared to LAW, it is notably simpler and has very nice document
  - [B2luigi docs](https://b2luigi.belle2.org/index.html)
 
 The real `b2luigi.Task`s are `TrainingTask` and `DownstreamTask`, both of which support batch
-submission; the other Tasks are thin wrappers around regular `luigi`. Understanding `luigi` already
-primes you to understand the added features of `b2luigi` intuitively.
+submission. The other Tasks (`MainTask`, `EstimatorTask`, `SystematicTask`, `EnsembleTask`, `FoldTask`) all run locally and are very lightweight.
+Understanding `luigi`
+already primes you to understand the added features of `b2luigi` intuitively.
 
 ## Simple example
 
