@@ -14,7 +14,7 @@ class TrainingTask(BaseTrainingTask, b2luigi.Task):
 
     This is the only task in the b2luigi backend that inherits from ``b2luigi.Task``.
     Batch dispatch is configured globally via ``configure_b2luigi()`` or ``settings.json``, with
-    per-estimator/systematic ``resources`` (see ``BaseTrainingTask.resources``) merged on top via
+    per-estimator/systematic ``resources`` (see ``BaseTrainingTask.batch_resources``) merged on top via
     ``htcondor_settings``/``slurm_settings``.
     Output paths follow the needle convention (``est__X/syst__Y/ensem__Z/fold__N``), unless
     ``single=True`` is set, in which case outputs are written flat under ``results_path``.
@@ -29,8 +29,8 @@ class TrainingTask(BaseTrainingTask, b2luigi.Task):
 
     @property
     def htcondor_settings(self) -> Dict[str, Any]:
-        return merged_batch_settings("htcondor_settings", self.resources)
+        return merged_batch_settings("htcondor_settings", self.batch_resources)
 
     @property
     def slurm_settings(self) -> Dict[str, Any]:
-        return merged_batch_settings("slurm_settings", self.resources)
+        return merged_batch_settings("slurm_settings", self.batch_resources)

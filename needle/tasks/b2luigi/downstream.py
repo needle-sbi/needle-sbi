@@ -61,11 +61,11 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
 
     @property
     def htcondor_settings(self) -> Dict[str, Any]:
-        return merged_batch_settings("htcondor_settings", self.resources)
+        return merged_batch_settings("htcondor_settings", self.batch_resources)
 
     @property
     def slurm_settings(self) -> Dict[str, Any]:
-        return merged_batch_settings("slurm_settings", self.resources)
+        return merged_batch_settings("slurm_settings", self.batch_resources)
 
     def _upstream_deps(self) -> List[luigi.Task]:
         """Resolve main task or chained downstream dependencies. This is required when using
