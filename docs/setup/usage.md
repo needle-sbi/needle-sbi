@@ -51,12 +51,6 @@ needle run TrainingTask \
     --param single
 ```
 
-or, with the `law` backend directly:
-
-```bash
-law run TrainingTask --estimator model_A --single
-```
-
 ::: {admonition} What is kept the same
 :class: tip
  - HPC submission (via `law.cfg` or `settings.json`)
@@ -88,7 +82,8 @@ on and luigi will pick up the Tasks that ran successfully from this singular Tra
 
 ## The NEEDLE CLI
 
-The `needle run` tool has the following arguments:
+`needle run` is the recommended way to run any task, on either backend, as it unifies the syntax for
+both backends. It has the following arguments:
 
 | Flag | Effect |
 |---|---|
@@ -117,10 +112,15 @@ needle run DownstreamTask \
 This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
 dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
 
-If you are using the `law` backend (default), you can also use the `law` CLI tool directly instead
-of `needle run`, which avoids the `--param` wrapping entirely and gets you tab-completion. See the
-corresponding [LAW Tasks](../concepts/law_tasks.md) page. There is no equivalent native CLI for
-`b2luigi` (yet). The `needle run --backend b2luigi` is currently the only CLI entry point.
+::: {admonition} Other CLI options
+:class: tip
+
+Both backends also ship their own native CLI tool (`law run ...` / `b2luigi run ...`), which you
+can use directly instead of `needle run`. Both ship tab-completion and auto-removal tools.
+
+See [LAW Tasks](../concepts/law_tasks.md) and [b2luigi Tasks](../concepts/b2luigi_tasks.md) to see 
+how `needle run` commands translate to each backend's native CLI.
+:::
 
 
 Examples:
@@ -128,7 +128,6 @@ Examples:
 ```bash
 # Run a single model (named "model_A")
 needle run TrainingTask --param estimator=model_A --param single
-law run TrainingTask --estimator model_A --single
 ```
 
 ```bash
@@ -219,6 +218,12 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
 task to force a re-run.
 
 ### Using `--backend b2luigi`
+
+ - **Task shows as complete but results look wrong**
+
+    → Like `law`, `b2luigi` only checks file existence, not correctness. Use
+    `b2luigi remove <ClassName> --with-requirements` on the relevant task to force a re-run. See
+    [b2luigi Tasks](../concepts/b2luigi_tasks.md#removing-task-outputs).
 
  - **`Failed task b2luigi.TrainingTask`**
 
