@@ -47,44 +47,70 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
             return Path(os.path.abspath(self.config.results_path))
         return Path(os.path.abspath(self.results_path))
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Interactive/inspection CLI flags (e.g. law's --remove-output, --print-deps) only
+        # walk the DAG structure via `requires()` to enumerate/clean up outputs; they do not
+        # start training against the cached config. Snapshot this here, in `__init__`, because
+        # backends like law reset these parameters to their empty default before dispatching to
+        # their interactive handler, so checking them later (e.g. inside `requires()`) would
+        # always see the falsy, already-reset value.
+        self._interactive_only = any(
+            bool(getattr(self, name, None)) for name in getattr(self, "interactive_params", [])
+        )
+
     def _estimator_task_class(self) -> Type[luigi.Task]:
         raise NotImplementedError("Backend subclass must implement _estimator_task_class()")
+
+    def _check_cached_config(self, cache_config_filepath: Path) -> None:
+        """Compare a previously cached ``config.yaml`` against the current config.
+
+        A no-op if no cached config exists yet, or if an interactive/inspection CLI flag is
+        active (see ``__init__``) — those flows must be able to walk the DAG (e.g. to remove
+        stale outputs via ``--remove-output``) without being blocked by the very config mismatch
+        they are trying to resolve.
+        """
+        if not cache_config_filepath.exists() or self._interactive_only:
+            return
+
+        cached_config = initialize_hydra_config(
+            str(cache_config_filepath.parent),
+            cache_config_filepath.stem,
+        )
+        config_diff = compare_configs(self.config, cached_config)
+
+        if not config_diff:
+            return
+
+        msg = (
+            f"The cached version of your config does not match the new instance."
+            f"\n  Cached: {cache_config_filepath}"
+            f"\n  New:    {Path(self.config_file).absolute()}"
+            "\nTraining results might differ based on the changed lines. Either:"
+            "\n   1. Clear the cached files using `--remove-output` for a fresh run."
+            "\n   2. Set a different `results_path` (or --results-path) to start a new run"
+            "\n   3. Ignore using the `strict-config=[WARN|RAISE|IGNORE]` CLI arg"
+            f"\n{config_diff}"
+        )
+        match self.strict_config.upper():
+            case "WARN":
+                logger.warning(msg)
+            case "RAISE":
+                raise RuntimeError(msg)
+            case "IGNORE":
+                pass
+            case _:
+                raise ValueError(
+                    f"Unknown value {self.strict_config} for Parameter 'strict_config'. "
+                    "Must be one of IGNORE, WARN, RAISE."
+                )
 
     def requires(self) -> List[Any]:
         os.makedirs(self.abs_results_path, exist_ok=True)
         cache_config_filepath = Path(os.path.join(self.abs_results_path, "config.yaml"))
         self.config._resolved = True
 
-        if cache_config_filepath.exists():
-            cached_config = initialize_hydra_config(
-                str(cache_config_filepath.parent),
-                cache_config_filepath.stem,
-            )
-            config_diff = compare_configs(self.config, cached_config)
-
-            if config_diff:
-                msg = (
-                    f"The cached version of your config does not match the new instance."
-                    f"\n  Cached: {cache_config_filepath}"
-                    f"\n  New:    {Path(self.config_file).absolute()}"
-                    "\nTraining results might differ based on the changed lines. Either:"
-                    "\n   1. Clear the cached files using `--remove-output` for a fresh run."
-                    "\n   2. Set a different `results_path` (or --results-path) to start a new run"
-                    "\n   3. Ignore using the `strict-config=[WARN|RAISE|IGNORE]` CLI arg"
-                    f"\n{config_diff}"
-                )
-                match self.strict_config.upper():
-                    case "WARN":
-                        logger.warning(msg)
-                    case "RAISE":
-                        raise RuntimeError(msg)
-                    case "IGNORE":
-                        pass
-                    case _:
-                        raise ValueError(
-                            f"Unknown value {self.strict_config} for Parameter 'strict_config'. "
-                            "Must be one of IGNORE, WARN, RAISE."
-                        )
+        self._check_cached_config(cache_config_filepath)
 
         with open(cache_config_filepath, "w") as f:
             f.write(OmegaConf.to_yaml(OmegaConf.structured(self.config), resolve=True))
