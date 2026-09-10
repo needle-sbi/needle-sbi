@@ -76,14 +76,16 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
         if not config_diff:
             return
 
+        task_name = type(self).__name__
         msg = (
             f"The cached version of your config does not match the new instance."
             f"\n  Cached: {cache_config_filepath}"
             f"\n  New:    {Path(self.config_file).absolute()}"
             "\nTraining results might differ based on the changed lines. Either:"
-            "\n   1. Clear the cached files using `--remove-output` for a fresh run (law backend only)."
-            "           law run --remove-output 5,a,y"
-            "           needle run --param remove-output=5,a,y"
+            "\n   1. Clear the cached files for a fresh run:"
+            f"\n        law:      law run {task_name} --remove-output 5,a,y"
+            f"\n                  (or `needle run {task_name} --param remove-output=5,a,y`)"
+            f"\n        b2luigi:  b2luigi remove {task_name} --with-requirements"
             "\n   2. Set a different `results_path` (or --results-path) to start a new run"
             "\n   3. Ignore using the `strict-config=[WARN|RAISE|IGNORE]` CLI arg"
             f"\n{config_diff}"

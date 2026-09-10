@@ -68,7 +68,7 @@ collaboration. It has excellent documentation and intuitive usage.
 | HTCondor (batch)                      | ✅                                        | ✅                            |
 | LSF (batch)                           |                                           | ✅                            |
 | Settings file                         | `law.cfg`                                 | `settings.json`               |
-| Running natively (CLI)                | `law run MainTask ...`                    |                               |
+| Running natively (CLI)                | `law run MainTask ...`                    | `b2luigi run MainTask ...`                   |
 | Running from `needle-sbi` (CLI)       | `needle run MainTask ...`                 | `needle run --backend b2luigi MainTask`      |
 | Importing `needle-sbi` Tasks (python) | `from needle.tasks.law import MainTask `  | `from needle.tasks.b2luigi import MainTask`  |
 

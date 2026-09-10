@@ -72,7 +72,7 @@ environment used by the submitter to the worker node. If you wish to avoid this,
 `needle.tasks.b2luigi.workflows.configure_b2luigi` function.
 See [Troubleshooting](../setup/usage.md#troubleshooting)
 
-## Running needle-sbi with backend b2luigi
+## Running from `needle run --backend b2luigi`
 
 Running the Tasks from the CLI:
 
@@ -97,5 +97,43 @@ Make sure it exists and that the `b2luigi` console script (shipped by
 (`--batch-system local`, the default) do not need `tasks.py`.
 :::
 
+## Running from `b2luigi run`
+
 You can also skip needle's CLI entirely and drive the same tasks through the real `b2luigi` CLI
-directly, e.g. `b2luigi run MainTask --batch` (from the same directory as `tasks.py`).
+directly (from the same directory as `tasks.py`).
+
+Get tab-completion with:
+
+```bash
+b2luigi --install-completion
+```
+
+Run Tasks with:
+
+```bash
+b2luigi run MainTask --batch
+b2luigi run DownstreamTask --param downstream=<name_from_config>
+```
+
+The usual `needle run <ClassName> --backend b2luigi ...` maps onto `b2luigi run <ClassName> ...` roughly 1:1
+
+| `needle run`                                | `b2luigi run`                 |
+| --------------------------------------------|-------------------------------|
+| `--config-file`                             | `--param config_file=...`     |
+| `--results-path`                            | `--param results_path=...`    |
+| `--param key=value`                         | `--param key=value` (same)    |
+| `--batch-system <sys>` other than `local`   | `--batch`                     |
+  `--workers`                                 | `--workers` (same)            |
+
+### Removing task outputs
+
+The `b2luigi` CLI ships a dedicated `remove` subcommand, equivalent to `law`'s `--remove-output`:
+
+```bash
+b2luigi remove MainTask --with-requirements
+b2luigi remove DownstreamTask --param downstream=<name_from_config> --with-requirements
+```
+
+Without `--with-requirements`, only the named task's own outputs are removed, not its dependencies'.
+Pass `-y`/`--yes` to skip the confirmation prompt (e.g. in scripts), and `--keep <ClassName,...>` to
+protect specific task classes from removal.

@@ -18,13 +18,16 @@ In addition, the `law` CLI tool provides tab-completion for available parameters
 
 ## Running needle-sbi with backend law
 
-From the command line, it is very comfortable to use law, as it provides tab-completion for all available
-arguments. There are two entry points for `needle-sbi` that you need:
+`needle run` (the default backend is `law`) is the recommended entry point day-to-day. See
+[Usage](../setup/usage.md). You can also skip it and drive the same tasks through the `law` CLI
+directly, which additionally gives you tab-completion for all available arguments:
 
 ```bash
 law run MainTask  # only training
 law run DownstreamTask --downstream <name_from_config>  # training + post-training
 ```
+
+`needle run <ClassName> --backend law ...` maps onto `law run <ClassName> ...` 1:1. The `--config-file` and `--results-path` are passed straight through. All other `--param key=value` becomes real`--key value` flag (dashes/underscores are interchangeable for `law`).
 
 Some useful `law` args are listed here:
 

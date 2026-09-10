@@ -200,12 +200,6 @@ What this means concretely:
 
 ## Running your DownstreamTasks
 
-From `law`:
-
-```bash
-law run DownstreamTask --downstream my_analysis
-```
-
 From `needle` (as a positional argument):
 
 ```bash
@@ -217,6 +211,10 @@ Or explicitly:
 ```bash
 needle run DownstreamTask --param downstream=my_analysis
 ```
+
+`needle run` works the same regardless of backend; see [LAW Tasks](law_tasks.md#running-needle-sbi-with-backend-law)
+and [b2luigi Tasks](b2luigi_tasks.md#running-needle-sbi-with-backend-b2luigi) for the equivalent
+native-CLI commands (e.g. `law run DownstreamTask --downstream my_analysis`).
 
 Either way:
 1. `MainTask` (and therefore the entire training pipeline) runs first if not already complete.
