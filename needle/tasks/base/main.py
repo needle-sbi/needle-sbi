@@ -49,12 +49,6 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        # Interactive/inspection CLI flags (e.g. law's --remove-output, --print-deps) only
-        # walk the DAG structure via `requires()` to enumerate/clean up outputs; they do not
-        # start training against the cached config. Snapshot this here, in `__init__`, because
-        # backends like law reset these parameters to their empty default before dispatching to
-        # their interactive handler, so checking them later (e.g. inside `requires()`) would
-        # always see the falsy, already-reset value.
         self._interactive_only = any(
             bool(getattr(self, name, None)) for name in getattr(self, "interactive_params", [])
         )
@@ -66,8 +60,8 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
         """Compare a previously cached ``config.yaml`` against the current config.
 
         A no-op if no cached config exists yet, or if an interactive/inspection CLI flag is
-        active (see ``__init__``) — those flows must be able to walk the DAG (e.g. to remove
-        stale outputs via ``--remove-output``) without being blocked by the very config mismatch
+        active (see ``__init__``). Those flows must be able to walk the DAG (e.g. to remove
+        stale outputs via ``--remove-output``) without being blocked by the config mismatch
         they are trying to resolve.
         """
         if not cache_config_filepath.exists() or self._interactive_only:
@@ -87,7 +81,9 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
             f"\n  Cached: {cache_config_filepath}"
             f"\n  New:    {Path(self.config_file).absolute()}"
             "\nTraining results might differ based on the changed lines. Either:"
-            "\n   1. Clear the cached files using `--remove-output` for a fresh run."
+            "\n   1. Clear the cached files using `--remove-output` for a fresh run (law backend only)."
+            "           law run --remove-output 5,a,y"
+            "           needle run --param remove-output=5,a,y"
             "\n   2. Set a different `results_path` (or --results-path) to start a new run"
             "\n   3. Ignore using the `strict-config=[WARN|RAISE|IGNORE]` CLI arg"
             f"\n{config_diff}"
