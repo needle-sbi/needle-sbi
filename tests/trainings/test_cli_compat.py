@@ -172,7 +172,8 @@ def test_needle_run_cli_b2luigi_backend(
     tmp_path: Path,
     fair_universe_demo_parquet: Path,
 ) -> None:
-    """``needle run --backend b2luigi`` drives the same DAG through ``b2luigi.process()``."""
+    """``needle run --backend b2luigi`` drives the same DAG through
+    ``b2luigi.cli.utils.process_task_instance()``."""
     config_file = _write_model_a_config(config_factory, tmp_path, fair_universe_demo_parquet)
     results_path = tmp_path / "results"
 

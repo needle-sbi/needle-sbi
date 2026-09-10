@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Tuple, Union
 
@@ -21,7 +20,7 @@ class RunResult:
     Attributes:
         returncode: The `law run` subprocess exit code for the ``law`` backend.
             Always ``None`` for the ``b2luigi`` backend, since
-            ``b2luigi.process()`` has no meaningful return value.
+            ``b2luigi.cli.utils.process_task_instance()`` has no meaningful return value.
     """
 
     returncode: Optional[int]
@@ -63,8 +62,14 @@ def run(
         task: Task class name to run, e.g. ``MainTask``, ``EnsembleTask``, ``TrainingTask``.
         backend: ``"law"`` shells out to ``law run`` (requires ``LAW_HOME``/``LAW_CONFIG_FILE``
             to already be set, e.g. by sourcing ``setup.sh`` or calling
-            ``needle.api.configure_law()``). ``"b2luigi"`` runs fully in-process via
-            ``b2luigi.process()``.
+            ``needle.api.configure_law()``). ``"b2luigi"`` runs in-process via
+            ``b2luigi.cli.utils.process_task_instance()`` is the same entry point the
+            ``b2luigi run`` CLI command itself uses. This requires a ``tasks.py`` at the
+            project root (scaffolded by ``needle init --backend b2luigi``): batch
+            submission (``batch_system != "local"``) re-invokes the task on the worker
+            node via the real ``b2luigi batch-runner`` CLI command, which unconditionally
+            imports ``tasks.py`` to resolve the task class -- so the ``b2luigi`` console
+            script must be on ``PATH`` on worker nodes too.
         config_file: Path to the Hydra config file. Defaults to `conf/config.yaml`
         results_path: Root directory for results. Defaults to `runs`
         batch_system: One of ``"local"``, ``"htcondor"``, ``"slurm"``, ``"lsf"`` (b2luigi only).
@@ -95,7 +100,7 @@ def run(
         return RunResult(returncode=subprocess.call(law_args))
 
     elif backend == "b2luigi":
-        import b2luigi
+        from b2luigi.cli.utils import process_task_instance
 
         import needle.tasks.b2luigi as b2luigi_tasks
         from needle.tasks.b2luigi.workflows.common import configure_b2luigi
@@ -120,14 +125,18 @@ def run(
             **extra_params,
         )
 
-        # b2luigi.process() parses sys.argv itself (for --batch/--test/... flags).
-        # Hide the caller's own argv from it so the two parsers never fight over
-        # the same flags; behavior is instead driven explicitly via kwargs below.
-        original_argv, sys.argv = sys.argv, sys.argv[:1]
-        try:
-            b2luigi.process(task_instance, workers=workers, batch=batch_system != "local")
-        finally:
-            sys.argv = original_argv
+        # process_task_instance() arms b2luigi's new-CLI batch-runner mode: a batch job
+        # re-invokes the task on the worker node as `b2luigi batch-runner --classname
+        # ... --task-file tasks.py`, instead of the legacy `<script> --batch-runner
+        # --task-id ...` convention that needle's own CLI cannot parse. It also passes
+        # ignore_additional_command_line_args=True, so it never sees/fights over the
+        # caller's own argv (`--backend`, `--config-file`, ...).
+        process_task_instance(
+            task_instance,
+            task_file="tasks.py",
+            workers=workers,
+            batch=batch_system != "local",
+        )
 
         return RunResult(returncode=None)
 

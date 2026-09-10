@@ -100,6 +100,13 @@ def init(
             if verbose:
                 print("Created 'settings.json' (b2luigi settings file)")
             result.created.append(settings_dst)
+        _copy(
+            src=_TEMPLATES / "tasks.py",
+            dst=target / "tasks.py",
+            description="b2luigi task index, required by the `b2luigi` CLI (incl. batch workers)",
+            result=result,
+            verbose=verbose,
+        )
 
     setup_dst = target / "setup.sh"
     _copy(

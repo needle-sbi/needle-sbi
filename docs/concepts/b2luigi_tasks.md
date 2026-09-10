@@ -81,7 +81,21 @@ needle run MainTask --backend b2luigi --batch-system htcondor --workers 4
 needle run DownstreamTask --backend b2luigi --param downstream=<name_from_config>
 ```
 
-`needle run --backend b2luigi` looks up the task class by name. It temporarily clears `sys.argv` around
-that call, since `b2luigi.process()` parses `sys.argv` itself for its own flags (`--batch`, `--test`, ...)
-and would otherwise conflict with needle's own argument parser.
-With this approach, you need to specify `--param downstream` instead of the direct `--downstream`.
+`needle run --backend b2luigi` looks up the task class by name and drives it through
+`b2luigi.cli.utils.process_task_instance()`. This the same entry point the `b2luigi run` CLI command
+itself uses (`ignore_additional_command_line_args=True`, so it never conflicts with needle's own
+argument parser). With this approach, you need to specify `--param downstream` instead of the
+direct `--downstream`.
+
+::: {important}
+Batch submission (`--batch-system htcondor|slurm|lsf`) re-invokes the task on the worker node via
+the real `b2luigi batch-runner` CLI command, which unconditionally imports a `tasks.py` file at
+the project root to resolve the task class. `needle init --backend b2luigi` scaffolds this
+`tasks.py` for you. 
+Make sure it exists and that the `b2luigi` console script (shipped by
+`b2luigi` itself, not a needle wrapper) is on `PATH` on worker nodes too. Purely local runs
+(`--batch-system local`, the default) do not need `tasks.py`.
+:::
+
+You can also skip needle's CLI entirely and drive the same tasks through the real `b2luigi` CLI
+directly, e.g. `b2luigi run MainTask --batch` (from the same directory as `tasks.py`).
