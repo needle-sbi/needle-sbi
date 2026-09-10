@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Type
+from typing import Any, Dict, Type
 
 import luigi
 
@@ -34,6 +34,11 @@ class BaseDownstreamMixin(HydraParamsMixin):
         if not self.config.downstream_tasks:
             raise ValueError(f"No entries were found for downstream Tasks: {self.config.downstream_tasks}")
         return self.config.downstream_tasks[self.downstream]
+
+    @property
+    def resources(self) -> Dict[str, Any]:
+        """Batch resource requests (e.g. ``request_memory``, ``mem``) for this downstream task."""
+        return dict(self.downstream_config.resources or {})
 
     @property
     def downstream_results_path(self) -> str:

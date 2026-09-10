@@ -8,8 +8,8 @@ collaboration. Compared to LAW, it is notably simpler and has very nice document
  - [luigi docs](https://luigi.readthedocs.io/en/stable/)
  - [B2luigi docs](https://b2luigi.belle2.org/index.html)
 
-The only real `b2luigi.Task` is the actual TrainingTask, which requires `b2luigi` for the batch
-submission, the other Tasks are thin wrappers around regular `luigi`. Understanding `luigi` already
+The real `b2luigi.Task`s are `TrainingTask` and `DownstreamTask`, both of which support batch
+submission; the other Tasks are thin wrappers around regular `luigi`. Understanding `luigi` already
 primes you to understand the added features of `b2luigi` intuitively.
 
 ## Simple example
@@ -64,8 +64,33 @@ from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 configure_b2luigi(batch_system="htcondor")
 ```
 
-Or per-task, by overriding `htcondor_settings`/`slurm_settings` class attributes in the given
-Task.
+Both `TrainingTask` and `DownstreamTask` also override `htcondor_settings`/`slurm_settings` as
+properties that read the `resources` field from `config.yaml` (per estimator/systematic for
+`TrainingTask`, per downstream_task entry for `DownstreamTask`) and merge it over the global
+`settings.json`/`configure_b2luigi()` settings, winning on conflicting keys:
+
+```yaml
+estimators:
+  my_estimator:
+    resources:
+      request_memory: "4096MB"
+      request_cpus: 2
+    expands:
+      systematics:
+        jec_up:
+          resources:
+            request_memory: "8192MB"  # overrides just this key for this systematic
+
+downstream_tasks:
+  my_downstream_task:
+    resources:
+      request_memory: "2048MB"
+```
+
+Keys/values are forwarded verbatim - use whatever `htcondor_settings`/`slurm_settings` keys your
+batch system expects. An estimator's `resources` and its active systematic's `resources` are
+shallow-merged, with the systematic's keys winning on conflict. `resources` is optional; if unset
+or empty, only the global `settings.json`/`configure_b2luigi()` settings apply.
 
 ## Running needle-sbi with backend b2luigi
 

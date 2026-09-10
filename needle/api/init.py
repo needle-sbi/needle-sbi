@@ -7,6 +7,7 @@ from typing import List, Literal, Union
 
 _TEMPLATES = Path(__file__).parent.parent / "templates"
 
+# Project wide default. Override with law.cfg / settings.json and the config `resources`field`
 _SETTINGS_JSON_TEMPLATE = """\
 {
   "batch_system": "local",

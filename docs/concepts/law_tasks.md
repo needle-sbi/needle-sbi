@@ -91,8 +91,36 @@ class TrainingTask(
 
 The `Workflow` mixins unlock the `--workflow=local|htcondor|slurm` CLI parameter. Adding
 the `HTCondorWorkflow`/`SlurmWorkflow` mixins (`needle.tasks.law.workflows`) lets you run that
-task on a batch system automatically; job settings are configured per-Task-family in
-`law.cfg`, meaning all TrainingTasks share the same requirements.
+task on a batch system automatically. `DownstreamTask` (`needle.tasks.law.downstream`) uses the
+same three mixins, so it supports batch dispatch too.
+
+Job resource requests (`request_memory`, `RequestCpus`, `mem`, `time`, ...) are configured
+**per estimator/systematic/downstream_task** via the `resources` field in `config.yaml` - a
+plain dict forwarded verbatim to the batch backend (no key/value validation, so use the keys
+your batch system expects):
+
+```yaml
+estimators:
+  my_estimator:
+    resources:
+      RequestMemory: 4096
+      RequestCpus: 2
+    expands:
+      systematics:
+        jec_up:
+          resources:
+            RequestMemory: 8192  # overrides just this key for this systematic
+
+downstream_tasks:
+  my_downstream_task:
+    resources:
+      RequestMemory: 2048
+```
+
+An estimator's `resources` and its active systematic's `resources` are shallow-merged, with the
+systematic's keys winning on conflict. If a Task's `resources` dict is empty/unset, settings fall
+back to the legacy per-Task-family `law.cfg` section (`[luigi_TrainingTask_htcondor]`, etc. - see
+below) for backward compatibility.
 
 For a complete working example of this pattern in a real HEP analysis pipeline, see the
 [FAIR Universe demo](../examples/fair_universe_demo/index.md).
@@ -131,6 +159,8 @@ max_reschedules: 0                  # whether to reschedule jobs
 [luigi_scheduler]
 retry_count: 0                      # whether to disable tasks that reached max retries
 
+# These sections are only used as a fallback, for Tasks whose config-level `resources`
+# dict is empty/unset (see "TrainingTask and batch submissions" above).
 [luigi_TrainingTask_slurm]          # custom section for TrainingTask (SLURM)
 nodes: 1                            # how many nodes to request
 time: 60                            # how long to request these nodes for (unit depends on your system)

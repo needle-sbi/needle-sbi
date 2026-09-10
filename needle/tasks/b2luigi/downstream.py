@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlencode
 import b2luigi
 import luigi
 
+from needle.tasks.b2luigi.workflows.common import merged_batch_settings
 from needle.tasks.base.downstream import BaseDownstreamMixin
 from needle.utils.logging import ColorFormatter
 
@@ -57,6 +58,14 @@ class DownstreamTask(BaseDownstreamMixin, b2luigi.Task):
         from needle.tasks.b2luigi.main import MainTask  # avoid circular imports
 
         return MainTask
+
+    @property
+    def htcondor_settings(self) -> Dict[str, Any]:
+        return merged_batch_settings("htcondor_settings", self.resources)
+
+    @property
+    def slurm_settings(self) -> Dict[str, Any]:
+        return merged_batch_settings("slurm_settings", self.resources)
 
     def _upstream_deps(self) -> List[luigi.Task]:
         """Resolve main task or chained downstream dependencies. This is required when using

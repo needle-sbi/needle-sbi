@@ -49,6 +49,7 @@ class SystematicConfig(SerializableDataclass):
     model_override: Optional[Any] = None
     trainer: Optional[str] = None
     trainer_override: Optional[Any] = None
+    resources: Optional[dict] = None
 
 
 @dataclass
@@ -91,6 +92,7 @@ class EstimatorConfig(SerializableDataclass):
     trainer_override: Optional[Any] = None
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
     requires: Optional[List[str]] = None
+    resources: Optional[dict] = None
 
 
 @dataclass
@@ -98,6 +100,7 @@ class DownstreamTaskConfig(SerializableDataclass):
     requires: Optional[List[str]] = None
     args: Optional[dict[str, Any]] = field(default_factory=dict)
     expands: Optional[dict[str, Any]] = field(default_factory=dict)
+    resources: Optional[dict] = None
 
 
 @dataclass

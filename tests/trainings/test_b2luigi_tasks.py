@@ -22,7 +22,13 @@ from needle.tasks.b2luigi.fold import FoldTask
 from needle.tasks.b2luigi.main import MainTask
 from needle.tasks.b2luigi.systematic import SystematicTask
 from needle.tasks.b2luigi.training import TrainingTask
-from needle.utils.config_schema import MainConfig
+from needle.utils.config_schema import (
+    DownstreamTaskConfig,
+    EstimatorConfig,
+    ExpansionConfig,
+    MainConfig,
+    SystematicConfig,
+)
 from tests.conftest import MainConfigFactory
 
 # ---------------------------------------------------------------------------
@@ -460,3 +466,91 @@ class TestBackendIsolation:
         )
         output = task.output()
         assert TrainingTask.output_as_dict(output) is output
+
+
+# ---------------------------------------------------------------------------
+# Per-task resources: htcondor_settings / slurm_settings merge with globals
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.b2luigi
+class TestResourceSettings:
+    def test_training_task_merges_resources_over_global_settings(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        import b2luigi
+        from b2luigi.core.settings import with_new_settings
+
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="jec_up",
+            results_path=str(tmp_path),
+        )
+        task.config = MainConfig(
+            estimators={
+                estimator_name: EstimatorConfig(
+                    resources={"request_memory": "2048MB", "request_cpus": 1},
+                    expands=ExpansionConfig(
+                        systematics={"jec_up": SystematicConfig(resources={"request_memory": "8192MB"})}
+                    ),
+                )
+            }
+        )
+
+        with with_new_settings():
+            b2luigi.set_setting("htcondor_settings", {"request_memory": "1024MB", "+RequestRuntime": 600})
+            assert task.htcondor_settings == {
+                "request_memory": "8192MB",
+                "request_cpus": 1,
+                "+RequestRuntime": 600,
+            }
+
+    def test_training_task_falls_back_to_global_settings_when_resources_unset(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        import b2luigi
+        from b2luigi.core.settings import with_new_settings
+
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            results_path=str(tmp_path),
+        )
+        task.config = MainConfig(estimators={estimator_name: EstimatorConfig()})
+
+        with with_new_settings():
+            b2luigi.set_setting("slurm_settings", {"mem": "4G"})
+            assert task.slurm_settings == {"mem": "4G"}
+
+    def test_downstream_task_merges_resources_over_global_settings(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        import b2luigi
+        from b2luigi.core.settings import with_new_settings
+
+        config_file = _write_config(config_factory(), tmp_path)
+
+        dt = DownstreamTask(
+            config_file=config_file,
+            downstream="my_task",
+            results_path=str(tmp_path),
+        )
+        dt.config = MainConfig(
+            downstream_tasks={
+                "my_task": DownstreamTaskConfig(
+                    args={"_target_": "some.module.Task"},
+                    resources={"request_cpus": 4},
+                )
+            }
+        )
+
+        with with_new_settings():
+            b2luigi.set_setting("htcondor_settings", {"request_memory": "1024MB"})
+            assert dt.htcondor_settings == {"request_memory": "1024MB", "request_cpus": 4}

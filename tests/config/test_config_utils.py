@@ -4,8 +4,27 @@ from typing import Generator
 import hydra
 import pytest
 
-from needle.utils.config_schema import EstimatorConfig, MainConfig
+from needle.utils.config_schema import DownstreamTaskConfig, EstimatorConfig, MainConfig, SystematicConfig
 from needle.utils.config_utils import validate_graph
+
+
+class TestResourcesField:
+    """`resources` is a plain, unvalidated dict - just verify it round-trips through the schema."""
+
+    def test_estimator_config_defaults_to_none(self) -> None:
+        assert EstimatorConfig().resources is None
+
+    def test_estimator_config_accepts_arbitrary_dict(self) -> None:
+        cfg = EstimatorConfig(resources={"RequestMemory": 2048, "RequestCpus": 2})
+        assert cfg.resources == {"RequestMemory": 2048, "RequestCpus": 2}
+
+    def test_systematic_config_accepts_arbitrary_dict(self) -> None:
+        cfg = SystematicConfig(resources={"RequestMemory": 8192})
+        assert cfg.resources == {"RequestMemory": 8192}
+
+    def test_downstream_task_config_accepts_arbitrary_dict(self) -> None:
+        cfg = DownstreamTaskConfig(resources={"request_cpus": 4})
+        assert cfg.resources == {"request_cpus": 4}
 
 
 class TestValidateGraph:

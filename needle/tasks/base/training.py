@@ -97,6 +97,19 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         )  # type: ignore
 
     @property
+    def resources(self) -> Dict[str, Any]:
+        """Batch resource requests (e.g. ``request_memory``, ``mem``) for this training run.
+
+        Shallow-merges the estimator's ``resources`` dict with the active systematic's
+        ``resources`` dict, with systematic keys being prioritized.
+        """
+        resources = dict(self.estimator_config.resources or {})
+        systematic_resources = self.estimator_config.expands.systematics[self.systematic].resources
+        if systematic_resources:
+            resources.update(systematic_resources)
+        return resources
+
+    @property
     def input_model_paths(self) -> Dict[str, str]:
         """Collect checkpoint paths from all upstream estimators."""
         model_paths_dict: Dict[str, str] = {}

@@ -35,6 +35,12 @@ from omegaconf import DictConfig, OmegaConf
 
 from needle.tasks.base.downstream import BaseDownstreamMixin
 from needle.tasks.law.mixins import CollectOutputMixin
+from needle.tasks.law.workflows import (
+    HTCondorWorkflow,
+    LocalWorkflow,
+    SlurmWorkflow,
+    check_batch_system,
+)
 from needle.utils.config_utils import hydra_instantiate
 from needle.utils.logging import ColorFormatter
 from needle.utils.luigi_utils import convert_luigi_to_law_targets
@@ -47,7 +53,13 @@ class BranchTuple(NamedTuple):
     parameters: Dict[str, Any]
 
 
-class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow):
+class DownstreamTask(
+    BaseDownstreamMixin,
+    CollectOutputMixin,
+    LocalWorkflow,
+    HTCondorWorkflow,
+    SlurmWorkflow,
+):
     """LAW implementation of DownstreamTask
 
     Wraps an external user-defined ``luigi.Task`` that runs after training.
@@ -56,6 +68,9 @@ class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow)
     under ``downstream_tasks`` is a key that can be passed to the ``--downstream`` CLI argument.
     The corresponding value is a ``DownstreamTaskConfig`` which controls how the task is
     instantiated and what it depends on.
+
+    Supports local, HTCondor, and Slurm execution via workflow mixin inheritance, same as
+    ``TrainingTask``.
     """
 
     local_workflow_require_branches: bool = True
@@ -92,6 +107,8 @@ class DownstreamTask(BaseDownstreamMixin, CollectOutputMixin, law.LocalWorkflow)
 
     def output(self) -> Any:
         """Convert the wrapped task's output from Luigi to Law format."""
+        check_batch_system(system=str(self.workflow))  # type: ignore
+
         if self.is_branch():
             task = self.downstream_task(self.branch)
             return convert_luigi_to_law_targets(luigi_targets=task.output())

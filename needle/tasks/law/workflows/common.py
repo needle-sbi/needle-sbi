@@ -25,6 +25,9 @@ class SupportsLuigiAPI(Protocol):
         """Implements `luigi.Task.get_task_family` which returns the name of the Task."""
         ...
 
+    #: Per-instance batch resource dict provided by `BaseTrainingTask`/`BaseDownstreamMixin`
+    resources: dict
+
 
 logger = ColorFormatter.get_logger("workflow")
 
@@ -48,11 +51,16 @@ def add_workflow_settings_from_cfg(
     cfg: RemoteConfig,
     workflow_type: Literal["htcondor", "slurm"],
 ) -> RemoteConfig:
-    """Add the settings for a Workflow from the law.cfg to the job Config
+    """Add batch resource settings to the job Config.
+
+    Prefers ``self.resources`` (a plain dict, e.g. from ``EstimatorConfig.resources`` /
+    ``DownstreamTaskConfig.resources``, merged with the active systematic's resources where
+    applicable) when it is non-empty - keys/values are forwarded verbatim, unvalidated.
 
     Note:
-        Law will pass through luigi configs when they are labelled `luigi_<section>`. Therefore, our
-        Workflow is accessible through the section `[luigi_<Task>_<batch_system>]`.
+        When ``self.resources`` is empty/unset, falls back to the legacy mechanism: law passes
+        through luigi configs labelled `luigi_<section>`, so a Task's settings can also be read
+        from the section `[luigi_<Task>_<batch_system>]` in `law.cfg`.
 
     Args:
         self (SupportsLuigiAPI): Any Task that inherits from `luigi.Task`
@@ -62,12 +70,17 @@ def add_workflow_settings_from_cfg(
             to use. This is used for accessing the correct section in the luigi cfg.
 
     Raises:
-        ValueError: If the sub-config for luigi does not contain the proper section. If the section
-            exists but is empty, then only a Warning is triggered
+        ValueError: If ``self.resources`` is empty/unset and the law.cfg fallback section is
+            missing. If the section exists but is empty, only a Warning is triggered.
 
     Returns:
-        RemoteConfig: The same object as `cfg` but with the added items from the luigi cfg.
+        RemoteConfig: The same object as `cfg` but with the added resource settings.
     """
+    if self.resources:
+        for key, value in self.resources.items():
+            cfg.custom_content.append((key, value))
+        return cfg
+
     luigi_cfg: LuigiConfig = luigi.configuration.get_config()
     section = f"{self.get_task_family()}_{workflow_type}"
 
@@ -79,8 +92,10 @@ def add_workflow_settings_from_cfg(
             cfg.custom_content.append((key, value))
     else:
         raise ValueError(
-            f"Your 'law.cfg' file does not contain a '[luigi_{section}]' section. "
-            f"Add it in the following format:\n"
+            f"No 'resources' were set on '{self.get_task_family()}' and your 'law.cfg' file does "
+            f"not contain a '[luigi_{section}]' section either. Add resources to your config's "
+            f"estimator/systematic/downstream_task entry, or add a section to 'law.cfg' in the "
+            f"following format:\n"
             f"    [luigi_{section}]\n"
             f"    nodes: 1  # for example\n"
             f"    ...\n"

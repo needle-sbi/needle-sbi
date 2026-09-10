@@ -23,7 +23,15 @@ from needle.tasks.law.fold import FoldTask
 from needle.tasks.law.main import MainTask
 from needle.tasks.law.systematic import SystematicTask
 from needle.tasks.law.training import TrainingTask
-from needle.utils.config_schema import DownstreamTaskConfig, MainConfig
+from needle.tasks.law.workflows import HTCondorWorkflow, SlurmWorkflow
+from needle.tasks.law.workflows.common import add_workflow_settings_from_cfg
+from needle.utils.config_schema import (
+    DownstreamTaskConfig,
+    EstimatorConfig,
+    ExpansionConfig,
+    MainConfig,
+    SystematicConfig,
+)
 from tests.conftest import MainConfigFactory
 
 # ---------------------------------------------------------------------------
@@ -208,6 +216,42 @@ class TestLawTrainingTask:
             branch=0,
         )
         assert task.requires() == []
+
+    def test_resources_merges_estimator_and_systematic(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="jec_up",
+            results_path=str(tmp_path),
+            branch=0,
+        )
+        task.config = MainConfig(
+            estimators={
+                estimator_name: EstimatorConfig(
+                    resources={"RequestMemory": 2048, "RequestCpus": 1},
+                    expands=ExpansionConfig(
+                        systematics={"jec_up": SystematicConfig(resources={"RequestMemory": 8192})}
+                    ),
+                )
+            }
+        )
+        assert task.resources == {"RequestMemory": 8192, "RequestCpus": 1}
+
+    def test_resources_defaults_to_empty_dict(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            results_path=str(tmp_path),
+            branch=0,
+        )
+        task.config = MainConfig(estimators={estimator_name: EstimatorConfig()})
+        assert task.resources == {}
 
 
 # ---------------------------------------------------------------------------
@@ -489,3 +533,75 @@ class TestLawBackendIsolation:
             assert not issubclass(TrainingTask, b2luigi.Task)
         except ImportError:
             pass
+
+    def test_downstream_task_supports_htcondor_and_slurm(self) -> None:
+        """DownstreamTask must gain batch dispatch capability, mirroring TrainingTask."""
+        assert issubclass(DownstreamTask, HTCondorWorkflow)
+        assert issubclass(DownstreamTask, SlurmWorkflow)
+
+
+# ---------------------------------------------------------------------------
+# add_workflow_settings_from_cfg — resources dict vs. law.cfg fallback
+# ---------------------------------------------------------------------------
+
+
+class _FakeRemoteConfig:
+    """Minimal stand-in for `RemoteConfig` (only `custom_content` is touched)."""
+
+    def __init__(self) -> None:
+        self.custom_content: list = []
+
+
+class _FakeTask:
+    def __init__(self, resources: dict, task_family: str = "TrainingTask") -> None:
+        self.resources = resources
+        self._task_family = task_family
+
+    def get_task_family(self) -> str:
+        return self._task_family
+
+
+@pytest.mark.law
+class TestAddWorkflowSettingsFromCfg:
+    def test_uses_resources_dict_when_non_empty(self) -> None:
+        task = _FakeTask(resources={"RequestMemory": 4096, "RequestCpus": 2})
+        cfg = add_workflow_settings_from_cfg(task, _FakeRemoteConfig(), workflow_type="htcondor")  # type: ignore
+        assert set(cfg.custom_content) == {("RequestMemory", 4096), ("RequestCpus", 2)}
+
+    def test_falls_back_to_law_cfg_section_when_resources_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import luigi
+
+        class _FakeLuigiConfig:
+            def has_section(self, section: str) -> bool:
+                return section == "TrainingTask_htcondor"
+
+            def items(self, section: str) -> list:
+                return [("RequestMemory", "2048")]
+
+            def sections(self) -> list:
+                return ["TrainingTask_htcondor"]
+
+        monkeypatch.setattr(luigi.configuration, "get_config", lambda: _FakeLuigiConfig())
+
+        task = _FakeTask(resources={})
+        cfg = add_workflow_settings_from_cfg(task, _FakeRemoteConfig(), workflow_type="htcondor")  # type: ignore
+        assert cfg.custom_content == [("RequestMemory", "2048")]
+
+    def test_raises_when_resources_empty_and_no_law_cfg_section(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import luigi
+
+        class _FakeLuigiConfig:
+            def has_section(self, section: str) -> bool:
+                return False
+
+            def items(self, section: str) -> list:
+                return []
+
+            def sections(self) -> list:
+                return []
+
+        monkeypatch.setattr(luigi.configuration, "get_config", lambda: _FakeLuigiConfig())
+
+        task = _FakeTask(resources={})
+        with pytest.raises(ValueError, match="No 'resources' were set"):
+            add_workflow_settings_from_cfg(task, _FakeRemoteConfig(), workflow_type="htcondor")  # type: ignore

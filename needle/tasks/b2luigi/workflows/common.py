@@ -37,6 +37,28 @@ def get_project_root() -> str:
     return script_dir if script_dir else str(Path.cwd())
 
 
+def merged_batch_settings(setting_key: str, resources: dict[str, Any]) -> dict[str, Any]:
+    """Merge a per-task ``resources`` dict over the project's global batch setting.
+
+    b2luigi's own per-task property lookup (``get_setting(key, task=self)``) fully replaces the
+    global setting rather than merging it - see ``b2luigi.core.settings._get_setting_implementation``.
+    This merges explicitly so ``settings.json``/``configure_b2luigi()`` remain the project-wide
+    default and per-task ``resources`` only need to specify the keys they want to override.
+
+    Args:
+        setting_key: The b2luigi setting name, e.g. ``"htcondor_settings"`` or ``"slurm_settings"``.
+        resources: The task's own resources dict (may be empty).
+
+    Returns:
+        The global setting (from ``set_setting()``/``settings.json``, or ``{}`` if unset) with
+        ``resources`` shallow-merged on top, winning on conflicting keys.
+    """
+    import b2luigi
+
+    global_settings: dict[str, Any] = b2luigi.get_setting(setting_key, default={})
+    return {**global_settings, **resources}
+
+
 def configure_b2luigi(
     batch_system: str = "local",
     env_script: str | None = None,
