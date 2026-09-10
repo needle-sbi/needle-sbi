@@ -12,6 +12,7 @@ class SystematicTask(BaseSystematicTask, b2luigi.Task):
     """b2luigi SystematicTask — marker wrapper aggregating EnsembleTask instances."""
 
     task_namespace = "b2luigi"
+    batch_system = "local"
 
     def _ensemble_task_class(self) -> Type[luigi.Task]:
         from needle.tasks.b2luigi.ensemble import EnsembleTask

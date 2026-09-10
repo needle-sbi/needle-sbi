@@ -12,6 +12,7 @@ class EstimatorTask(BaseEstimatorTask, b2luigi.Task):
     """b2luigi EstimatorTask — marker wrapper aggregating SystematicTask instances."""
 
     task_namespace = "b2luigi"
+    batch_system = "local"
 
     def _systematic_task_class(self) -> Type[luigi.Task]:
         from needle.tasks.b2luigi.systematic import SystematicTask
