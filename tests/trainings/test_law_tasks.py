@@ -238,7 +238,39 @@ class TestLawTrainingTask:
                 )
             }
         )
-        assert task.resources == {"RequestMemory": 8192, "RequestCpus": 1}
+        assert task.batch_resources == {"RequestMemory": 8192, "RequestCpus": 1}
+
+    def test_batch_resources_does_not_shadow_luigi_task_resources(
+        self, config_factory: MainConfigFactory, tmp_path: Path
+    ) -> None:
+        """Regression test: ``luigi.Task.resources`` is reserved for the scheduler's own
+        resource-pool accounting (see ``luigi.scheduler.Scheduler._has_resources``), which caps
+        any resource name not explicitly configured in a global ``[resources]`` section at 1
+        unit. If batch resource requests like ``RequestMemory: 8192`` ever leaked into that
+        attribute again, the task would never be scheduled and any worker (``needle run`` /
+        ``law run``) would hang forever at "Running Worker ...".
+        """
+        config_file = _write_config(config_factory(), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="jec_up",
+            results_path=str(tmp_path),
+            branch=0,
+        )
+        task.config = MainConfig(
+            estimators={
+                estimator_name: EstimatorConfig(
+                    resources={"RequestMemory": 2048, "RequestCpus": 1},
+                    expands=ExpansionConfig(
+                        systematics={"jec_up": SystematicConfig(resources={"RequestMemory": 8192})}
+                    ),
+                )
+            }
+        )
+        assert task.resources == {}
 
     def test_resources_defaults_to_empty_dict(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
@@ -251,7 +283,7 @@ class TestLawTrainingTask:
             branch=0,
         )
         task.config = MainConfig(estimators={estimator_name: EstimatorConfig()})
-        assert task.resources == {}
+        assert task.batch_resources == {}
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +586,7 @@ class _FakeRemoteConfig:
 
 class _FakeTask:
     def __init__(self, resources: dict, task_family: str = "TrainingTask") -> None:
-        self.resources = resources
+        self.batch_resources = resources
         self._task_family = task_family
 
     def get_task_family(self) -> str:

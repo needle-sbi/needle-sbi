@@ -97,11 +97,20 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         )  # type: ignore
 
     @property
-    def resources(self) -> Dict[str, Any]:
+    def batch_resources(self) -> Dict[str, Any]:
         """Batch resource requests (e.g. ``request_memory``, ``mem``) for this training run.
 
         Shallow-merges the estimator's ``resources`` dict with the active systematic's
         ``resources`` dict, with systematic keys being prioritized.
+
+        Note:
+            Deliberately named ``batch_resources`` rather than ``resources``: ``luigi.Task``
+            reserves ``resources`` for its own scheduler-side resource-pool accounting (see
+            ``luigi.scheduler.Scheduler._has_resources``), which caps any resource name not
+            explicitly configured in a global ``[resources]`` section at 1 unit. Reusing that
+            name here would make the scheduler treat e.g. ``request_memory: 8192`` as a request
+            for 8192 units of a pool capped at 1, so the task would never be scheduled and any
+            worker (``needle run`` or ``law run``) would hang forever at "Running Worker ...".
         """
         resources = dict(self.estimator_config.resources or {})
         systematic_resources = self.estimator_config.expands.systematics[self.systematic].resources

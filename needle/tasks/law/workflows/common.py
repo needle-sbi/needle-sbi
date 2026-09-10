@@ -25,8 +25,10 @@ class SupportsLuigiAPI(Protocol):
         """Implements `luigi.Task.get_task_family` which returns the name of the Task."""
         ...
 
-    #: Per-instance batch resource dict provided by `BaseTrainingTask`/`BaseDownstreamMixin`
-    resources: dict
+    #: Per-instance batch resource dict provided by `BaseTrainingTask`/`BaseDownstreamMixin`.
+    #: Deliberately not named `resources` - that name is reserved by `luigi.Task` for its own
+    #: scheduler resource-pool accounting; reusing it here would hang the worker.
+    batch_resources: dict
 
 
 logger = ColorFormatter.get_logger("workflow")
@@ -53,14 +55,14 @@ def add_workflow_settings_from_cfg(
 ) -> RemoteConfig:
     """Add batch resource settings to the job Config.
 
-    Prefers ``self.resources`` (a plain dict, e.g. from ``EstimatorConfig.resources`` /
+    Prefers ``self.batch_resources`` (a plain dict, e.g. from ``EstimatorConfig.resources`` /
     ``DownstreamTaskConfig.resources``, merged with the active systematic's resources where
     applicable) when it is non-empty - keys/values are forwarded verbatim, unvalidated.
 
     Note:
-        When ``self.resources`` is empty/unset, falls back to the legacy mechanism: law passes
-        through luigi configs labelled `luigi_<section>`, so a Task's settings can also be read
-        from the section `[luigi_<Task>_<batch_system>]` in `law.cfg`.
+        When ``self.batch_resources`` is empty/unset, falls back to the legacy mechanism: law
+        passes through luigi configs labelled `luigi_<section>`, so a Task's settings can also be
+        read from the section `[luigi_<Task>_<batch_system>]` in `law.cfg`.
 
     Args:
         self (SupportsLuigiAPI): Any Task that inherits from `luigi.Task`
@@ -70,14 +72,14 @@ def add_workflow_settings_from_cfg(
             to use. This is used for accessing the correct section in the luigi cfg.
 
     Raises:
-        ValueError: If ``self.resources`` is empty/unset and the law.cfg fallback section is
-            missing. If the section exists but is empty, only a Warning is triggered.
+        ValueError: If ``self.batch_resources`` is empty/unset and the law.cfg fallback section
+            is missing. If the section exists but is empty, only a Warning is triggered.
 
     Returns:
         RemoteConfig: The same object as `cfg` but with the added resource settings.
     """
-    if self.resources:
-        for key, value in self.resources.items():
+    if self.batch_resources:
+        for key, value in self.batch_resources.items():
             cfg.custom_content.append((key, value))
         return cfg
 

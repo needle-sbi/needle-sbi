@@ -36,8 +36,15 @@ class BaseDownstreamMixin(HydraParamsMixin):
         return self.config.downstream_tasks[self.downstream]
 
     @property
-    def resources(self) -> Dict[str, Any]:
-        """Batch resource requests (e.g. ``request_memory``, ``mem``) for this downstream task."""
+    def batch_resources(self) -> Dict[str, Any]:
+        """Batch resource requests (e.g. ``request_memory``, ``mem``) for this downstream task.
+
+        Note:
+            Named ``batch_resources`` (not ``resources``) to avoid colliding with
+            ``luigi.Task.resources``, which the scheduler uses for its own resource-pool
+            accounting - see ``BaseTrainingTask.batch_resources`` for why that collision hangs
+            the worker.
+        """
         return dict(self.downstream_config.resources or {})
 
     @property
