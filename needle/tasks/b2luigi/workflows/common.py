@@ -37,6 +37,12 @@ def get_project_root() -> str:
     return script_dir if script_dir else str(Path.cwd())
 
 
+# Copy the submission environment to the workers by default.
+_DEFAULT_BATCH_SETTINGS: dict[str, dict[str, Any]] = {
+    "htcondor_settings": {"getenv": "True"},
+}
+
+
 def merged_batch_settings(setting_key: str, resources: dict[str, Any]) -> dict[str, Any]:
     """Merge a per-task ``resources`` dict over the project's global batch setting.
 
@@ -50,13 +56,15 @@ def merged_batch_settings(setting_key: str, resources: dict[str, Any]) -> dict[s
         resources: The task's own resources dict (may be empty).
 
     Returns:
-        The global setting (from ``set_setting()``/``settings.json``, or ``{}`` if unset) with
-        ``resources`` shallow-merged on top, winning on conflicting keys.
+        ``_DEFAULT_BATCH_SETTINGS[setting_key]`` (if any), with the global setting (from
+        ``set_setting()``/``settings.json``, or ``{}`` if unset) merged on top, and ``resources``
+        merged on top of that - each layer winning on conflicting keys.
     """
     import b2luigi
 
+    base_settings = _DEFAULT_BATCH_SETTINGS.get(setting_key, {})
     global_settings: dict[str, Any] = b2luigi.get_setting(setting_key, default={})
-    return {**global_settings, **resources}
+    return {**base_settings, **global_settings, **resources}
 
 
 def configure_b2luigi(

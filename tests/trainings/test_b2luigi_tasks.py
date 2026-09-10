@@ -504,6 +504,7 @@ class TestResourceSettings:
         with with_new_settings():
             b2luigi.set_setting("htcondor_settings", {"request_memory": "1024MB", "+RequestRuntime": 600})
             assert task.htcondor_settings == {
+                "getenv": "True",
                 "request_memory": "8192MB",
                 "request_cpus": 1,
                 "+RequestRuntime": 600,
@@ -553,4 +554,4 @@ class TestResourceSettings:
 
         with with_new_settings():
             b2luigi.set_setting("htcondor_settings", {"request_memory": "1024MB"})
-            assert dt.htcondor_settings == {"request_memory": "1024MB", "request_cpus": 4}
+            assert dt.htcondor_settings == {"getenv": "True", "request_memory": "1024MB", "request_cpus": 4}

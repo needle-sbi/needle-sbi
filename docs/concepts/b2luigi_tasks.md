@@ -65,6 +65,42 @@ from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 configure_b2luigi(batch_system="htcondor")
 ```
 
+Both `TrainingTask` and `DownstreamTask` also override `htcondor_settings`/`slurm_settings` as
+properties that read the `resources` field from `config.yaml` (per estimator/systematic for
+`TrainingTask`, per downstream_task entry for `DownstreamTask`) and merge it over the global
+`settings.json`/`configure_b2luigi()` settings, winning on conflicting keys:
+
+```yaml
+estimators:
+  my_estimator:
+    resources:
+      request_memory: "4096MB"
+      request_cpus: 2
+    expands:
+      systematics:
+        jec_up:
+          resources:
+            request_memory: "8192MB"  # overrides just this key for this systematic
+
+downstream_tasks:
+  my_downstream_task:
+    resources:
+      request_memory: "2048MB"
+```
+
+Keys/values are forwarded with no modification, so use whatever
+`htcondor_settings`/`slurm_settings` keys your
+batch system expects. An estimator's `resources` and its active systematic's `resources` are
+shallow-merged, with the systematic's keys winning on conflict. `resources` is optional. If unset
+or empty, only the global `settings.json`/`configure_b2luigi()` settings apply.
+
+::: {warning}
+By default, NEEDLE sets `htcondor_settings = {"getenv": "True"}` in order to directly ship the
+environment used by the submitter to the worker node. If you wish to avoid this, you must point
+`env_script` to a custom setup script that sources your environment. This is managed by the
+`needle.tasks.b2luigi.workflows.configure_b2luigi` function.
+See [Troubleshooting](../setup/usage.md#troubleshooting)
+
 ## Running needle-sbi with backend b2luigi
 
 Running the Tasks from the CLI:

@@ -25,7 +25,7 @@ if ! command -v law &> /dev/null; then
     if [[ -n "$LAW_HTCONDOR_JOB_NUMBER" ]] || [[ -n "$LAW_JOB_INIT_DIR" ]]; then
         echo -e "${_NEEDLE_ORANGE}Warning: LAW not found, but continuing for remote execution${_NEEDLE_NC}"
     else
-        echo -e "${_NEEDLE_ORANGE}LAW not found — is your virtual environment active?${_NEEDLE_NC}"
+        echo -e "${_NEEDLE_ORANGE}LAW not found. Is your virtual environment active?${_NEEDLE_NC}"
         unset _NEEDLE_RED _NEEDLE_GREEN _NEEDLE_ORANGE _NEEDLE_NC
         return 1
     fi

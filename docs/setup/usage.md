@@ -191,6 +191,7 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
 ### Using `--backend law` (default)
 
  - **`task family '<MissingTask>' not found in index`**
+
     → Ensure the Task you want to run is indexed in the `index` file. Refresh with `law index`. The modules
     to be indexed must be listed in `law.cfg`. 
     
@@ -202,18 +203,48 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
     ```
 
  - **`ModuleNotFoundError: No module named 'needle.tasks.law'`**
+
     → You might have forgotten to run `source setup.sh`. Either this or the modules are broken at import
     and `law` failed to load the Tasks. You can debug this by opening python in the terminal and check if
     you can import the module with the current interpreter.
 
  - **`Unfulfilled dependencies at RunTime`**
+
     → LAW expected an output file that doesn't exist. Check which file it reports and look at the
     task that should have created it. Often caused by a crashed run leaving partial outputs.
 
  - **Task shows as complete but results look wrong**
+
     → LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
 task to force a re-run.
 
 ### Using `--backend b2luigi`
 
-The Error messages from b2luigi are more detailed than law, and should point you into the right direction.
+ - **`Failed task b2luigi.TrainingTask`**
+
+    In the case where the logs `stdout` shows this setup Error:
+
+    ```
+    Setting up the environment
+    [0;33mLAW not found. Is your virtual environment active?[0m
+    ```
+
+    This means that the worker node was unable to access the proper environment to run the Task.
+
+    → For HTCondor, the default `htcondor_settings` has `{"getenv": "True"}`
+    (see `merged_batch_settings()` in `needle.tasks.b2luigi.workflows.common`), 
+    which copies the environment used for submission
+    (activated venv/conda env, `PATH`, `LAW_HOME`, ...) to the worker node, so this should not
+    happen normally. 
+    
+    It can still occur if:
+        - This setting is changed to `{"getenv": "False}"` (e.g by your cluster's HTCondor config)
+        - The pool disables or ignores `getenv` for security reasons.
+
+    If you want to stay with  `{"getenv": "False}"`, in order to keep a reproducible environemnt
+    or for other reasons, point `env_script` at your own script instead of NEEDLE's `setup.sh`. 
+    You can do this in `settings.json` or with `configure_b2luigi(env_script=...)`. For
+    `conda`, that script would have to include `conda activate <env>`.
+
+    → For Slurm, `sbatch` already copies the submission environment to the worker by default (no
+    `getenv`-equivalent setting needed). If `export=NONE` is set, you might still encounter this error.
