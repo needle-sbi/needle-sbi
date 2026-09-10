@@ -170,7 +170,7 @@ downstream_tasks:
 This gets unpacked in three steps:
 
 ```python
-# 1. args, with OmegaConf interpolations resolved to plain Python values
+# 1. Resolve the args to plain python objects
 base_args = OmegaConf.to_container(self.downstream_config.args, resolve=True)
 # base_args = {
 #   "_target_": "my_package.tasks.my_task.MyAnalysisTask",
@@ -188,11 +188,10 @@ return hydra_instantiate(merged_args, snapshot_path=self.snapshot_path)
 
 What this means concretely:
 
-- Every other key in `args` must match a `luigi.Parameter` name your Task declares
-  (`root_dir`, `output_path` in the example above). An `args` key with no matching parameter on the
-  Task raises a normal `TypeError: unexpected keyword argument` from luigi's own parameter
-  resolution.
-- `snapshot_path` is the one extra kwarg NEEDLE injects on every call regardless of what's in
+- Every key in `args` must match a `luigi.Parameter` in your Task
+  (`root_dir`, `output_path` in the example above). A key with no matching parameter raises a normal
+  `TypeError: unexpected keyword argument` from luigi's own parameter resolution.
+- `snapshot_path` is an extra keyword argument that NEEDLE injects on every call regardless of what's in
   `args`. If your Task does not declare a `snapshot_path` luigi parameter, it is dropped with a
   warning. This preferential treatment only applies to `snapshot_path` (being a `kwarg` and not 
   part of the Config dict).
