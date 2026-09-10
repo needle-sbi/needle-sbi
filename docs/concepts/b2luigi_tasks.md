@@ -88,10 +88,16 @@ downstream_tasks:
       request_memory: "2048MB"
 ```
 
-Keys/values are forwarded verbatim - use whatever `htcondor_settings`/`slurm_settings` keys your
+Keys/values are forwarded with no modification, so use whatever
+`htcondor_settings`/`slurm_settings` keys your
 batch system expects. An estimator's `resources` and its active systematic's `resources` are
-shallow-merged, with the systematic's keys winning on conflict. `resources` is optional; if unset
+shallow-merged, with the systematic's keys winning on conflict. `resources` is optional. If unset
 or empty, only the global `settings.json`/`configure_b2luigi()` settings apply.
+
+::: {warning}
+By default, NEEDLE sets `htcondor_settings = {"getenv": "True"}` in order to directly ship the
+environment used by the submitter to the worker node. If you wish to avoid this, you must point
+`env_script` to a custom setup script that sources your environment. This is managed by the `needle.tasks.b2luigi.workflows.configure_b2luigi` function. See [Troubleshooting](../setup/usage.md#troubleshooting)
 
 ## Running needle-sbi with backend b2luigi
 
