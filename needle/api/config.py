@@ -30,27 +30,21 @@ class Config:
         FileNotFoundError: If `config_path` does not exist.
 
     Examples:
-        Load a config and inspect it via attribute access:
+        Load a config and inspect it via attribute access::
 
-        ```python
-        from needle.api import Config
+            from needle.api import Config
 
-        cfg = Config("conf/config.yaml")
-        print(cfg.results_path)
-        print(list(cfg.estimators.keys()))
-        ```
+            cfg = Config("conf/config.yaml")
+            print(cfg.results_path)
+            print(list(cfg.estimators.keys()))
 
-        Look up a nested value by dot-notation key, with a default if missing:
+        Look up a nested value by dot-notation key, with a default if missing::
 
-        ```python
-        n_folds = cfg.get("estimators.model_A.expands.folds", default=1)
-        ```
+            n_folds = cfg.get("estimators.model_A.expands.folds", default=1)
 
-        Access the raw, fully-resolved dataclass directly:
+        Access the raw, fully-resolved dataclass directly::
 
-        ```python
-        estimator_cfg = cfg.estimators["model_A"]
-        ```
+            estimator_cfg = cfg.estimators["model_A"]
     """
 
     def __init__(self, config_path: Union[str, Path]):

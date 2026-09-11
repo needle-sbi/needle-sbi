@@ -1,5 +1,5 @@
 
-## Locally build the documentation
+# Locally build the documentation
 
 To build the documentation, follow these steps:
 

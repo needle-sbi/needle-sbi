@@ -75,7 +75,7 @@ def configure_b2luigi(
     """Configure the b2luigi runtime settings programmatically.
 
     Equivalent to placing the same values in ``settings.json`` at the project root.
-    Call this before ``b2luigi.process()``. The ``results_dir```global b2luigi parameter is unused.
+    Call this before ``b2luigi.process()``. The ``results_dir`` global b2luigi parameter is unused.
 
     Args:
         batch_system: One of ``"local"``, ``"htcondor"``, ``"slurm"``, ``"lsf"``.

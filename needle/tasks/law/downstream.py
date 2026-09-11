@@ -7,13 +7,14 @@ This module defines the DownstreamTask which is responsible for:
 - Managing multi-branch workflows for complex pipelines
 
 Configuration:
-Tasks are configured via the ``downstream_tasks`` key in config.yaml:
-    downstream_tasks:
-      my_task:
-        requires: ["snapshot"]
-        args:
-          _target_: my.module.MyTask
-          output_path: "${results_path_downstream}/output"
+    Tasks are configured via the ``downstream_tasks`` key in config.yaml::
+
+        downstream_tasks:
+          my_task:
+            requires: ["snapshot"]
+            args:
+              _target_: my.module.MyTask
+              output_path: "${results_path_downstream}/output"
 
 Dependency Chain:
 - Depends on SnapshotTask and any other declared dependencies

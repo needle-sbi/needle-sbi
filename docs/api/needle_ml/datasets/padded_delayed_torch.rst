@@ -5,3 +5,4 @@ Delayed Torch Dataset
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: Ingestor

@@ -31,7 +31,7 @@ For each combination:
 4. Histogram the scores into 200 bins in [0, 1], separately for signal and background events.
 
 The result is a JSON file:
-```json
+```text
 {
   "(0.9, 0.9)": { "sig": [0.1, 0.3, ...], "bg": [0.8, 0.5, ...] },
   "(0.9, 1.0)": { "sig": [...], "bg": [...] },
