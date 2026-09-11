@@ -115,9 +115,9 @@ class KFold:
                 (:attr:`KFold.partitions`) do not match.
 
         Example:
-            If you are using torch multiprocessing and want to keep only a subset of partitions for
-                each workers.
-            Assuming you are working with :class:`torch.utils.data.IterableDataset`
+            If you are using torch multiprocessing and want to keep only a subset of
+            partitions for each worker, assuming you are working with
+            :class:`torch.utils.data.IterableDataset`:
 
             >>> worker_info = torch.utils.data.get_worker_info()
             ... kfold = KFold(...)

@@ -134,3 +134,11 @@ examples/fair_universe_demo/index
 
 api/index
 ```
+
+```{toctree}
+:maxdepth: 2
+:caption: For Developers
+:hidden:
+
+for_devs/locally_build_docs
+```

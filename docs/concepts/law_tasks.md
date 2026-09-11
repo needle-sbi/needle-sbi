@@ -42,7 +42,7 @@ The extra `needle-sbi` arguments are
 | Argument              | Description                                                  |
 | --------------------- | -------------------------------------------------------------|
 | `--config-file`       | Path to the Hydra config file (default: `conf/config.yaml`). |
-| `--hydra-overrides`   | Overrides to be passed to hydra. Type `str`. Format: `'key1=value1 key2=value2'`, same as in the hydra docs (See [Hydra overrides](lightning_and_hydra_integration#step-3-runtime-overrides)). |
+| `--hydra-overrides`   | Overrides to be passed to hydra. Type `str`. Format: `'key1=value1 key2=value2'`, same as in the hydra docs (See [Hydra overrides](lightning_and_hydra_integration.md#step-3-runtime-overrides)). |
 | `--results-path`      | Root directory where results are saved.                      |
 | `--strict-config`     | Config conflict strictness: `IGNORE`, `WARN`, or `RAISE`. Whether same re-runs should also strictly have the same config. Default is `RAISE` |
 

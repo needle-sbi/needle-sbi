@@ -108,7 +108,6 @@ autodoc_mock_imports = [
     "uproot",
     "awkward",
     "tensorboard",
-    "pydantic",
     "psutil",
     "pyarrow",
     "spacy",
@@ -124,6 +123,11 @@ autodoc_default_options = {
 }
 
 autodoc_typehints = "both"
+
+# Render Google-style "Attributes:" sections as an :ivar: field list rather than standalone
+# `.. py:attribute::` directives — the latter collide with autodoc's own documentation of the
+# same (annotated) class attributes, producing duplicate-object-description warnings.
+napoleon_use_ivar = True
 
 maximum_signature_line_length = 1
 

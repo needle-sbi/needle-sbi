@@ -5,3 +5,4 @@ Eager Padded Dataset
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: Ingestor

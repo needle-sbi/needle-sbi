@@ -91,7 +91,7 @@ def gather_metadata(paths: list[str]) -> MetaDataDict:
 
 class ScalerProtocol(Protocol):
     cache: dict[str, dict[str, Any]]
-    """Format: `{"<metric>": {"<field>": <value>}, ...}`"""
+    """Format: ``{"<metric>": {"<field>": <value>}, ...}``"""
 
     def apply(self, array: dak.Array) -> dak.Array:
         ...
