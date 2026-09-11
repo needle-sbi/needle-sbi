@@ -37,15 +37,15 @@ Currently, the `venv` and `setup.sh` require a shared filesystem between worker 
 
 The python Tasks are implemented with `luigi` and each Task counts as completed if:
 
- 1. **All its requirements are complete**. 
- 
+ 1. **All its requirements are complete**.
+
     So all the Tasks that this Task depends on are marked as complete.
-    This implies a recursive check that works up the DAG until it finds a Task that is not yet 
-    complete. As long as this recursive check has a clear beginning (meaning the graph is 
+    This implies a recursive check that works up the DAG until it finds a Task that is not yet
+    complete. As long as this recursive check has a clear beginning (meaning the graph is
     *acyclic*), this is valid.
 
  2. **All its outputs exist**.
- 
+
     Output files or folders are defined using the `output()` method. The outputs
     have to be created during the execution of the Task.
 
@@ -57,12 +57,12 @@ fail due to inexistent files that they in turn depend on.
 A Task might require:
 
  1. **Other Tasks** using `requires()`
- 
+
     These are just other Tasks with their own associated parameters.
 
  2. **Input files** using `input()`
- 
-    It provides a way to access the outputs of the upstream required Tasks for this Task. 
+
+    It provides a way to access the outputs of the upstream required Tasks for this Task.
     You can define `output()` with each output file of your Task and
     access them in the next Task using the `input()` method with that same name. If that file
     does not exist or the name is wrong, it will raise an `Unfulfilled dependencies at RunTime`
