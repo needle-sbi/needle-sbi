@@ -21,19 +21,18 @@ source setup.sh
 cd examples/fair_universe_demo
 
 # Train everything and run the full analysis
-needle run DownstreamTask plot \
+law run DownstreamTask --downstream plot \
     --config-file examples/fair_universe_demo/conf/config.yaml
 
 # Test with the bundled ~1000-event dataset
-needle run DownstreamTask eval \
+law run DownstreamTask --downstream eval \
     --config-file examples/fair_universe_demo/conf/config.yaml \
-    --param hydra_overrides="custom_settings.use_test_data=True"
+    --hydra-overrides "custom_settings.use_test_data=True"
 ```
 
-`needle run` defaults to the `law` backend; add `--backend b2luigi` to use `b2luigi` instead. See
-[Usage](../../setup/usage.md) for the full `needle run` reference, or [LAW Tasks](../../concepts/law_tasks.md)
-/ [b2luigi Tasks](../../concepts/b2luigi_tasks.md) to drive the same tasks through each backend's own
-CLI tool directly.
+See [Usage](../../setup/usage.md), [LAW Tasks](../../concepts/law_tasks.md) and
+[b2luigi Tasks](../../concepts/b2luigi_tasks.md) for the full per-backend CLI reference (`law run`
+above maps onto `b2luigi run DownstreamTask --param downstream=plot ...` the same way).
 
 When using `b2luigi`, you might need to install the `fair_universe_demo` package locally in order to
 register the Tasks. A simple `pip install -e .` suffices.

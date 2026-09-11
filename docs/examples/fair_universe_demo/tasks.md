@@ -2,7 +2,7 @@
 
 All downstream tasks are plain `luigi.Task` subclasses. They are run after training is complete
 (via `MainTask`, which writes `dag_snapshot.json`) and are invoked through `DownstreamTask`, e.g.
-`needle run DownstreamTask <name>` (see [Usage](../../setup/usage.md)).
+`law run DownstreamTask --downstream <name>` (see [Usage](../../setup/usage.md)).
 
 The pipeline runs in order: `histogram → neyman → eval → score → plot`. Validation tasks
 (`validation_nf`, `validation_classifier`) run independently and are required by `plot`.
@@ -12,7 +12,7 @@ The pipeline runs in order: `histogram → neyman → eval → score → plot`. 
 ## `HistogramTask`
 
 **Source:** `fair_universe_demo/tasks/histogram.py`
-**Run with:** `needle run DownstreamTask histogram`
+**Run with:** `law run DownstreamTask --downstream histogram`
 **Output:** `{results_path_downstream}/hist.json`
 
 ### What it does
@@ -70,7 +70,7 @@ standard way all downstream tasks load trained models.
 ## `NeymanTask`
 
 **Source:** `fair_universe_demo/tasks/neyman.py`
-**Run with:** `needle run DownstreamTask neyman`
+**Run with:** `law run DownstreamTask --downstream neyman`
 **Output:** `{results_path_downstream}/neyman.json` + calibration plots
 
 ### What it does in an NSBI context
@@ -155,7 +155,7 @@ The optimisation uses `scipy.optimize.minimize` with the L-BFGS-B method and bou
 ## `EvalTask`
 
 **Source:** `fair_universe_demo/tasks/eval.py`
-**Run with:** `needle run DownstreamTask eval`
+**Run with:** `law run DownstreamTask --downstream eval`
 **Output:** `{results_path_downstream}/eval.json`
 
 ### What it does
@@ -209,7 +209,7 @@ The confidence interval uses a **posterior-based approach**:
 ## `ScoreTask`
 
 **Source:** `fair_universe_demo/tasks/score.py`
-**Run with:** `needle run DownstreamTask score`
+**Run with:** `law run DownstreamTask --downstream score`
 **Output:** `{results_path_downstream}/scores/`
 
 ### What it does
@@ -228,7 +228,7 @@ The scoring code is adapted from the official FAIR Universe challenge repository
 ## `PlottingTask`
 
 **Source:** `fair_universe_demo/tasks/plot_results.py`
-**Run with:** `needle run DownstreamTask plot`
+**Run with:** `law run DownstreamTask --downstream plot`
 **Output:** `{results_path_downstream}/plots/`
 
 ### What it does
@@ -246,7 +246,7 @@ Requires all of: `score`, `validation_nf`, `validation_classifier`.
 ## `NormalizingFlowValidationTask`
 
 **Source:** `fair_universe_demo/tasks/plot_nf.py`
-**Run with:** `needle run DownstreamTask validation_nf`
+**Run with:** `law run DownstreamTask --downstream validation_nf`
 **Output:** `{results_path_downstream}/plots/`
 
 Validates each of the 8 NF model variants by plotting:
@@ -261,7 +261,7 @@ Run separately for each model via the `model_name` expansion in the config.
 ## `ClassifierValidationTask`
 
 **Source:** `fair_universe_demo/tasks/plot_classifier.py`
-**Run with:** `needle run DownstreamTask validation_classifier`
+**Run with:** `law run DownstreamTask --downstream validation_classifier`
 **Output:** `{results_path_downstream}/plots/classifier/`
 
 Validates the classifier for each jet category (1-jet and 2-jet) by plotting:
@@ -274,16 +274,16 @@ Validates the classifier for each jet category (1-jet and 2-jet) by plotting:
 ## Debugging tips
 
 **Task is stuck / not progressing:**
-Run `needle run DownstreamTask <name> --param print-status=0` to see which tasks are
+Run `law run DownstreamTask --downstream <name> --print-status 0` to see which tasks are
 complete and which are pending without running anything.
 
 **Rerunning a failed task:**
 ```bash
-needle run DownstreamTask histogram \
+law run DownstreamTask --downstream histogram \
     --config-file conf/config.yaml \
-    --param remove-output=0,a,y
+    --remove-output 0,a,y
 ```
-The `remove-output=0,a,y` param deletes this task's output files so `law` re-runs it.
+The `--remove-output 0,a,y` flag deletes this task's output files so `law` re-runs it.
 Use with care — it only removes the target task's outputs, not upstream ones. This is a `law`-only
 flag; see [b2luigi Tasks](../../concepts/b2luigi_tasks.md#removing-task-outputs) for the `b2luigi`
 equivalent.

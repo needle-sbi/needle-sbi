@@ -89,13 +89,7 @@ class Config:
         return getattr(self.config, name)
 
     def __repr__(self) -> str:
-        """Show the wrapped config's full nested structure, e.g. when printed in a notebook.
-
-        Renders as ``Config(<config_path>)`` followed by the resolved config dumped as
-        indented YAML, so the wrapper stays visible while the thing that actually
-        matters -- the nested structure of the config itself -- is shown directly
-        rather than hidden behind a generic ``<Config object at 0x...>``.
-        """
+        """Show the wrapped config's full nested structure, e.g. when printed in a notebook."""
         yaml_str = OmegaConf.to_yaml(self.config).rstrip("\n")
         indented = "\n".join(f"  {line}" for line in yaml_str.splitlines())
         return f"Config('{self.config_path}'):\n{indented}"

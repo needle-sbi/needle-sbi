@@ -247,8 +247,8 @@ class TestLawTrainingTask:
         resource-pool accounting (see ``luigi.scheduler.Scheduler._has_resources``), which caps
         any resource name not explicitly configured in a global ``[resources]`` section at 1
         unit. If batch resource requests like ``RequestMemory: 8192`` ever leaked into that
-        attribute again, the task would never be scheduled and any worker (``needle run`` /
-        ``law run``) would hang forever at "Running Worker ...".
+        attribute again, the task would never be scheduled and any worker (``law run``) would
+        hang forever at "Running Worker ...".
         """
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]

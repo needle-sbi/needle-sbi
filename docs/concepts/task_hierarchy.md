@@ -1,5 +1,14 @@
 # DAG Workflow
 
+::: {admonition} Directed Acyclic Graph (DAG)
+:class: note
+Fancy talk for a *tree-like dependency structure*. So some starting Tasks, followed by a non-circular
+relation between more Tasks and an output Task.
+:::
+
+This section explains what the DAG workflow in NEEDLE is. While you do not need to understand the
+luigi workings to use NEEDLE, its still valuable to have a brief overview.
+
 ## Why use a DAG for NSBI training?
 
 Many NSBI tools rely on large neural surrogates to estimate statistical quantities. The final estimator
@@ -23,7 +32,43 @@ on Task A meaning A must finish before B can start.
 Currently, the `venv` and `setup.sh` require a shared filesystem between worker and submission node.
 :::
 
-## Python based workflows: Luigi, b2luigi and law
+
+## Luigi `Task` basics
+
+The python Tasks are implemented with `luigi` and each Task counts as completed if:
+
+ 1. **All its requirements are complete**. 
+ 
+    So all the Tasks that this Task depends on are marked as complete.
+    This implies a recursive check that works up the DAG until it finds a Task that is not yet 
+    complete. As long as this recursive check has a clear beginning (meaning the graph is 
+    *acyclic*), this is valid.
+
+ 2. **All its outputs exist**.
+ 
+    Output files or folders are defined using the `output()` method. The outputs
+    have to be created during the execution of the Task.
+
+The `run()` method is responsible for actually executing the main body of code that the Task is supposed
+to perform. If after reaching the end of the `run()` block an output file is missing, the Task is marked
+as failed and the whole DAG stops. This is intended behavior since otherwise downstream tasks will
+fail due to inexistent files that they in turn depend on.
+
+A Task might require:
+
+ 1. **Other Tasks** using `requires()`
+ 
+    These are just other Tasks with their own associated parameters.
+
+ 2. **Input files** using `input()`
+ 
+    It provides a way to access the outputs of the upstream required Tasks for this Task. 
+    You can define `output()` with each output file of your Task and
+    access them in the next Task using the `input()` method with that same name. If that file
+    does not exist or the name is wrong, it will raise an `Unfulfilled dependencies at RunTime`
+    Error and tell you which files it expected.
+
+## Batch submissions with b2luigi and law
 
 The `needle-sbi` package ships this DAG in three forms, all in python, depending on your needs:
 
@@ -69,7 +114,7 @@ collaboration. It has excellent documentation and intuitive usage.
 | LSF (batch)                           |                                           | ✅                            |
 | Settings file                         | `law.cfg`                                 | `settings.json`               |
 | Running natively (CLI)                | `law run MainTask ...`                    | `b2luigi run MainTask ...`                   |
-| Running from `needle-sbi` (CLI)       | `needle run MainTask ...`                 | `needle run --backend b2luigi MainTask`      |
+| Running from `needle-sbi` (python)    | `needle.run(backend="law")`           | `needle.run(backend="b2luigi")`          |
 | Importing `needle-sbi` Tasks (python) | `from needle.tasks.law import MainTask `  | `from needle.tasks.b2luigi import MainTask`  |
 
 Both backends implement the exact same DAG shape described above — pick whichever fits your

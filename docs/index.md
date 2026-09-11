@@ -60,7 +60,7 @@ With a minimal setup, NEEDLE gives you:
 - [PyTorch Lightning training](concepts/lightning_and_hydra_integration.md#lightning) with check-pointing and MLflow logging built in
 - [Easily access trained models](setup/usage.md#accessing-trained-models) using the `dag_snapshot.json` mapping every trained model to its
     checkpoint path, produced automatically at the end of a run
-- Accessible from the Command Line Interface with the `needle run` tool or as a python package
+- Accessible from the Command Line Interface via `law run`/`b2luigi run`, or as a python package
 :::
 
 ::: {admonition} Advanced features

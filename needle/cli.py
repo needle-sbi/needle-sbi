@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess  # noqa: F401 -- re-exported so tests can patch `cli.subprocess.call`
 import sys
 
 # Deferred: importing needle.utils.logging pulls in the full `needle` package
@@ -13,68 +12,11 @@ try:
 except ImportError:
     argcomplete = None
 
-_TASK_CHOICES = [
-    "MainTask",
-    "EstimatorTask",
-    "SystematicTask",
-    "EnsembleTask",
-    "FoldTask",
-    "TrainingTask",
-    "DownstreamTask",
-]
-
-
-def _complete_task(**kwargs: object) -> list[str]:
-    return _TASK_CHOICES
-
 
 def cmd_init(args: argparse.Namespace) -> None:
     from needle.api.init import init
 
     init(args.directory, no_conf=args.no_conf, backend=getattr(args, "backend", "both"))
-
-
-def cmd_run(args: argparse.Namespace) -> None:
-    from needle.api.run import UnknownTaskError, run
-    from needle.utils.config_utils import NeedleConfigError
-
-    if args.backend == "law":
-        config_file = getattr(args, "config_file", None)
-        results_path = getattr(args, "results_path", None)
-    else:
-        config_file = getattr(args, "config_file", "conf/config.yaml")
-        results_path = getattr(args, "results_path", "runs")
-
-    downstream_name = getattr(args, "downstream_name", None)
-    params = list(args.params)
-    if downstream_name is not None:
-        if args.task != "DownstreamTask":
-            raise SystemExit(
-                f"The <downstream_name> positional argument is only valid with the DownstreamTask "
-                f"task, got task={args.task!r}"
-            )
-        if any(p == "downstream" or p.startswith("downstream=") for p in params):
-            raise SystemExit(
-                "Specify the downstream task either positionally "
-                "(`needle run DownstreamTask <name>`) or via `--param downstream=<name>`, not both"
-            )
-        params = [f"downstream={downstream_name}", *params]
-
-    try:
-        result = run(
-            task=args.task,
-            backend=args.backend,
-            config_file=config_file,
-            results_path=results_path,
-            batch_system=getattr(args, "batch_system", "local"),
-            workers=getattr(args, "workers", 1),
-            params=params,
-        )
-    except (UnknownTaskError, NeedleConfigError) as e:
-        raise SystemExit(str(e))
-
-    if args.backend == "law":
-        sys.exit(result.returncode)
 
 
 def main() -> None:
@@ -103,64 +45,6 @@ def main() -> None:
         help="Workflow backend to scaffold (default: both)",
     )
 
-    run = sub.add_parser("run", help="Run the NEEDLE training DAG")
-    run_task_arg = run.add_argument(
-        "task",
-        nargs="?",
-        default="MainTask",
-        help="Task to run, e.g. MainTask, EstimatorTask, SystematicTask, EnsembleTask, FoldTask, "
-        "DownstreamTask (default: MainTask)",
-    )
-    run_task_arg.completer = _complete_task  # type: ignore[attr-defined]
-    run.add_argument(
-        "downstream_name",
-        nargs="?",
-        default=None,
-        help="Shorthand for `DownstreamTask`: equivalent to --param downstream=<name>. "
-        "Only valid when task=DownstreamTask, e.g. `needle run DownstreamTask my_downstream`.",
-    )
-    run.add_argument(
-        "--backend",
-        choices=["law", "b2luigi"],
-        default="law",
-        help="Workflow backend to use (default: law)",
-    )
-    run.add_argument(
-        "--config-file",
-        dest="config_file",
-        default="conf/config.yaml",
-        help="Path to the Hydra config file (default: conf/config.yaml)",
-    )
-    run.add_argument(
-        "--results-path",
-        default="runs",
-        dest="results_path",
-        help="Root directory for results (default: runs)",
-    )
-    run.add_argument(
-        "--batch-system",
-        default="local",
-        dest="batch_system",
-        choices=["local", "htcondor", "slurm", "lsf"],
-        help="Batch system for b2luigi backend (default: local)",
-    )
-    run.add_argument(
-        "--workers",
-        type=int,
-        default=1,
-        help="Number of parallel workers for b2luigi (default: 1)",
-    )
-    run.add_argument(
-        "--param",
-        dest="params",
-        action="append",
-        default=[],
-        metavar="KEY=VALUE",
-        help="Extra parameter to pass to the selected task, e.g. --param estimator=my_estimator "
-        "or --param downstream=my_downstream"
-        "Can be given multiple times.",
-    )
-
     if argcomplete is not None:
         argcomplete.autocomplete(parser)
 
@@ -168,5 +52,3 @@ def main() -> None:
 
     if args.command == "init":
         sys.exit(cmd_init(args))
-    elif args.command == "run":
-        sys.exit(cmd_run(args))

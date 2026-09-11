@@ -200,21 +200,15 @@ What this means concretely:
 
 ## Running your DownstreamTasks
 
-From `needle` (as a positional argument):
-
 ```bash
-needle run DownstreamTask my_analysis
+law run DownstreamTask --downstream my_analysis
+# or
+b2luigi run DownstreamTask --param downstream=my_analysis
 ```
 
-Or explicitly:
-
-```bash
-needle run DownstreamTask --param downstream=my_analysis
-```
-
-`needle run` works the same regardless of backend; see [LAW Tasks](law_tasks.md#running-needle-sbi-with-backend-law)
-and [b2luigi Tasks](b2luigi_tasks.md#running-needle-sbi-with-backend-b2luigi) for the equivalent
-native-CLI commands (e.g. `law run DownstreamTask --downstream my_analysis`).
+See [LAW Tasks](law_tasks.md#running-from-law-run) and
+[b2luigi Tasks](b2luigi_tasks.md#running-from-b2luigi-run) for the full per-backend CLI reference,
+or `needle.api.run()` for the equivalent entry point from Python.
 
 Either way:
 1. `MainTask` (and therefore the entire training pipeline) runs first if not already complete.

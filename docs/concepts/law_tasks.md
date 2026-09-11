@@ -15,20 +15,15 @@ environments. This page covers the `needle.tasks.law` backend, for the other bac
 
 ## Running from `law run`
 
-Law also ships its on CLI tool for running Tasks, which you can use by replacing `needle run`
-commands with `law run` as such:
+Run Tasks with:
 
 ```bash
 law run MainTask  # only training
 law run DownstreamTask --downstream <name_from_config>  # training + post-training
 ```
 
-`needle run <MyTask> --backend law ...` maps onto `law run <MyTask> ...` in a fairly straight-forward
-way.
- - The `--config-file` and `--results-path` are kept the same
- - The `--param key=value` convention of `needle run` or `b2luigi run` is simplified, with the luigi
-      parameters being directly accessible with `--key value`. For law, dashes and underscores in the 
-      key are interchangeable.
+Task parameters (`config_file`, `results_path`, `estimator`, `hydra_overrides`, ...) are directly
+accessible as `--key value` flags; dashes and underscores in the key are interchangeable.
 
 Some useful `law` args are listed here:
 
@@ -51,31 +46,6 @@ The extra `needle-sbi` arguments are
 | `--results-path`      | Root directory where results are saved.                      |
 | `--strict-config`     | Config conflict strictness: `IGNORE`, `WARN`, or `RAISE`. Whether same re-runs should also strictly have the same config. Default is `RAISE` |
 
-## `law.Task` basics
-
-This section also applies to `luigi` and `b2luigi`.
-
-A Task is counted as complete if:
-
- 1. **All its requirements are complete**. So all the Tasks that this Task depends on are marked as complete.
-    This implies a recursive check that works up the DAG until it finds a Task that is not yet complete.
- 2. **All its outputs exist**. Output files or folders are defined using the `output()` method. The outputs
-    have to be created during the execution of the Task.
-
-The `run()` method is responsible for actually executing the main body of code that the Task is supposed
-to perform. If after reaching the end of the `run()` block an output file is missing, the Task is marked
-as failed and the whole DAG stops. This is intended behavior since otherwise downstream tasks will
-fail due to inexistent files that they in turn depend on.
-
-A Task might require:
-
- 1. Other Tasks using the `req()` method in law, or `requires()` in luigi. These are just other Tasks
-    with associated parameters.
- 2. Input files. In Law, `input()` provides a way to access the outputs of the required Tasks for this
-    Task to use. Basically, you define `output()` with each output file having a fixed name and you
-    access these names in the next Task using the `input()` method with that same name. If that file
-    does not exist or the name is wrong, Law will raise an `Unfulfilled dependencies at RunTime` Error
-    and tell you which files it expected.
 
 ## `TrainingTask` and batch submissions
 

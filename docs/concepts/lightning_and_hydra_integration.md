@@ -194,8 +194,12 @@ For more information see the [OmegaConf docs](https://omegaconf.readthedocs.io/e
 Any dot-path in the config can be overridden at the command line via `--hydra-overrides`:
 
 ```bash
-needle run MainTask \
+law run MainTask \
     --config-file conf/config.yaml \
+    --hydra-overrides "estimators.my_estimator.model_override.hidden_dim=512"
+# or
+b2luigi run MainTask \
+    --param config_file=conf/config.yaml \
     --param hydra_overrides="estimators.my_estimator.model_override.hidden_dim=512"
 ```
 

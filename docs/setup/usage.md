@@ -6,37 +6,18 @@ This page assumes you've completed [Setup](index.md) and have a working `conf/co
 :class: note
 
 NEEDLE takes your Lightning modules, populates the hyperparameters using Hydra and submits the models
-to HPCs.
+to HPCs. Most of the configuration happens in `conf/config.yaml` (or your own yaml file).
 :::
 
 ## Running your first task
 
-There are three entry points you will use:
+In this page we will keep to the `b2luigi` default backend for Needle.
+If you prefer `law` instead, have a look at the [LAW Tasks](../concepts/law_tasks.md) page 
+afterwards. There are also more details for [b2luigi Tasks](../concepts/b2luigi_tasks.md) in their 
+page.
+In addition, there is a python entry point for scripts and notebooks `needle.run() that points to
+either backend.
 
-### `MainTask`: only training
-
-```bash
-needle run MainTask \
-    --config-file examples/fair_universe_demo/conf/config.yaml
-```
-
-This triggers the full training pipeline: all estimators, their systematic variants, ensemble
-members, and cross-validation folds. At the end `MainTask` itself writes `dag_snapshot.json`
-which maps each trained model to its checkpoint path.
-
-### `DownstreamTask`: training + post-run analysis
-
-```bash
-needle run DownstreamTask \
-    --config-file examples/fair_universe_demo/conf/config.yaml \
-    --param downstream="eval"
-```
-
-The `downstream` parameter names one of the keys in `downstream_tasks` inside your config, in this
-case we named the step `"eval"`. For DownstreamTask, the `downstream_name` is a also a positional 
-argument, so passing `needle run DownstreamTask eval ...` will also point to the "eval" entry.
-NEEDLE automatically runs the training before running the analysis.
-More in the [Downstream Tasks](../concepts/downstream_tasks.md) page.
 
 ### `TrainingTask`: A single model directly
 
@@ -46,10 +27,28 @@ one specific model and don't want to wait for (or think about) the rest of the D
 parameter is always required (there's no name to infer it from otherwise).
 
 ```bash
-needle run TrainingTask \
-    --param estimator=model_A \
-    --param single
+b2luigi run TrainingTask \
+   --param estimator=model_A \
+   --param single
 ```
+
+This will read the estimator "model_A" from your config:
+
+```yaml
+estimators:
+  model_A:  # name of this estimator, at least one
+    model: mock_transformer  # reads file 'models/mock_transformer.yaml'
+    datamodule: pandas  # reads file 'datamodules/pandas.yaml'
+    dataset: default  # reads file 'datasets/default.yaml'
+    trainer: default  # reads file 'trainers/default.yaml'
+```
+
+Each field is explained in [Writing the Configuration](../concepts/hydra_config.md#estimator-blocks).
+
+:::: {dropdown} Differences when using `--param single`
+
+We added this extra flag to make debugging and iterating on a given model easier. No need to re-run
+the whole DAG-workflow. The behaviour between the two are a bit differetn
 
 ::: {admonition} What is kept the same
 :class: tip
@@ -80,64 +79,48 @@ This case is safe if you are aware of what will run and what wont. You can also 
 on and luigi will pick up the Tasks that ran successfully from this singular TrainingTask.
 :::
 
-## The NEEDLE CLI
+::::
 
-`needle run` is the recommended way to run any task, on either backend, as it unifies the syntax for
-both backends. It has the following arguments:
-
-| Flag | Effect |
-|---|---|
-| `--config-file <path>` | Path to the Hydra config YAML |
-| `--results-path <path>` | Root directory for results |
-| `--param key=value` | Forward an arbitrary parameter to the task (e.g. `--param downstream=eval`, `--param hydra-overrides="key=value key2=value2"`). Can be repeated. |
-| `--backend` | Either `"law"` (default) or `"b2luigi"` |
-| `--batch-system` | One of `"local"` (default), `"htcondor"`, `"slurm"` or `"lsf"` |
-| `--workers` | An `int` indicating the number of workers to request for this task |
-| `--help` | Shows the `needle run` help. Different from `--param help`, which displays the help menu for the given Task instead |
-
-::: {admonition} The `--param` wrapping
-:class: info
-
-In order to accommodate both `law` and `b2luigi` backends, we use a generic `--param` flag that takes
-a single `key=value` pair or just a `value` and passes it further. You can use `--param` as often
-as you want.
+### `MainTask`: only training
 
 ```bash
-needle run DownstreamTask \
-    --param downstream=eval \       # key=value pair
-    --param help                    # just value
+b2luigi run MainTask \
+   --param config_file=conf/config.yaml  # default, can be omitted
 ```
-:::
 
-This is equivalent to `law run DownstreamTask --downstream eval --help`. For `law` you can exchange
-dashes and underscores, they will all be converted to dashes. For `b2luigi` you must use underscores.
+This triggers the full training pipeline: all estimators, their systematic variants, ensemble
+members, and cross-validation folds. At the end `MainTask` itself writes `dag_snapshot.json`
+which maps each trained model to its checkpoint path.
 
-::: {admonition} Other CLI options
-:class: tip
+### `DownstreamTask`: training + post-run analysis
 
-Both backends also ship their own native CLI tool (`law run ...` / `b2luigi run ...`), which you
-can use directly instead of `needle run`. Both ship tab-completion and auto-removal tools.
+```bash
+b2luigi run DownstreamTask \
+   --param config_file=conf/config.yaml \
+   --param downstream=eval
+```
 
-See [LAW Tasks](../concepts/law_tasks.md) and [b2luigi Tasks](../concepts/b2luigi_tasks.md) to see 
-how `needle run` commands translate to each backend's native CLI.
-:::
+The `downstream` parameter names one of the keys in `downstream_tasks` inside your config, in this
+case we named the step `"eval"`. NEEDLE automatically runs the training before running the analysis.
+More in the [Downstream Tasks](../concepts/downstream_tasks.md) page.
 
-
-Examples:
+## Examples
 
 ```bash
 # Run a single model (named "model_A")
-needle run TrainingTask --param estimator=model_A --param single
+law run TrainingTask --estimator model_A --single
+# or
+b2luigi run TrainingTask --param estimator=model_A --param single
 ```
 
 ```bash
-# DownstreamTask, b2luigi backend 
-needle run DownstreamTask eval --backend b2luigi
+# DownstreamTask, b2luigi backend
+b2luigi run DownstreamTask --param downstream=eval
 # --> DownstreamTask(downstream="eval")
 
-# passing a hydra override through --param 
+# passing a hydra override
 # (quote the whole value and spaces stay inside it)
-needle run MainTask --param hydra_overrides="estimators.model_A.model_override.lr=0.01"
+law run MainTask --hydra-overrides "estimators.model_A.model_override.lr=0.01"
 ```
 
 ## Output directory layout
@@ -187,7 +170,7 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
 
 ## Troubleshooting
 
-### Using `--backend law` (default)
+### Using `law run`
 
  - **`task family '<MissingTask>' not found in index`**
 
@@ -217,7 +200,7 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
     → LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
 task to force a re-run.
 
-### Using `--backend b2luigi`
+### Using `b2luigi run`
 
  - **Task shows as complete but results look wrong**
 

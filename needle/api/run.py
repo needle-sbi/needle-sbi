@@ -49,27 +49,25 @@ def _normalize_params(params: Union[Mapping[str, ParamValue], Sequence[str], Non
 def run(
     task: str = "MainTask",
     *,
-    backend: Literal["law", "b2luigi"] = "law",
+    backend: Literal["law", "b2luigi"] = "b2luigi",
     config_file: str = "conf/config.yaml",
     results_path: str = "runs",
     batch_system: str = "local",
     workers: int = 1,
     params: Union[Mapping[str, ParamValue], Sequence[str], None] = None,
 ) -> RunResult:
-    """Submit a needle task to a workflow backend.
+    """Submit a needle task to a workflow backend from Python (e.g. a notebook or script).
 
     Args:
         task: Task class name to run, e.g. ``MainTask``, ``EnsembleTask``, ``TrainingTask``.
-        backend: ``"law"`` shells out to ``law run`` (requires ``LAW_HOME``/``LAW_CONFIG_FILE``
+        backend: 
+            - ``"law"`` shells out to ``law run`` and requires ``LAW_HOME``/``LAW_CONFIG_FILE``
             to already be set, e.g. by sourcing ``setup.sh`` or calling
-            ``needle.api.configure_law()``). ``"b2luigi"`` runs in-process via
-            ``b2luigi.cli.utils.process_task_instance()`` is the same entry point the
-            ``b2luigi run`` CLI command itself uses. This requires a ``tasks.py`` at the
-            project root (scaffolded by ``needle init --backend b2luigi``): batch
-            submission (``batch_system != "local"``) re-invokes the task on the worker
-            node via the real ``b2luigi batch-runner`` CLI command, which unconditionally
-            imports ``tasks.py`` to resolve the task class -- so the ``b2luigi`` console
-            script must be on ``PATH`` on worker nodes too.
+                ``needle.api.configure_law()``.
+            - ``"b2luigi"`` (the default) runs in-process via ``b2luigi.cli.utils.process_task_instance()``
+                which is the same entry point the
+                ``b2luigi run`` CLI command itself uses. This requires a ``tasks.py`` at the
+                project root. The ``b2luigi`` console script must be on ``PATH`` on worker nodes too.
         config_file: Path to the Hydra config file. Defaults to `conf/config.yaml`
         results_path: Root directory for results. Defaults to `runs`
         batch_system: One of ``"local"``, ``"htcondor"``, ``"slurm"``, ``"lsf"`` (b2luigi only).
@@ -125,12 +123,6 @@ def run(
             **extra_params,
         )
 
-        # process_task_instance() arms b2luigi's new-CLI batch-runner mode: a batch job
-        # re-invokes the task on the worker node as `b2luigi batch-runner --classname
-        # ... --task-file tasks.py`, instead of the legacy `<script> --batch-runner
-        # --task-id ...` convention that needle's own CLI cannot parse. It also passes
-        # ignore_additional_command_line_args=True, so it never sees/fights over the
-        # caller's own argv (`--backend`, `--config-file`, ...).
         process_task_instance(
             task_instance,
             task_file="tasks.py",

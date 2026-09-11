@@ -53,8 +53,11 @@ uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en docs d
 needle init [directory]                     # scaffold a new NEEDLE project (law.cfg, settings.json, setup.sh, conf/)
 needle init --backend law|b2luigi|both      # limit scaffolding to one backend (default: both)
 needle init --no-conf                       # scaffold without the default conf/ directory
-needle run MainTask --backend law           # shells out to `law run MainTask ...`
-needle run MainTask --backend b2luigi       # runs in-process via b2luigi.process()
+
+# Task execution has no needle-specific CLI; use each backend's own CLI directly:
+law run MainTask                            # law backend
+b2luigi run MainTask                        # b2luigi backend
+# or needle.api.run(task, backend="law"|"b2luigi") from Python
 ```
 
 ## Architecture

@@ -146,15 +146,15 @@ if [ -n "$PANEL_LINES_OUTPUT" ]; then
 fi
 
 print_header_line "Documentation:"
-print_text_line "  needle-sbi:    https://needle-sbi.readthedocs.io" "blue"
-print_text_line "  luigi:         https://luigi.readthedocs.io/" "blue"
-print_text_line "  b2luigi:       https://b2luigi.belle2.org" "blue"
+print_text_line "   needle-sbi:    https://needle-sbi.readthedocs.io" "blue"
+print_text_line "   luigi:         https://luigi.readthedocs.io/" "blue"
+print_text_line "   b2luigi:       https://b2luigi.belle2.org" "blue"
 print_empty
 
 print_header_line "Entry points:"
 print_text_line "   law run MainTask ..."
-print_text_line "   needle run ..."
-print_text_line "   needle run --backend b2luigi ..."
+print_text_line "   b2luigi run MainTask ..."
+print_text_line "   needle.run() / needle.train_single() (python)"
 
 print_empty
 print_footer

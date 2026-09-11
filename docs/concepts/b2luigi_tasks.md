@@ -16,7 +16,7 @@ already primes you to understand the added features of `b2luigi` intuitively.
 
 ## Batch submissions
 
-When running from `needle run` CLI, the settings are listed in the `settings.json` file at the project root:
+When running from the `b2luigi run` CLI, the settings are listed in the `settings.json` file at the project root:
 
 ```json
 {
@@ -33,48 +33,23 @@ For experts directly using `needle` Tasks in their own workflows, the settings c
 accessed from pure python using the `configure_b2luigi` function:
 
 ```python
-from needle.tasks.b2luigi.workflows.common import configure_b2luigi
+import needle
 
-configure_b2luigi(batch_system="htcondor")
+needle.configure_b2luigi(
+  batch_system="htcondor",
+  env_script=None,
+)
 ```
 
 ::: {warning}
 By default, NEEDLE sets `htcondor_settings = {"getenv": "True"}` in order to directly ship the
 environment used by the submitter to the worker node. If you wish to avoid this, you must point
-`env_script` to a custom setup script that sources your environment. This is managed by the
-`needle.tasks.b2luigi.workflows.configure_b2luigi` function.
+`env_script` to a custom setup script that sources your environment. By default, `env_script` will
+resolve to `setup.sh`.
 See [Troubleshooting](../setup/usage.md#troubleshooting)
 :::
 
-## Running from `needle run --backend b2luigi`
-
-Running the Tasks from the CLI:
-
-```bash
-needle run MainTask --backend b2luigi --batch-system htcondor --workers 4
-needle run DownstreamTask --backend b2luigi --param downstream=<name_from_config>
-```
-
-`needle run --backend b2luigi` looks up the task class by name and drives it through
-`b2luigi.cli.utils.process_task_instance()`. This the same entry point the `b2luigi run` CLI command
-itself uses (`ignore_additional_command_line_args=True`, so it never conflicts with needle's own
-argument parser). With this approach, you need to specify `--param downstream` instead of the
-direct `--downstream`.
-
-::: {important}
-Batch submission (`--batch-system htcondor|slurm|lsf`) re-invokes the task on the worker node via
-the real `b2luigi batch-runner` CLI command, which unconditionally imports a `tasks.py` file at
-the project root to resolve the task class. `needle init --backend b2luigi` scaffolds this
-`tasks.py` for you. 
-Make sure it exists and that the `b2luigi` console script (shipped by
-`b2luigi` itself, not a needle wrapper) is on `PATH` on worker nodes too. Purely local runs
-(`--batch-system local`, the default) do not need `tasks.py`.
-:::
-
 ## Running from `b2luigi run`
-
-You can also skip needle's CLI entirely and drive the same tasks through the real `b2luigi` CLI
-directly (from the same directory as `tasks.py`).
 
 Get tab-completion with:
 
@@ -89,16 +64,17 @@ b2luigi run MainTask --batch
 b2luigi run DownstreamTask --param downstream=<name_from_config>
 ```
 
-The usual `needle run <ClassName> --backend b2luigi ...` maps onto `b2luigi run <ClassName> ...`
-as following:
+::: {important}
+Batch submission (`--batch`) re-invokes the task on the worker node via the real
+`b2luigi batch-runner` CLI command, which unconditionally imports a `tasks.py` file at
+the project root to resolve the task class. `needle init --backend b2luigi` scaffolds this
+`tasks.py` for you.
+Make sure it exists and that the `b2luigi` console script is on `PATH` on worker nodes too.
+Purely local runs (no `--batch`) do not need `tasks.py`.
+:::
 
-| `needle run`                                | `b2luigi run`                 |
-| --------------------------------------------|-------------------------------|
-| `--config-file`                             | `--param config_file=...`     |
-| `--results-path`                            | `--param results_path=...`    |
-| `--param key=value`                         | `--param key=value` (same)    |
-| `--batch-system <sys>` other than `local`   | `--batch` (boolean)           |
-|  `--workers`                                | `--workers` (same)            |
+From Python (e.g. a notebook), `needle.api.run()` is the equivalent entry point: it calls the
+same `b2luigi.cli.utils.process_task_instance()` the `b2luigi run` CLI command itself uses.
 
 ### Removing task outputs
 

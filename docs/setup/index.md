@@ -81,7 +81,9 @@ and `LAW_CONFIG_FILE` environment variables so LAW can pick up the `law.cfg` fil
 Try out an absolutely minimal example with the default config (with a mock transformer model) using
 
 ```bash
-needle run
+law run MainTask
+# or
+b2luigi run MainTask
 ```
 
 Once this works, head over to [Usage](usage.md) to learn about the different ways to run tasks.
