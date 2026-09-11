@@ -1,11 +1,9 @@
-
 # temporary unit tests for fitting and neyman to validate changes.
 # Majorly clanker assisted
 
 import numpy as np
 import pytest
 import torch
-
 from fair_universe_demo.utils.stats import (
     _grid_bounds_from_splines,
     compute_signal_fraction,
@@ -19,9 +17,9 @@ NBINS = 200
 BINS = np.linspace(0, 1, num=NBINS)
 BIN_WIDTHS = np.diff(BINS)
 
+
 class _CannedScoreModel(torch.nn.Module):
-    """classifier that returns precomputed logits, ignoring its input.
-    """
+    """classifier that returns precomputed logits, ignoring its input."""
 
     def __init__(self, logits_2j: torch.Tensor, logits_1j: torch.Tensor):
         super().__init__()
@@ -60,11 +58,7 @@ def _build_template_dict(density_fn) -> dict[tuple[str, str], np.ndarray]:
     Cubic SmoothBivariateSpline (kx=ky=3) requires at least (3+1)^2 = 16 points.
     """
     grid = ["0.9", "0.95", "1.0", "1.05", "1.1"]
-    return {
-        (s1, s2): density_fn(float(s1), float(s2))
-        for s1 in grid
-        for s2 in grid
-    }
+    return {(s1, s2): density_fn(float(s1), float(s2)) for s1 in grid for s2 in grid}
 
 
 def _sample_scores_from_pdf(pdf: np.ndarray, n: int, rng: np.random.Generator) -> np.ndarray:
@@ -147,11 +141,11 @@ def test_grid_bounds_match_training_extent(bin_splines):
 def test_recovers_injected_signal_fraction(bin_splines, f_s_true):
     """Fit recovers injected f_s within 30% (relative) at high stats.
 
-    Tolerance is generous because: 
-    (a) limited spline grid (3x3), 
-    (b) finite sample, 
+    Tolerance is generous because:
+    (a) limited spline grid (3x3),
+    (b) finite sample,
     (c) shape mismatch between sampling and the splined templates.
-    
+
     The point is to verify the fit moves toward truth — not to benchmark it.
     """
     splines_s, splines_b = bin_splines
@@ -177,10 +171,7 @@ def test_recovers_injected_signal_fraction(bin_splines, f_s_true):
     )
 
     rel_err = abs(f_s_hat - f_s_true) / f_s_true
-    assert rel_err < 0.30, (
-        f"f_s recovery off: injected={f_s_true:.4f}, fitted={f_s_hat:.4f}, "
-        f"rel_err={rel_err:.2%}"
-    )
+    assert rel_err < 0.30, f"f_s recovery off: injected={f_s_true:.4f}, fitted={f_s_hat:.4f}, " f"rel_err={rel_err:.2%}"
 
 
 def test_fit_does_not_escape_spline_grid(bin_splines):

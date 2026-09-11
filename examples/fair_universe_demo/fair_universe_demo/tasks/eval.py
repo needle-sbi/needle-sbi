@@ -184,7 +184,6 @@ class EvalTask(luigi.Task):
 
         logger.info(f"Saved evaluation result to '{result_path}'")
 
-    @timing
     def run(self) -> None:
         self.prepare()
         self.predict_submission()

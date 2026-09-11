@@ -1,19 +1,11 @@
 FoldTask
 ========
 
-Executes the actual training for a single cross-validation fold. Supports local,
-HTCondor, and SLURM execution backends.
+``.done``-marker task for a single cross-validation fold. Requires exactly one
+``TrainingTask`` — the actual Lightning training happens there, not in ``FoldTask`` itself.
 
-Type Aliases
-------------
-
-.. autodata:: law_tasks.fold.FoldTaskOutput
-
-Reference
----------
-
-.. automodule:: law_tasks.fold
+.. automodule:: needle.tasks.law.fold
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: FoldTaskOutput
+   :inherited-members: law.Task

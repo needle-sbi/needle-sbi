@@ -80,6 +80,11 @@ myst_enable_extensions = [
 
 myst_dmath_double_inline = True
 
+# Auto-generate an anchor id for every heading up to this depth (####), so headings can be
+# linked with `#the-heading-slug` without a manual `(name)=` target above each one. Several
+# concept pages already link to heading slugs this way; without this option those are dead links.
+myst_heading_anchors = 4
+
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
@@ -97,12 +102,12 @@ autodoc_mock_imports = [
     "omegaconf",
     "law",
     "luigi",
+    "b2luigi",
     "dask",
     "dask_awkward",
     "uproot",
     "awkward",
     "tensorboard",
-    "pydantic",
     "psutil",
     "pyarrow",
     "spacy",
@@ -119,6 +124,11 @@ autodoc_default_options = {
 
 autodoc_typehints = "both"
 
+# Render Google-style "Attributes:" sections as an :ivar: field list rather than standalone
+# `.. py:attribute::` directives — the latter collide with autodoc's own documentation of the
+# same (annotated) class attributes, producing duplicate-object-description warnings.
+napoleon_use_ivar = True
+
 maximum_signature_line_length = 1
 
 nitpick_ignore = [
@@ -126,6 +136,7 @@ nitpick_ignore = [
     ("py:class", "law.Task"),
     ("py:class", "law.Parameter"),
     ("py:class", "luigi.IntParameter"),
+    ("py:class", "b2luigi.Task"),
     ("py:class", "L.LightningModule"),
     ("py:class", "L.LightningDataModule"),
 ]

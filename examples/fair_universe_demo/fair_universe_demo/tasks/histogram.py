@@ -196,6 +196,5 @@ class HistogramTask(luigi.Task):
         with open(self.output().path, "w") as f:
             json.dump(serializable_dict, f)
 
-    @timing
     def run(self) -> None:
         self.create_histogram()

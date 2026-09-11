@@ -17,3 +17,7 @@ lightning_logs*
 .coverage
 docs/_build/
 tests/**/*.ipynb
+conf/
+law.cfg
+index
+setup.sh

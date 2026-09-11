@@ -1,7 +1,8 @@
 # Downstream Tasks
 
 All downstream tasks are plain `luigi.Task` subclasses. They are run after training is complete
-(via `SnapshotTask`) and are invoked through `DownstreamTask` with the `--downstream` flag.
+(via `MainTask`, which writes `dag_snapshot.json`) and are invoked through `DownstreamTask`, e.g.
+`law run DownstreamTask --downstream <name>` (see [Usage](../../setup/usage.md)).
 
 The pipeline runs in order: `histogram → neyman → eval → score → plot`. Validation tasks
 (`validation_nf`, `validation_classifier`) run independently and are required by `plot`.
@@ -30,7 +31,7 @@ For each combination:
 4. Histogram the scores into 200 bins in [0, 1], separately for signal and background events.
 
 The result is a JSON file:
-```json
+```text
 {
   "(0.9, 0.9)": { "sig": [0.1, 0.3, ...], "bg": [0.8, 0.5, ...] },
   "(0.9, 1.0)": { "sig": [...], "bg": [...] },
@@ -282,8 +283,10 @@ law run DownstreamTask --downstream histogram \
     --config-file conf/config.yaml \
     --remove-output 0,a,y
 ```
-The `--remove-output 0,a,y` flag deletes this task's output files so LAW re-runs it.
-Use with care — it only removes the target task's outputs, not upstream ones.
+The `--remove-output 0,a,y` flag deletes this task's output files so `law` re-runs it.
+Use with care — it only removes the target task's outputs, not upstream ones. This is a `law`-only
+flag; see [b2luigi Tasks](../../concepts/b2luigi_tasks.md#removing-task-outputs) for the `b2luigi`
+equivalent.
 
 **Checking histogram quality:**
 Open `hist.json` and inspect a few entries. The signal and background arrays should each have

@@ -4,7 +4,6 @@ Repository: https://github.com/FAIR-Universe/HEP-Challenge
 Adapted by: K. Schmidt
 """
 import json
-import os
 from functools import cached_property
 from typing import Any, Dict, List
 
