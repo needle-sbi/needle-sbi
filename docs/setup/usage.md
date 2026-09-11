@@ -198,7 +198,11 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
  - **Task shows as complete but results look wrong**
 
     → LAW only checks file existence, not correctness. Use `--remove-output 0,a,y` on the relevant
-task to force a re-run.
+   task to force a re-run.
+
+ - **Luigi spawn/pickling**
+ 
+    → If running on ARM Arch Macbook you need to set `--workers 1` to avoid issues with patched worker callbacks.
 
 ### Using `b2luigi run`
 

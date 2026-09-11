@@ -9,12 +9,16 @@
 
 NEEDLE organizes the training of large collections of neural networks in a typical HEP analysis
 environment, including deployment to batch systems (HTCondor, SLURM and LSF), config management and
-efficient dataloading.
+dataloading.
+
+Write your models in `PyTorch Lightning`, add a config to manage their dependencies and submit the
+training to your HPC!
+
 It supports two interchangeable workflow backends: [LAW](https://law.readthedocs.io/en/latest/) and
 [b2luigi](https://b2luigi.belle2.org/index.html).
 
-For everything beyond this quickstart (config schema, the task DAG, downstream tasks, the Python API,
-the example, ...) see the full [NEEDLE Documentation](https://needle-sbi.readthedocs.io/en/latest/).
+For everything beyond this quickstart see the full
+[NEEDLE Documentation](https://needle-sbi.readthedocs.io/en/latest/).
 
 ## Installation
 
@@ -29,7 +33,6 @@ For a guide on how to use `astral-uv` instead of `pip`, please refer to the Inst
 ### Set up the NEEDLE environment
 
 1. Source your newly built python environment to unlock the `needle` cli tool
-
 
     ```bash
     source .venv/bin/activate
@@ -50,7 +53,7 @@ For a guide on how to use `astral-uv` instead of `pip`, please refer to the Inst
     source setup.sh
     ```
 
-**Note**: Every time you start a new shell you have to source your virtual environment and the `setup.sh`
+**Note**: Every time you start a new shell you need to source your virtual environment and the `setup.sh`
 script (Steps 1 and 3).
 
 ### FAIR Universe Demo (Optional)
@@ -75,16 +78,16 @@ to have a persistent setup each time you reload your shell.
 ## Running your first Tasks
 
 We refer to the documentation for more information about each parameter. Run the default example (only
-training, assuming `conf/config.yaml` is the path to the config and `law` as the backend):
+training), assuming `conf/config.yaml` is the path to the config:
 
 ```bash
-needle run
+b2luigi run MainTask
 ```
 
 Run post-training analysis Tasks with
 
 ```bash
-needle run DownstreamTask --param downstream=<my_downstream_task>
+b2luigi run DownstreamTask --param downstream=<my_downstream_task>
 ```
 
 Once you register everything in the `conf/config.yaml` file.
@@ -94,14 +97,10 @@ You can also train a single model directly, without going through the full DAG, 
 writes output flat under `results_path`:
 
 ```bash
-needle run TrainingTask --param estimator=<my_estimator> --param single=true
+b2luigi run TrainingTask --param estimator=<my_estimator> --param single=true
 ```
 
 See the [Usage](https://needle-sbi.readthedocs.io/en/latest/setup/usage.html) docs for details.
-
-
-> **Note:** if running on ARM Arch Macbook you need to set `--workers 1` to avoid Luigi spawn/pickling
-issues with patched worker callbacks.
 
 ## Jupyter notebooks
 
@@ -122,28 +121,6 @@ singularity run needle.sif <command>
 ```
 
 `source setup.sh` and `law index` still need to be run manually inside the container.
-
-## Project structure
-
-```
-needle-sbi/
-├ containerization/      # singularity/apptainer container definitions
-├ docs/                  # documentation (Sphinx)
-├ examples/              # end-to-end examples (FAIR Universe demo, ...)
-├ needle/                # source code
-│  ├ api/                # public Python API (Config, Model, Dataset, train)
-│  ├ cli.py              # `needle` CLI entry point
-│  ├ etl/                # data ingestion (Dask/Awkward)
-│  ├ evaluation/         # ensemble pseudo-model + DAG visualisation
-│  ├ ml/                 # Lightning DataModules, datasets, models
-│  ├ tasks/              # DAG task definitions
-│  │  ├ base/            # shared task logic
-│  │  ├ law/             # LAW/Luigi backend
-│  │  └ b2luigi/         # b2luigi backend
-│  ├ templates/          # files copied by `needle init`
-│  └ utils/              # config schema, config resolution, results, logging
-└ tests/                 # pytest
-```
 
 ## Disclaimer on the use of Artificial Intelligence
 
