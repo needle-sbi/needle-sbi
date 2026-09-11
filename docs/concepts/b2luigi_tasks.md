@@ -13,33 +13,6 @@ submission. The other Tasks (`MainTask`, `EstimatorTask`, `SystematicTask`, `Ens
 Understanding `luigi`
 already primes you to understand the added features of `b2luigi` intuitively.
 
-## Simple example
-
-```python
-from typing import Type
-
-import b2luigi
-import luigi
-
-from needle.tasks.base.fold import BaseFoldTask
-
-
-class FoldTask(BaseFoldTask, b2luigi.Task):
-    task_namespace = "b2luigi"
-
-    def _training_task_class(self) -> Type[luigi.Task]:
-        from needle.tasks.b2luigi.training import TrainingTask
-        return TrainingTask  # <- just point to the b2luigi implementation
-```
-
-::: {admonition} Why `task_namespace = "b2luigi"`?
-:class: info
-Luigi's global task registry keys tasks by `family = f"{namespace}.{classname}"` when a task is
-namespaced. Without it, `b2luigi.FoldTask`/`EnsembleTask`/etc. would collide in the registry
-with the identically-named classes registered by `needle.tasks.law`. Since both
-backends may be imported in the same process (e.g. by `needle/cli.py` or in tests), the
-namespace is what separates them.
-:::
 
 ## Batch submissions
 
@@ -71,6 +44,7 @@ environment used by the submitter to the worker node. If you wish to avoid this,
 `env_script` to a custom setup script that sources your environment. This is managed by the
 `needle.tasks.b2luigi.workflows.configure_b2luigi` function.
 See [Troubleshooting](../setup/usage.md#troubleshooting)
+:::
 
 ## Running from `needle run --backend b2luigi`
 
@@ -115,15 +89,16 @@ b2luigi run MainTask --batch
 b2luigi run DownstreamTask --param downstream=<name_from_config>
 ```
 
-The usual `needle run <ClassName> --backend b2luigi ...` maps onto `b2luigi run <ClassName> ...` roughly 1:1
+The usual `needle run <ClassName> --backend b2luigi ...` maps onto `b2luigi run <ClassName> ...`
+as following:
 
 | `needle run`                                | `b2luigi run`                 |
 | --------------------------------------------|-------------------------------|
 | `--config-file`                             | `--param config_file=...`     |
 | `--results-path`                            | `--param results_path=...`    |
 | `--param key=value`                         | `--param key=value` (same)    |
-| `--batch-system <sys>` other than `local`   | `--batch`                     |
-  `--workers`                                 | `--workers` (same)            |
+| `--batch-system <sys>` other than `local`   | `--batch` (boolean)           |
+|  `--workers`                                | `--workers` (same)            |
 
 ### Removing task outputs
 

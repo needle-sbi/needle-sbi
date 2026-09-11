@@ -13,30 +13,31 @@ environments. This page covers the `needle.tasks.law` backend, for the other bac
  - [columnflow docs](https://columnflow.readthedocs.io/en/latest/).
     Provides a bit of context to using law, even though most Tasks in ColumnFlow are fixed.
 
-In addition, the `law` CLI tool provides tab-completion for available parameters.
+## Running from `law run`
 
-
-## Running needle-sbi with backend law
-
-`needle run` (the default backend is `law`) is the recommended entry point day-to-day. See
-[Usage](../setup/usage.md). You can also skip it and drive the same tasks through the `law` CLI
-directly, which additionally gives you tab-completion for all available arguments:
+Law also ships its on CLI tool for running Tasks, which you can use by replacing `needle run`
+commands with `law run` as such:
 
 ```bash
 law run MainTask  # only training
 law run DownstreamTask --downstream <name_from_config>  # training + post-training
 ```
 
-`needle run <ClassName> --backend law ...` maps onto `law run <ClassName> ...` 1:1. The `--config-file` and `--results-path` are passed straight through. All other `--param key=value` becomes real`--key value` flag (dashes/underscores are interchangeable for `law`).
+`needle run <MyTask> --backend law ...` maps onto `law run <MyTask> ...` in a fairly straight-forward
+way.
+ - The `--config-file` and `--results-path` are kept the same
+ - The `--param key=value` convention of `needle run` or `b2luigi run` is simplified, with the luigi
+      parameters being directly accessible with `--key value`. For law, dashes and underscores in the 
+      key are interchangeable.
 
 Some useful `law` args are listed here:
 
 | Argument              | Description                                                  |
-| --------------------- | ----------------------------------------------------- |
-| `--local-scheduler`   | Use an in-memory central scheduler. Useful for testing. |
-| `--help`              | Show most common flags and all task-specific flags. |
-| `--log-file`          | A custom log file; default: `<task.default_log_file>`. |
-| `--print-deps`        | Print task dependencies but do not run any task; this CSV parameter accepts a single integer value which sets the task recursion depth (0 means non-recursive). |
+| --------------------- | ------------------------------------------------------------ |
+| `--local-scheduler`   | Use an in-memory central scheduler. Useful for testing.      |
+| `--help`              | Show most common flags and all task-specific flags.          |
+| `--log-file`          | A custom log file; default: `<task.default_log_file>`.       |
+| `--print-deps`        | Print task dependencies but do not run any task; this CSV parameter accepts a single integer value which sets the task recursion depth (0 means non-recursive).    |
 | `--print-status`      | Print the task status but do not run any task; this CSV parameter accepts up to three values: 1) the task recursion depth (0 means non-recursive), 2) the depth of the status text of target collections (default: 0), 3) a flag that is passed to the status text creation (default: `''`). |
 | `--print-output`      | Print a flat list of output targets but do not run any task; this CSV parameter accepts up to two values: 1) the task recursion depth (0 means non-recursive), 2) a boolean flag that decides whether paths of file targets should contain file system schemes (default: `True`).       |
 | `--remove-output`       | Remove task outputs but do not run any task by default; this CSV parameter accepts up to three values: 1) the task recursion depth (0 means non-recursive), 2) one of the modes `i` (interactive), `a` (all), `d` (dry run) (default: `i`), 3) a boolean flag that decides whether the task is run after outputs were removed (default: `False`). |
