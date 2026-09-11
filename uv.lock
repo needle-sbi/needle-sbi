@@ -297,21 +297,21 @@ wheels = [
 [[package]]
 name = "b2luigi"
 version = "1.2.9"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/belle2/b2luigi#9cac7e3501b03251d349df88a207b5c6d3de1037" }
 dependencies = [
     { name = "cachetools" },
+    { name = "click" },
     { name = "colorama" },
     { name = "gitpython" },
     { name = "jinja2" },
     { name = "luigi" },
     { name = "parse" },
     { name = "setuptools" },
+    { name = "shellingham" },
     { name = "tenacity" },
+    { name = "typer" },
     { name = "webdavclient3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/5d/0c3e0602b6cf80a2cfebbe54c330f3623b4de227c2b0f8cbff437dc8d62c/b2luigi-1.2.9.tar.gz", hash = "sha256:3f6734b06970cd5bf6bb62c45c095e9c02b6e283a45b76a29ffabdeaa8fce0c0", size = 786252, upload-time = "2026-04-17T16:38:23.316Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/82/1a8d3c20bc235e665300c42783eb8bf9f2aac49c7eae644273191e5e01e8/b2luigi-1.2.9-py3-none-any.whl", hash = "sha256:9ca28b4203f5946394b609da432e53b3c9e35540c840bdc6497cce6ab4c82e2e", size = 115103, upload-time = "2026-04-17T16:38:21.044Z" },
+    { name = "xrootd" },
 ]
 
 [[package]]
@@ -2589,7 +2589,7 @@ docs = [
 requires-dist = [
     { name = "argcomplete", specifier = ">=3.5" },
     { name = "awkward", specifier = ">=2.7" },
-    { name = "b2luigi", specifier = ">=1.2.9" },
+    { name = "b2luigi", git = "https://github.com/belle2/b2luigi" },
     { name = "dask", extras = ["distributed"], specifier = ">=2025.2" },
     { name = "dask-awkward", specifier = ">=2025.9" },
     { name = "graphviz", specifier = ">=0.21" },
@@ -4090,6 +4090,15 @@ wheels = [
 ]
 
 [[package]]
+name = "shellingham"
+version = "1.5.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4615,6 +4624,21 @@ wheels = [
 ]
 
 [[package]]
+name = "typer"
+version = "0.27.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "rich" },
+    { name = "shellingham" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/16/f7/57713ba479fd405eb76de31404b2c744c289e336b2d999511ebf51e496f7/typer-0.27.2.tar.gz", hash = "sha256:269b7eb9d3c202ca84b4bc9618cb04ebb43d3d4d1e567e4c768607232c05f945", size = 204045, upload-time = "2026-08-28T10:26:55.046Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dc/bf/205d0004930ede8f542fb58f601526fccf4ae7626075ca1e6c4de5d3d652/typer-0.27.2-py3-none-any.whl", hash = "sha256:b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d", size = 123130, upload-time = "2026-08-28T10:26:53.752Z" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4764,6 +4788,26 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/39/62/75f18a0f03b4219c456652c7780e4d749b929eb605c098ce3a5b6b6bc081/wheel-0.47.0.tar.gz", hash = "sha256:cc72bd1009ba0cf63922e28f94d9d83b920aa2bb28f798a31d0691b02fa3c9b3", size = 63854, upload-time = "2026-04-22T15:51:27.727Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/1b/9e33c09813d65e248f7f773119148a612516a4bea93e9c6f545f78455b7c/wheel-0.47.0-py3-none-any.whl", hash = "sha256:212281cab4dff978f6cedd499cd893e1f620791ca6ff7107cf270781e587eced", size = 32218, upload-time = "2026-04-22T15:51:26.296Z" },
+]
+
+[[package]]
+name = "xrootd"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/a7/75d3cce4a257aa48d40adb45e30dbfd455406bc9b26bd302a606d2ce3a73/xrootd-6.1.1.tar.gz", hash = "sha256:6d40e6d7f65ff0db381f964e8949e23a90a0b3e15158264198949389a4ef6c4a", size = 7213825, upload-time = "2026-08-11T15:09:41.155Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/0e/ec47d6f85ad576954b10b8fea8c5a8437755317816f9a8f7ca7f93d07761/xrootd-6.1.1-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:a700f6a9d849ea1665448f5da8851148c0a732c5d4eb94256eb0e988bf578b7f", size = 7824177, upload-time = "2026-08-11T15:09:04.38Z" },
+    { url = "https://files.pythonhosted.org/packages/80/9f/6f5ee8a6475be7b33118f0ee733661e0a1132fa39884bae8836f644a133a/xrootd-6.1.1-cp312-cp312-macosx_15_0_x86_64.whl", hash = "sha256:c78f10f53a5162c21dbc0aedd6b0307e313ce6a123241c450f85465eb5a539ae", size = 7919961, upload-time = "2026-08-11T15:09:06.423Z" },
+    { url = "https://files.pythonhosted.org/packages/85/f2/54639c222dad5b2054d663dd3bb7b6a38ce2396154ddd61cf589d344330e/xrootd-6.1.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:85d288975b7d61ee50a822a4476c9353029e0abd7b41b6ee842d0c86f12579ad", size = 8147127, upload-time = "2026-08-11T15:09:08.536Z" },
+    { url = "https://files.pythonhosted.org/packages/26/c5/643e89272698916da064ca266480c9db332575faba494d61a0ec03ec9ab4/xrootd-6.1.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:51e2047c2a8055cd7e4b802ac4357fa72f2b0758c9271ebccc7344523af71499", size = 8747032, upload-time = "2026-08-11T15:09:10.659Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/ab/60779f03003bb50bade821c8be8f5ff3df5bca87cb96e70b0712cbbc4b06/xrootd-6.1.1-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:93a3c69b53f11336c00074f89ae986472164db7bd16d36fab6d6de3ee78cb664", size = 7824138, upload-time = "2026-08-11T15:09:13.199Z" },
+    { url = "https://files.pythonhosted.org/packages/44/b9/544324a60154b9979e8531793a9df51ccef233867b0cf9974531732365da/xrootd-6.1.1-cp313-cp313-macosx_15_0_x86_64.whl", hash = "sha256:bc061c79c0901c8bd259dfb1bae88f228b91d1f52d168c914803a649bc4baee9", size = 7919933, upload-time = "2026-08-11T15:09:16.358Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/9a/f96437b39b69fe12a52abd7f4316c339b7531ef9d63e6a98e20866294bef/xrootd-6.1.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:17755596b4e23c598a1e0f8427ed281495777bd4babc4d80cfbf480280821606", size = 8147110, upload-time = "2026-08-11T15:09:18.418Z" },
+    { url = "https://files.pythonhosted.org/packages/33/d4/998fa1e3811900a1acf70d8ae53d15d093da7c8ed2b6e39147857533eb78/xrootd-6.1.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:62636a3bcf2eecb4f871e59ecfde702be06066c5dd97db2567d883eaef944d97", size = 8746987, upload-time = "2026-08-11T15:09:20.54Z" },
+    { url = "https://files.pythonhosted.org/packages/66/8e/c183363a812f2b8e79c45459e4826aaeab1e3b55bd48abed3de09ea3020d/xrootd-6.1.1-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:3e1f043e126967124da454db80a8c68e61c83935fdff10d270e3c52d98a8252e", size = 7824135, upload-time = "2026-08-11T15:09:22.889Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/5f/f9e6425a712d51c84de4c67279aba4801122b4585537301b512e17d442cf/xrootd-6.1.1-cp314-cp314-macosx_15_0_x86_64.whl", hash = "sha256:200f897e1026b444c86873b487a810275866f9b3b7016c73365f3e182b01a603", size = 7919916, upload-time = "2026-08-11T15:09:25.224Z" },
+    { url = "https://files.pythonhosted.org/packages/65/d5/19443fd6a0a46a2f1e85c25f9af14578024fb8506348bd41a483ae01ae46/xrootd-6.1.1-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:e2b6b1f1d24182223022887f2b36d0c968d57d439a89074c97712e32ea3166b2", size = 8147200, upload-time = "2026-08-11T15:09:27.131Z" },
+    { url = "https://files.pythonhosted.org/packages/93/c7/c62a2edc64dbfac4d1ad40450fa02dacd96110868be09a2ffb84d98dad29/xrootd-6.1.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:0f8224c25fa372ebaaf9c5a8df1d810e04196acecb2e58dafbe477120063d190", size = 8746949, upload-time = "2026-08-11T15:09:29.119Z" },
 ]
 
 [[package]]
