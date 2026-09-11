@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Type, c
 import hydra
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
-from omegaconf.errors import ConfigKeyError, MissingMandatoryValue, OmegaConfBaseException
+from omegaconf.errors import (
+    ConfigKeyError,
+    MissingMandatoryValue,
+    OmegaConfBaseException,
+)
 
 if TYPE_CHECKING:
     from luigi import Task

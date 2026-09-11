@@ -12,8 +12,8 @@ to HPCs. Most of the configuration happens in `conf/config.yaml` (or your own ya
 ## Running your first task
 
 In this page we will keep to the `b2luigi` default backend for Needle.
-If you prefer `law` instead, have a look at the [LAW Tasks](../concepts/law_tasks.md) page 
-afterwards. There are also more details for [b2luigi Tasks](../concepts/b2luigi_tasks.md) in their 
+If you prefer `law` instead, have a look at the [LAW Tasks](../concepts/law_tasks.md) page
+afterwards. There are also more details for [b2luigi Tasks](../concepts/b2luigi_tasks.md) in their
 page.
 In addition, there is a python entry point for scripts and notebooks `needle.run() that points to
 either backend.
@@ -140,7 +140,7 @@ runs
                 └── input_models.json   # List of models that were used as input
 ```
 
-For the directories we use the `est__<estimator_name>` and subsequent levels schema. 
+For the directories we use the `est__<estimator_name>` and subsequent levels schema.
 
 ::: {note}
 You are not expected to walk through this structure by hand. Thats where the `dag_snapshot.json` below comes into
@@ -175,8 +175,8 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
  - **`task family '<MissingTask>' not found in index`**
 
     → Ensure the Task you want to run is indexed in the `index` file. Refresh with `law index`. The modules
-    to be indexed must be listed in `law.cfg`. 
-    
+    to be indexed must be listed in `law.cfg`.
+
     Make sure this section exists in your `law.cfg`, as it adds all the needle Tasks to the law index:
 
     ```cfg
@@ -201,7 +201,7 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
    task to force a re-run.
 
  - **Luigi spawn/pickling**
- 
+
     → If running on ARM Arch Macbook you need to set `--workers 1` to avoid issues with patched worker callbacks.
 
 ### Using `b2luigi run`
@@ -224,17 +224,17 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
     This means that the worker node was unable to access the proper environment to run the Task.
 
     → For HTCondor, the default `htcondor_settings` has `{"getenv": "True"}`
-    (see `merged_batch_settings()` in `needle.tasks.b2luigi.workflows.common`), 
+    (see `merged_batch_settings()` in `needle.tasks.b2luigi.workflows.common`),
     which copies the environment used for submission
     (activated venv/conda env, `PATH`, `LAW_HOME`, ...) to the worker node, so this should not
-    happen normally. 
-    
+    happen normally.
+
     It can still occur if:
         - This setting is changed to `{"getenv": "False}"` (e.g by your cluster's HTCondor config)
         - The pool disables or ignores `getenv` for security reasons.
 
     If you want to stay with  `{"getenv": "False}"`, in order to keep a reproducible environemnt
-    or for other reasons, point `env_script` at your own script instead of NEEDLE's `setup.sh`. 
+    or for other reasons, point `env_script` at your own script instead of NEEDLE's `setup.sh`.
     You can do this in `settings.json` or with `configure_b2luigi(env_script=...)`. For
     `conda`, that script would have to include `conda activate <env>`.
 

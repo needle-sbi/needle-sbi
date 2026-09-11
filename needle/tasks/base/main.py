@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Type, Literal
+from typing import Any, Dict, List, Literal, Type
 
 import luigi
 from omegaconf import OmegaConf

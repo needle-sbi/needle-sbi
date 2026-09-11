@@ -4,7 +4,12 @@ from typing import Generator
 import hydra
 import pytest
 
-from needle.utils.config_schema import DownstreamTaskConfig, EstimatorConfig, MainConfig, SystematicConfig
+from needle.utils.config_schema import (
+    DownstreamTaskConfig,
+    EstimatorConfig,
+    MainConfig,
+    SystematicConfig,
+)
 from needle.utils.config_utils import validate_graph
 
 

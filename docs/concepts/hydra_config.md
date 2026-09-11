@@ -205,7 +205,7 @@ if-else statements for each site.
 ## Estimator groups
 
 In contrast to regular configs blocks as above, groups point to a further sub-config file with the
-same name. This allows you to defined self-contained and reusable config entries. 
+same name. This allows you to defined self-contained and reusable config entries.
 
 Each group file is a YAML dict that Hydra merges into the `*_override` field of the estimator.
 The only required field is `_target_`, which points to the Python class to instantiate. This is
@@ -336,13 +336,13 @@ class MyDataModule(lightning.LightningDataModule):
 Current runtime-injected arguments are:
 
  - `dataset_config`
- 
-    An additional config group for switching datasets independently of 
+
+    An additional config group for switching datasets independently of
     `datamodule`. It adheres to the Config schema for the NEEDLE built-in `LightningDatamodule`
     (See `needle.utils.config_schema.DatasetConfig`).
 
- - `input_models` 
- 
+ - `input_models`
+
     Provides you with a dictionary view on all the models referenced by the `requires`
     keyword for the corresponding estimator. Meaning if model B depends on A, you can access the path
     to the model A's checkpoint using this dictionary.
@@ -358,9 +358,9 @@ Current runtime-injected arguments are:
     ```
       The dict is also stored as `input_model.json` for completeness. For loading checkpoints, refer to the [Checkpoint Loading](https://pytorch-lightning.readthedocs.io/en/1.2.10/common/weights_loading.html#checkpoint-loading) page from the Lightning docs.
 
- - `snapshot_path` 
- 
-    Points to the file path for the `dag_snapshot.json` file which lists all trained 
+ - `snapshot_path`
+
+    Points to the file path for the `dag_snapshot.json` file which lists all trained
     models and their Lightning checkpoints. See [Accessing trained models](../setup/usage.md#accessing-trained-models).
 
 

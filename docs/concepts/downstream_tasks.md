@@ -193,9 +193,9 @@ What this means concretely:
   `TypeError: unexpected keyword argument` from luigi's own parameter resolution.
 - `snapshot_path` is an extra keyword argument that NEEDLE injects on every call regardless of what's in
   `args`. If your Task does not declare a `snapshot_path` luigi parameter, it is dropped with a
-  warning. This preferential treatment only applies to `snapshot_path` (being a `kwarg` and not 
+  warning. This preferential treatment only applies to `snapshot_path` (being a `kwarg` and not
   part of the Config dict).
-- Values are passed as-is after OmegaConf parsing. Make sure your Task's `luigi.Parameter` type   
+- Values are passed as-is after OmegaConf parsing. Make sure your Task's `luigi.Parameter` type
   matches what the config actually produces.
 
 ## Running your DownstreamTasks
@@ -262,7 +262,7 @@ expands:
   jet_bin: ["1jet", "2jet"]
 ```
 
-This will create four duplicates, the first instance being 
+This will create four duplicates, the first instance being
 
 ```
 DownstreamTask(downstream="validate_nf", model_name="nf_signal_1jet", jet_bin="1jet")

@@ -60,7 +60,7 @@ def run(
 
     Args:
         task: Task class name to run, e.g. ``MainTask``, ``EnsembleTask``, ``TrainingTask``.
-        backend: 
+        backend:
             - ``"law"`` shells out to ``law run`` and requires ``LAW_HOME``/``LAW_CONFIG_FILE``
             to already be set, e.g. by sourcing ``setup.sh`` or calling
                 ``needle.api.configure_law()``.
