@@ -18,6 +18,8 @@ tests/benchmarks/plots/
 .coverage
 docs/_build/
 tests/**/*.ipynb
+tests/benchmarks/plots/*
+tests/benchmarks/results/*
 conf/
 law.cfg
 index
