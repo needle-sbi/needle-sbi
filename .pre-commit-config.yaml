@@ -3,6 +3,7 @@ repos:
     rev: v4.4.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^needle/tui/plain_text/needle_name_ascii\.txt$
       - id: end-of-file-fixer
       - id: check-ast
       - id: check-yaml

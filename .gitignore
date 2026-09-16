@@ -18,3 +18,7 @@ tests/benchmarks/plots/
 .coverage
 docs/_build/
 tests/**/*.ipynb
+conf/
+law.cfg
+index
+setup.sh

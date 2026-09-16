@@ -8,6 +8,4 @@ Python Interface
    :maxdepth: 2
 
    config
-   dataset
-   model
    train

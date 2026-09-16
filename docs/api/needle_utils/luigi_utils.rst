@@ -6,11 +6,7 @@ Type Aliases
 
 .. autodata:: needle.utils.luigi_utils.LuigiTarget
 
-.. autodata:: needle.utils.luigi_utils.LawTarget
-
 .. autodata:: needle.utils.luigi_utils.LuigiTargetCollection
-
-.. autodata:: needle.utils.luigi_utils.LawTargetCollection
 
 Reference
 ---------
@@ -19,4 +15,4 @@ Reference
    :members:
    :undoc-members:
    :show-inheritance:
-   :exclude-members: LuigiTarget, LawTarget, LuigiTargetCollection, LawTargetCollection
+   :exclude-members: LuigiTarget, LuigiTargetCollection

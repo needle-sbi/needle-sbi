@@ -1,9 +1,11 @@
 EstimatorTask
 =============
 
-Trains a single estimator with all its systematic variations and ensemble runs.
+``.done``-marker task for a single estimator. Requires one ``SystematicTask`` per systematic
+variation declared under ``expands.systematics``.
 
-.. automodule:: law_tasks.estimator
+.. automodule:: needle.tasks.law.estimator
    :members:
    :undoc-members:
    :show-inheritance:
+   :inherited-members: law.Task

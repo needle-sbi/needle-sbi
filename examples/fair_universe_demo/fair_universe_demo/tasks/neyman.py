@@ -179,6 +179,5 @@ class NeymanTask(PlottingMixin):
         plt.tight_layout()
         return fig
 
-    @timing
     def run(self) -> None:
         self.create_neyman_construction()

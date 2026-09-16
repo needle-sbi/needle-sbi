@@ -28,3 +28,11 @@ div.highlight pre {
 section > section {
     margin-top: 2rem;
 }
+
+/* give diagrams a black background so that it does not create a
+    light one by default */
+img.light-diagram {
+    background-color: #56626300;
+    border-radius: 8px;
+    padding: 1rem;
+}
