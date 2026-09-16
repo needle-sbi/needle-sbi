@@ -17,3 +17,5 @@ lightning_logs*
 .coverage
 docs/_build/
 tests/**/*.ipynb
+tests/benchmarks/plots/*
+tests/benchmarks/results/*
