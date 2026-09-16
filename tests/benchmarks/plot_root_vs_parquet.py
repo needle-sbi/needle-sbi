@@ -1,4 +1,12 @@
-"""Plotting script for the ROOT vs Parquet ingestion benchmark."""
+"""Plotting script for the ROOT vs Parquet ingestion benchmark.
+
+Run after generating the benchmark JSON(s):
+
+    pytest tests/benchmarks/test_root_vs_parquet.py --benchmark-only -s -m "not slow"
+    pytest tests/benchmarks/test_root_vs_parquet.py --benchmark-only -s -m slow
+
+    python tests/benchmarks/plot_root_vs_parquet.py
+"""
 
 from __future__ import annotations
 
@@ -16,7 +24,10 @@ FILE_TYPES = ["parquet", "root"]
 COMPONENTS = ["Graph Building", "Column-based Iteration", "Row-based Iteration"]
 TEST_METHODS = ["only_metadata", "materialize_partitions", "iterate_dataloader"]
 COLORS = ["lightcoral", "lightgreen", "lightblue"]
-DEFAULT_OUTPUT = Path("tests/benchmarks/plots/root_vs_parquet.png")  # TODO Not happy with default path
+RESULTS_DIR = Path(__file__).parent / "results"
+PLOTS_DIR = Path(__file__).parent / "plots"
+DEFAULT_OUTPUT = PLOTS_DIR / "ingestion_decomposed.pdf"
+INPUT_FILES = [RESULTS_DIR / "root_vs_parquet_fast.json", RESULTS_DIR / "root_vs_parquet_slow.json"]
 
 
 def load_benchmark_json(path: Union[str, Path], merge_index: bool = False) -> pd.DataFrame:
@@ -63,27 +74,30 @@ def load_benchmark_json(path: Union[str, Path], merge_index: bool = False) -> pd
     return df
 
 
-def find_latest_benchmark_json(benchmarks_dir: Union[str, Path] = ".benchmarks") -> Path:
-    """Find the most recently modified pytest-benchmark autosave JSON under `benchmarks_dir`.
+def load_default_benchmarks(merge_index: bool = False) -> pd.DataFrame:
+    """Load and concatenate the fast/slow benchmark JSONs written by `tests/benchmarks/conftest.py`.
 
     Args:
-        benchmarks_dir: Root directory to search recursively for `*.json` files. Defaults to the
-            `--benchmark-autosave` output directory `.benchmarks/`.
+        merge_index: If True, set/sort the index to
+            `["file_type", "column_mode", "file_percentage", "num_events"]`.
 
     Returns:
-        Path: The most recently modified benchmark JSON file found.
+        pd.DataFrame: Rows from every existing, non-empty file in `INPUT_FILES`.
 
     Raises:
-        FileNotFoundError: If no `*.json` files are found under `benchmarks_dir`.
+        FileNotFoundError: If none of `INPUT_FILES` exist yet.
     """
-    candidates = sorted(Path(benchmarks_dir).rglob("*.json"), key=lambda p: p.stat().st_mtime)
-    if not candidates:
+    frames = [load_benchmark_json(p) for p in INPUT_FILES if p.exists() and p.stat().st_size > 0]
+    if not frames:
         raise FileNotFoundError(
-            f"No benchmark JSON files found under {benchmarks_dir!r}. Run "
-            "`pytest --benchmark-only tests/benchmarks/test_root_vs_parquet.py` first "
-            "(autosave is enabled by default via `--benchmark-autosave`)."
+            f"No benchmark JSON found in {[str(p) for p in INPUT_FILES]}. Run "
+            '`pytest tests/benchmarks/test_root_vs_parquet.py --benchmark-only -s -m "not slow"` '
+            "(and/or `-m slow`) first."
         )
-    return candidates[-1]
+    df = pd.concat(frames, ignore_index=True)
+    if merge_index:
+        df = df.set_index(["file_type", "column_mode", "file_percentage", "num_events"]).sort_index()
+    return df
 
 
 def select_benchmarks(
@@ -211,19 +225,20 @@ def main(argv: Optional[list] = None) -> Path:
         "--input",
         type=str,
         default=None,
-        help="Path to a pytest-benchmark JSON file. Defaults to the latest autosave under .benchmarks/.",
+        help=f"Path to a pytest-benchmark JSON file. Defaults to {[str(p) for p in INPUT_FILES]}.",
     )
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="Where to save the plot.")
     args = parser.parse_args(argv)
 
-    input_path = Path(args.input) if args.input else find_latest_benchmark_json()
-    df = load_benchmark_json(input_path)
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+    df = load_benchmark_json(Path(args.input)) if args.input else load_default_benchmarks()
     grouped = select_benchmarks(df)
     annotation = "Files: 800 columns, 130GB\n" "Read: 8 columns, 1.3M events"
     fig = plot_root_vs_parquet(grouped, args.output, annotation=annotation)
     plt.close(fig)
 
-    print(f"Saved plot to {args.output} (source: {input_path})")
+    source = args.input if args.input else [str(p) for p in INPUT_FILES if p.exists()]
+    print(f"Saved plot to {args.output} (source: {source})")
     return Path(args.output)
 
 

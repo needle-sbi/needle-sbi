@@ -1,12 +1,9 @@
 """
 Plot the results of `test_ingestion_profiling.py`
 
-Run after generating the benchmark JSON(s), e.g.:
+Run after generating the benchmark JSON
 
-    pytest tests/benchmarks/test_ingestion_profiling.py --benchmark-only -s -m "not slow" \\
-        --benchmark-json=tests/benchmarks/results/ingestion_profiling_fast.json
-    pytest tests/benchmarks/test_ingestion_profiling.py --benchmark-only -s -m slow \\
-        --benchmark-json=tests/benchmarks/results/ingestion_profiling_slow.json
+    pytest tests/benchmarks/test_ingestion_profiling.py --benchmark-only -s -m slow
 
     python tests/benchmarks/plot_ingestion_profiling.py
 
@@ -27,18 +24,15 @@ plt.rcParams.update({"axes.labelsize": 14, "xtick.labelsize": 12, "ytick.labelsi
 
 RESULTS_DIR = Path(__file__).parent / "results"
 PLOTS_DIR = Path(__file__).parent / "plots"
-INPUT_FILES = [
-    RESULTS_DIR / "ingestion_profiling_fast.json",
-    RESULTS_DIR / "ingestion_profiling_slow.json",
-]
+INPUT_FILE = RESULTS_DIR / "ingestion_profiling.json"
 EVENTS_PER_FILE = 10_000
 COLUMN_MODES = {"few": "1", "many": "14"}
 # (setup benchmark, read benchmark, legend label, marker)
 METHODS = [
-    ("test_root_dask_setup", "test_root_dask_read", "ROOT uproot.dask", "o"),
-    ("test_root_iterative_setup", "test_root_iterative_read", "ROOT uproot.iterate", "s"),
-    ("test_parquet_dask_setup", "test_parquet_dask_read", "Parquet dak.from_parquet", "^"),
-    ("test_parquet_iterative_setup", "test_parquet_iterative_read", "Parquet ak.from_parquet", "D"),
+    ("test_root_dask_setup", "test_root_dask_read", "ROOT, uproot.dask", "o"),
+    ("test_root_iterative_setup", "test_root_iterative_read", "ROOT, uproot.iterate", "s"),
+    ("test_parquet_dask_setup", "test_parquet_dask_read", "Parquet, dak.from_parquet", "^"),
+    ("test_parquet_iterative_setup", "test_parquet_iterative_read", "Parquet, ak.from_parquet", "D"),
 ]
 
 
@@ -50,15 +44,13 @@ def _git_commit() -> str:
 
 
 def _load_benchmarks() -> List[Dict[str, Any]]:
-    benchmarks: List[Dict[str, Any]] = []
-    for path in INPUT_FILES:
-        if not path.exists() or path.stat().st_size == 0:
-            continue
-        with open(path) as f:
-            benchmarks.extend(json.load(f)["benchmarks"])
-    if not benchmarks:
-        raise FileNotFoundError(f"No benchmark JSON found in {[str(p) for p in INPUT_FILES]}")
-    return benchmarks
+    if not INPUT_FILE.exists() or INPUT_FILE.stat().st_size == 0:
+        raise FileNotFoundError(
+            f"No benchmark JSON found at {INPUT_FILE}. Run "
+            "`pytest tests/benchmarks/test_ingestion_profiling.py --benchmark-only -s -m slow` first."
+        )
+    with open(INPUT_FILE) as f:
+        return list(json.load(f)["benchmarks"])
 
 
 def _index_by(benchmarks: List[Dict[str, Any]], prefix: str) -> Dict[tuple, Dict[str, float]]:
@@ -75,8 +67,8 @@ def _index_by(benchmarks: List[Dict[str, Any]], prefix: str) -> Dict[tuple, Dict
 def _write_sidecar(path_stem: Path, description: str) -> None:
     meta = {
         "description": description,
-        "dataset": "Delphes v1 (KIT, /ceph/epfeffer/mlpaper/delphes_v1)",
-        "inputs": [str(p) for p in INPUT_FILES if p.exists()],
+        "dataset": "Delphes own production (KIT)",
+        "inputs": [str(INPUT_FILE)],
         "git_commit": _git_commit(),
         "generated_by": "tests/benchmarks/plot_ingestion_profiling.py",
     }
@@ -131,7 +123,7 @@ def plot_total_time(benchmarks: List[Dict[str, Any]], num_files_list: List[int],
 
     fig.tight_layout()
 
-    path_stem = PLOTS_DIR / f"ingestion_total_time__delphes_v1__{column_mode}_columns__needle_style"
+    path_stem = PLOTS_DIR / f"ingestion_total_time_{column_mode}_columns"
     fig.savefig(f"{path_stem}.pdf", bbox_inches="tight")
     fig.savefig(f"{path_stem}.png", dpi=400, bbox_inches="tight")
     plt.close(fig)

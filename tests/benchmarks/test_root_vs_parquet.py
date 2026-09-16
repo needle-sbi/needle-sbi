@@ -8,8 +8,13 @@ Disclaimer: Part of this code was written with the help of GPT-5 and Claude
 Run these tests using the following command:
 
 ```python3
-pytest --benchmark-only -s
+pytest tests/benchmarks/test_root_vs_parquet.py --benchmark-only -s -m "not slow"
+pytest tests/benchmarks/test_root_vs_parquet.py --benchmark-only -s -m slow
 ```
+
+`tests/benchmarks/conftest.py` derives the `--benchmark-json` output path from the `-m` mark
+expression above (`results/root_vs_parquet_fast.json` / `_slow.json`) and creates
+`tests/benchmarks/results/` if needed. No need to pass `--benchmark-json` explicitly.
 
 The pytest mark `benchmark` is automatically added with the pytest fixture of the same name. This
 test suite requires the specific Delphes dataset from KIT. There are two environment variables to

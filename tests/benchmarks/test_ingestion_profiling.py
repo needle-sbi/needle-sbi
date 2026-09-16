@@ -11,17 +11,12 @@ See `tests/benchmarks/plot_ingestion_profiling.py` for the plots built from this
 `tests/benchmarks/test_root_vs_parquet.py` for the original, broader-scope ROOT-vs-parquet
 benchmark this suite complements.
 
-Run:
-    pytest tests/benchmarks/test_ingestion_profiling.py \
-        --benchmark-only -s -m "not slow" \
-        --benchmark-json=tests/benchmarks/results/ingestion_profiling_fast.json
-    pytest tests/benchmarks/test_ingestion_profiling.py \
-        --benchmark-only -s -m slow \
-        --benchmark-json=tests/benchmarks/results/ingestion_profiling_slow.json
+`tests/benchmarks/conftest.py` writes the result to `tests/benchmarks/results/ingestion_profiling.json`
+automatically
 
 Requires the `DELPHES_DATA_ROOT` and `DELPHES_DATA_PARQUET` environment variables (see
 `tests/conftest.py`). Files are large (~950 MB / 10k events / ~800 branches each for ROOT) --
-keep `num_files` small unless expliciqtly running the `-m slow` sweep.
+mind `num_files` when adding new parametrizations.
 
 Disclaimer: Part of this code was written with the help of GPT-5 and Claude Sonnet 5.
 """
@@ -60,10 +55,10 @@ COLUMN_SETS: dict[str, List[str]] = {
 }
 
 NUM_FILES = [
-    pytest.param(1, id="files_1"),
-    pytest.param(2, id="files_2"),
-    pytest.param(3, id="files_3"),
-    pytest.param(4, id="files_4"),
+    pytest.param(1, id="files_1", marks=pytest.mark.slow),
+    pytest.param(2, id="files_2", marks=pytest.mark.slow),
+    pytest.param(3, id="files_3", marks=pytest.mark.slow),
+    pytest.param(4, id="files_4", marks=pytest.mark.slow),
     pytest.param(5, id="files_5", marks=pytest.mark.slow),
     pytest.param(7, id="files_7", marks=pytest.mark.slow),
     pytest.param(10, id="files_10", marks=pytest.mark.slow),
