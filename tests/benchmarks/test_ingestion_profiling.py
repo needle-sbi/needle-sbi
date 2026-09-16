@@ -12,16 +12,16 @@ See `tests/benchmarks/plot_ingestion_profiling.py` for the plots built from this
 benchmark this suite complements.
 
 Run:
-    pytest tests/benchmarks/test_ingestion_profiling.py \\
-        --benchmark-only -s -m "not slow" \\
+    pytest tests/benchmarks/test_ingestion_profiling.py \
+        --benchmark-only -s -m "not slow" \
         --benchmark-json=tests/benchmarks/results/ingestion_profiling_fast.json
-    pytest tests/benchmarks/test_ingestion_profiling.py \\
-        --benchmark-only -s -m slow \\
+    pytest tests/benchmarks/test_ingestion_profiling.py \
+        --benchmark-only -s -m slow \
         --benchmark-json=tests/benchmarks/results/ingestion_profiling_slow.json
 
 Requires the `DELPHES_DATA_ROOT` and `DELPHES_DATA_PARQUET` environment variables (see
 `tests/conftest.py`). Files are large (~950 MB / 10k events / ~800 branches each for ROOT) --
-keep `num_files` small unless explicitly running the `-m slow` sweep.
+keep `num_files` small unless expliciqtly running the `-m slow` sweep.
 
 Disclaimer: Part of this code was written with the help of GPT-5 and Claude Sonnet 5.
 """
@@ -33,7 +33,7 @@ from pytest_benchmark.fixture import BenchmarkFixture
 
 from needle.etl.array import resolve_paths
 from needle.etl.dask_ingestor import Ingestor
-from needle.etl.iterative_ingestor import IterativeIngestor, IterativeParquetIngestor
+from needle.etl.iterative_ingestor import IterableIngestor
 
 pytestmark = pytest.mark.benchmark
 
@@ -61,11 +61,19 @@ COLUMN_SETS: dict[str, List[str]] = {
 
 NUM_FILES = [
     pytest.param(1, id="files_1"),
+    pytest.param(2, id="files_2"),
+    pytest.param(3, id="files_3"),
+    pytest.param(4, id="files_4"),
     pytest.param(5, id="files_5", marks=pytest.mark.slow),
+    pytest.param(7, id="files_7", marks=pytest.mark.slow),
     pytest.param(10, id="files_10", marks=pytest.mark.slow),
     pytest.param(15, id="files_15", marks=pytest.mark.slow),
     pytest.param(20, id="files_20", marks=pytest.mark.slow),
 ]
+
+NUM_ROUNDS: int = 3
+NUM_ITERATIONS: int = 1
+NUM_WARMUP_ROUNDS: int = 0
 
 
 def _filter_name(columns: List[str]) -> Callable[[str], bool]:
@@ -105,7 +113,7 @@ def test_root_dask_setup(benchmark: BenchmarkFixture, root_paths: List[str], num
             paths=paths, format="root", columns=columns, reader_kwargs={"filter_name": _filter_name(columns)}
         )
 
-    benchmark.pedantic(_setup, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_setup, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -120,7 +128,13 @@ def test_root_dask_read(benchmark: BenchmarkFixture, root_paths: List[str], num_
         paths=paths, format="root", columns=columns, reader_kwargs={"filter_name": _filter_name(columns)}
     )
 
-    benchmark.pedantic(_compute_dask_array, args=(ingestor,), rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(
+        _compute_dask_array,
+        args=(ingestor,),
+        rounds=NUM_ROUNDS,
+        iterations=NUM_ITERATIONS,
+        warmup_rounds=NUM_WARMUP_ROUNDS,
+    )
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -128,16 +142,16 @@ def test_root_dask_read(benchmark: BenchmarkFixture, root_paths: List[str], num_
 def test_root_iterative_setup(
     benchmark: BenchmarkFixture, root_paths: List[str], num_files: int, column_mode: str
 ) -> None:
-    """Upfront cost of `IterativeIngestor`: `uproot.num_entries` (TTree header only, all files) plus
+    """Upfront cost of `IterableIngestor`: `uproot.num_entries` (TTree header only, all files) plus
     a single-file field lookup. No event data is read, and no dask graph is ever built.
     """
     columns = COLUMN_SETS[column_mode]
     paths = root_paths[:num_files]
 
-    def _setup() -> IterativeIngestor:
-        return IterativeIngestor(paths=paths, columns=columns)
+    def _setup() -> IterableIngestor:
+        return IterableIngestor(paths=paths, columns=columns, format="root")
 
-    benchmark.pedantic(_setup, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_setup, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -145,16 +159,16 @@ def test_root_iterative_setup(
 def test_root_iterative_read(
     benchmark: BenchmarkFixture, root_paths: List[str], num_files: int, column_mode: str
 ) -> None:
-    """Cost of a full `uproot.iterate` pass over all files via `IterativeIngestor.iterate()`."""
+    """Cost of a full `uproot.iterate` pass over all files via `IterableIngestor.iterate()`."""
     columns = COLUMN_SETS[column_mode]
     paths = root_paths[:num_files]
-    ingestor = IterativeIngestor(paths=paths, columns=columns)
+    ingestor = IterableIngestor(paths=paths, columns=columns, format="root")
 
     def _read() -> None:
         for _ in ingestor.iterate():
             pass
 
-    benchmark.pedantic(_read, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_read, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -171,7 +185,7 @@ def test_parquet_dask_setup(
     def _setup() -> Ingestor:
         return Ingestor(paths=paths, format="parquet", columns=columns)
 
-    benchmark.pedantic(_setup, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_setup, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -186,7 +200,13 @@ def test_parquet_dask_read(
     paths = parquet_paths[:num_files]
     ingestor = Ingestor(paths=paths, format="parquet", columns=columns)
 
-    benchmark.pedantic(_compute_dask_array, args=(ingestor,), rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(
+        _compute_dask_array,
+        args=(ingestor,),
+        rounds=NUM_ROUNDS,
+        iterations=NUM_ITERATIONS,
+        warmup_rounds=NUM_WARMUP_ROUNDS,
+    )
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -194,16 +214,16 @@ def test_parquet_dask_read(
 def test_parquet_iterative_setup(
     benchmark: BenchmarkFixture, parquet_paths: List[str], num_files: int, column_mode: str
 ) -> None:
-    """Upfront cost of `IterativeParquetIngestor`: `pyarrow.parquet.ParquetFile` metadata per file,
+    """Upfront cost of `IterableIngestor`: `pyarrow.parquet.ParquetFile` metadata per file,
     no dask graph at all.
     """
     columns = COLUMN_SETS[column_mode]
     paths = parquet_paths[:num_files]
 
-    def _setup() -> IterativeParquetIngestor:
-        return IterativeParquetIngestor(paths=paths, columns=columns)
+    def _setup() -> IterableIngestor:
+        return IterableIngestor(paths=paths, columns=columns, format="parquet")
 
-    benchmark.pedantic(_setup, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_setup, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)
 
 
 @pytest.mark.parametrize("column_mode", ["few", "many"])
@@ -211,13 +231,13 @@ def test_parquet_iterative_setup(
 def test_parquet_iterative_read(
     benchmark: BenchmarkFixture, parquet_paths: List[str], num_files: int, column_mode: str
 ) -> None:
-    """Cost of a full `ak.from_parquet`-per-file pass via `IterativeParquetIngestor.iterate()`."""
+    """Cost of a full `ak.from_parquet`-per-file pass via `IterableIngestor.iterate()`."""
     columns = COLUMN_SETS[column_mode]
     paths = parquet_paths[:num_files]
-    ingestor = IterativeParquetIngestor(paths=paths, columns=columns)
+    ingestor = IterableIngestor(paths=paths, columns=columns, format="parquet")
 
     def _read() -> None:
         for _ in ingestor.iterate():
             pass
 
-    benchmark.pedantic(_read, rounds=3, iterations=1, warmup_rounds=0)
+    benchmark.pedantic(_read, rounds=NUM_ROUNDS, iterations=NUM_ITERATIONS, warmup_rounds=NUM_WARMUP_ROUNDS)

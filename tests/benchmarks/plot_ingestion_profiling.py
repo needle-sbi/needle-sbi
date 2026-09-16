@@ -1,13 +1,5 @@
 """
-Plot the results of `test_ingestion_profiling.py`: setup cost and total read time across four
-ingestion strategies (ROOT via dask, ROOT via IterativeIngestor, parquet via dask, parquet via
-IterativeParquetIngestor), on the same Delphes dataset/column sets.
-
-Produces two plot groups:
-- `ingestion_setup_cost__...`: one 2-panel figure (1 column / 14 columns, shared y-axis), the
-  upfront cost of resolving length/fields before any event data is read.
-- `ingestion_total_time__...`: two standalone NEEDLE-styled figures (one per column count), the
-  total time until all requested data has been read (setup + read).
+Plot the results of `test_ingestion_profiling.py`
 
 Run after generating the benchmark JSON(s), e.g.:
 
@@ -18,16 +10,11 @@ Run after generating the benchmark JSON(s), e.g.:
 
     python tests/benchmarks/plot_ingestion_profiling.py
 
-A simplified, notebook-friendly twin of the total-time plot lives in
-`tests/benchmarks/plot_ingestion_profiling.ipynb` for ad-hoc tweaking (not committed --
-`tests/**/*.ipynb` is gitignored).
-
-Disclaimer: Part of this code was written with the help of GPT-5.
+Disclaimer: Part of this code was written with the help of GPT-5 and Claude Sonnet.
 """
 
 import json
 import subprocess
-from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -40,11 +27,13 @@ plt.rcParams.update({"axes.labelsize": 14, "xtick.labelsize": 12, "ytick.labelsi
 
 RESULTS_DIR = Path(__file__).parent / "results"
 PLOTS_DIR = Path(__file__).parent / "plots"
-INPUT_FILES = [RESULTS_DIR / "ingestion_profiling_fast.json", RESULTS_DIR / "ingestion_profiling_slow.json"]
+INPUT_FILES = [
+    RESULTS_DIR / "ingestion_profiling_fast.json",
+    RESULTS_DIR / "ingestion_profiling_slow.json",
+]
 EVENTS_PER_FILE = 10_000
 COLUMN_MODES = {"few": "1", "many": "14"}
-# (setup benchmark, read benchmark, legend label, marker) -- one row per strategy, fixed
-# order/color/marker used consistently across every plot below.
+# (setup benchmark, read benchmark, legend label, marker)
 METHODS = [
     ("test_root_dask_setup", "test_root_dask_read", "ROOT uproot.dask", "o"),
     ("test_root_iterative_setup", "test_root_iterative_read", "ROOT uproot.iterate", "s"),
@@ -63,7 +52,7 @@ def _git_commit() -> str:
 def _load_benchmarks() -> List[Dict[str, Any]]:
     benchmarks: List[Dict[str, Any]] = []
     for path in INPUT_FILES:
-        if not path.exists():
+        if not path.exists() or path.stat().st_size == 0:
             continue
         with open(path) as f:
             benchmarks.extend(json.load(f)["benchmarks"])
