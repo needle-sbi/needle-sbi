@@ -16,9 +16,12 @@ from pathlib import Path
 from typing import Optional, Union
 
 import matplotlib.pyplot as plt
-import mplhep
+import mplhep as hep
 import numpy as np
 import pandas as pd
+
+plt.style.use(hep.style.CMS)
+plt.rcParams.update({"axes.labelsize": 14, "xtick.labelsize": 12, "ytick.labelsize": 12, "legend.fontsize": 11})
 
 FILE_TYPES = ["parquet", "root"]
 COMPONENTS = ["Graph Building", "Column-based Iteration", "Row-based Iteration"]
@@ -26,7 +29,7 @@ TEST_METHODS = ["only_metadata", "materialize_partitions", "iterate_dataloader"]
 COLORS = ["lightcoral", "lightgreen", "lightblue"]
 RESULTS_DIR = Path(__file__).parent / "results"
 PLOTS_DIR = Path(__file__).parent / "plots"
-DEFAULT_OUTPUT = PLOTS_DIR / "ingestion_decomposed.pdf"
+DEFAULT_OUTPUT = PLOTS_DIR / "ingestion_decomposed"
 INPUT_FILES = [RESULTS_DIR / "root_vs_parquet_fast.json", RESULTS_DIR / "root_vs_parquet_slow.json"]
 
 
@@ -148,7 +151,8 @@ def plot_root_vs_parquet(
     Args:
         grouped: `mean_time` indexed by `(file_type, test_method)`, as returned by
             `select_benchmarks`.
-        output_path: Where to save the figure. Parent directories are created if needed.
+        output_path: Where to save the figure. The `.pdf` and `.png` suffixes are added
+            automatically. Parent directories are created if needed.
         annotation: Optional text box
 
     Returns:
@@ -164,7 +168,7 @@ def plot_root_vs_parquet(
     x = np.arange(len(FILE_TYPES))
     width = 0.25
 
-    fig, ax = plt.subplots(figsize=(5, 4), dpi=600)
+    fig, ax = plt.subplots(figsize=(7, 6))
     for i, comp in enumerate(COMPONENTS):
         ax.bar(
             x + i * width,
@@ -188,25 +192,18 @@ def plot_root_vs_parquet(
     ax.set_xticklabels(FILE_TYPES)
     max_height = max(v for values in times.values() for v in values)
     ax.set_ylim(top=max_height * 1.35)
-    ax.legend(loc="upper left")
+    ax.legend(loc="upper right", fontsize=12, frameon=True)
 
+    ax.text(0.03, 0.97, r"$\bf{NEEDLE}$ $\it{Benchmark}$", transform=ax.transAxes, fontsize=20, va="top")
     if annotation:
-        ax.text(
-            0.02,
-            0.65,
-            annotation,
-            transform=ax.transAxes,
-            fontsize=10,
-            ha="left",
-            va="bottom",
-        )
+        ax.text(0.03, 0.9, annotation, transform=ax.transAxes, fontsize=12, va="top")
 
-    mplhep.label.exp_label(loc=0, exp="NEEDLE", ax=ax, rlabel="")
-    plt.tight_layout()
+    fig.tight_layout()
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path)
+    fig.savefig(f"{output_path}.pdf", bbox_inches="tight")
+    fig.savefig(f"{output_path}.png", dpi=400, bbox_inches="tight")
 
     return fig
 
@@ -227,7 +224,9 @@ def main(argv: Optional[list] = None) -> Path:
         default=None,
         help=f"Path to a pytest-benchmark JSON file. Defaults to {[str(p) for p in INPUT_FILES]}.",
     )
-    parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="Where to save the plot.")
+    parser.add_argument(
+        "--output", type=str, default=str(DEFAULT_OUTPUT), help="Where to save the plot (without extension)."
+    )
     args = parser.parse_args(argv)
 
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -238,8 +237,8 @@ def main(argv: Optional[list] = None) -> Path:
     plt.close(fig)
 
     source = args.input if args.input else [str(p) for p in INPUT_FILES if p.exists()]
-    print(f"Saved plot to {args.output} (source: {source})")
-    return Path(args.output)
+    print(f"Saved plot to {args.output}.pdf/.png (source: {source})")
+    return Path(f"{args.output}.png")
 
 
 if __name__ == "__main__":
