@@ -8,4 +8,3 @@
 
  - `pytest --benchmark-only` Will run all benchmark-related tests. Most will require environment variables or links to the corresponding datasets in the config. Run preferably on powerful hardware.
  - `pytest --benchmark-only --benchmark-plot` for an extra plotting script showing the root vs. parquet ingestion speed.
-
