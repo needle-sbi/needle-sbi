@@ -5,10 +5,12 @@ if TYPE_CHECKING:
     from needle.etl.array import NestedArrayIndexer
     from needle.etl.conversion import convert_root_to_parquet
     from needle.etl.dask_ingestor import Ingestor
+    from needle.etl.iterative_ingestor import IterableIngestor
     from needle.etl.normalization import MinMaxScaler, ScalerProtocol, StandardScaler
 
 __all__ = [
     "Ingestor",
+    "IterableIngestor",
     "NestedArrayIndexer",
     "ScalerProtocol",
     "MinMaxScaler",
@@ -18,6 +20,7 @@ __all__ = [
 
 _MODULE_BY_NAME = {
     "Ingestor": "needle.etl.dask_ingestor",
+    "IterableIngestor": "needle.etl.iterative_ingestor",
     "NestedArrayIndexer": "needle.etl.array",
     "ScalerProtocol": "needle.etl.normalization",
     "MinMaxScaler": "needle.etl.normalization",

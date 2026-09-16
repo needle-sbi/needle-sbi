@@ -12,4 +12,5 @@ Configuration & Utilities
    array
    conversion
    dask_ingestor
+   iterative_ingestor
    normalization
