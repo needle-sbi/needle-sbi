@@ -13,6 +13,7 @@ import reprlib
 from typing import Any, Callable, Iterator, Literal
 
 import awkward as ak
+import pyarrow.parquet as pq
 import pydantic
 import uproot
 
@@ -166,11 +167,11 @@ class IterableIngestor:
     @staticmethod
     def _resolve_fields_root(path: str, treename: str) -> list[str]:
         with uproot.open(path) as file:  # type: ignore
-            return list(file[treename].keys())
+            return list(file[treename].keys(full_paths=False))  # type: ignore
 
     def _resolve_fields_parquet(self, path: str) -> list[str]:
-        array = ak.from_parquet(path)
-        return NestedArrayIndexer.list_all_fields(array, as_tuple=False, separator=self.SEPARATOR)
+        empty_array = ak.from_arrow(pq.ParquetFile(path).schema_arrow.empty_table())
+        return NestedArrayIndexer.list_all_fields(empty_array, as_tuple=False, separator=self.SEPARATOR)
 
     def _filter_name(self) -> Callable[[str], bool]:
         """Build the `filter_name` function passed to `uproot.iterate`"""
