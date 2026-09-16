@@ -105,9 +105,9 @@ def load_default_benchmarks(merge_index: bool = False) -> pd.DataFrame:
 
 def select_benchmarks(
     df: pd.DataFrame,
-    column_mode: str = "config",
-    file_percentage: float = 0.0,
-    num_events: int = 1000,
+    column_mode: str,
+    file_percentage: float,
+    num_events: int,
 ) -> pd.Series:
     """Filter to a single `(column_mode, file_percentage, num_events)` slice and group by
     `(file_type, test_method)`, averaging `mean_time` over rounds.
@@ -231,7 +231,7 @@ def main(argv: Optional[list] = None) -> Path:
 
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
     df = load_benchmark_json(Path(args.input)) if args.input else load_default_benchmarks()
-    grouped = select_benchmarks(df)
+    grouped = select_benchmarks(df, column_mode="config", file_percentage=0.1, num_events=-1)
     annotation = "Files: 800 columns, 130GB\n" "Read: 8 columns, 1.3M events"
     fig = plot_root_vs_parquet(grouped, args.output, annotation=annotation)
     plt.close(fig)
