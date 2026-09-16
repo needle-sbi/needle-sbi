@@ -3,7 +3,7 @@ Compare the speed up between root and parquet files on the same Delphes dataset.
 the Environment variable for both the root and parquet version of the datasets are defined. Will
 convert the root files to parquet if not already done so.
 
-Disclaimer: Part of this code was written with the help of GPT-5
+Disclaimer: Part of this code was written with the help of GPT-5 and Claude
 
 Run these tests using the following command:
 
@@ -27,42 +27,50 @@ above.
 """
 
 from pathlib import Path
-from typing import Annotated, Callable, Dict, List, Literal
+from typing import Annotated, Callable, Dict, List, Literal, cast
 
 import pydantic
 import pytest
+from omegaconf import OmegaConf
 from pytest_benchmark.fixture import BenchmarkFixture
 from torch.utils.data import DataLoader
 
 from needle.etl.array import resolve_paths
 from needle.etl.conversion import convert_root_to_parquet
 from needle.etl.dask_ingestor import Ingestor
-from needle.ml.datasets import PaddedDataset
+from needle.ml.datasets import PaddedDaskDataset
 from needle.utils.config_schema import DatasetConfig, EstimatorConfig, ExpansionConfig
 
-Percentage = Annotated[float, pydantic.Field(ge=0.0, le=1.0)]
+Percentage = Annotated[float, pydantic.Field(ge=0.0, le=100.0)]
+
+
+DELPHES_DATASET_CONFIG = Path(__file__).parents[1] / "conf_tests" / "datasets" / "delphes.yaml"
 
 
 @pytest.fixture()
 def benchmark_config() -> EstimatorConfig:
     """Fixture that provides a standalone EstimatorConfig instance for benchmark tests.
 
-    Creates a minimal EstimatorConfig with a default estimator configuration.
-    No external config files or hydra loading is used.
+    The dataset entry (most importantly the feature columns) is read from the dedicated test
+    config directory `DELPHES_DATASET_CONFIG`, so that the benchmarks use the same columns as the
+    rest of the test suite.
 
     Returns:
         EstimatorConfig
     """
-    # Create a default dataset configuration for ingestion tests
-    dataset_config = DatasetConfig(
-        paths="",  # Will be overridden by the test
-        features_columns=[],  # Will be set by BenchmarkUtility.get_column()
-        labels_columns=[],
-        format="automatic",
-        max_number_events=-1,  # Will be set by the test
+    dataset_config = cast(
+        DatasetConfig,
+        OmegaConf.to_object(
+            OmegaConf.merge(
+                OmegaConf.structured(DatasetConfig),
+                OmegaConf.load(DELPHES_DATASET_CONFIG),
+            )
+        ),
     )
+    # `paths` and `max_number_events` are overridden by the test itself
+    dataset_config.paths = ""
+    dataset_config.max_number_events = -1
 
-    # Create a default estimator configuration
     estimator_config = EstimatorConfig(
         datamodule="default",
         datamodule_override=None,
@@ -117,7 +125,8 @@ class BenchmarkUtility:
     @staticmethod
     @pydantic.validate_call
     def get_files(file_percentage: Percentage, paths: List[str]) -> List[str]:
-        return paths[: max(1, int(len(paths) * file_percentage))]
+        """`file_percentage` is a percentage (0-100), not a fraction (0-1)."""
+        return paths[: max(1, int(len(paths) * file_percentage / 100))]
 
 
 def run_test(
@@ -197,7 +206,7 @@ def run_test(
         """Test function to iterate through a dataloader with padded dataset.
 
         This function creates an Ingestor instance and filters the columns based on the filter
-        function, combines them into a PaddedDataset, and then iterates through a DataLoader to
+        function, combines them into a PaddedDaskDataset, and then iterates through a DataLoader to
         verify that the data pipeline works correctly without errors.
 
         The test verifies that:
@@ -212,7 +221,7 @@ def run_test(
             max_number_events=config.dataset_override.max_number_events,
             reader_kwargs=reader_kwargs(),
         )
-        datamodule = PaddedDataset(ingestor, ingestor)
+        datamodule = PaddedDaskDataset(ingestor, ingestor)
         dataloader = DataLoader(datamodule)
 
         for _ in dataloader:

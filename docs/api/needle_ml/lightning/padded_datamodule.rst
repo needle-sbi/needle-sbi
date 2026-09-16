@@ -5,3 +5,4 @@ Padded DataModule
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: Ingestor

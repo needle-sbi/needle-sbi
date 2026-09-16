@@ -5,3 +5,4 @@ Delayed Dask Dataset
    :members:
    :undoc-members:
    :show-inheritance:
+   :exclude-members: Ingestor

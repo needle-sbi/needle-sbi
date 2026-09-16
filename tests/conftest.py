@@ -87,6 +87,45 @@ def pytest_sessionstart(session: pytest.Session):
     resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--benchmark-plot",
+        action="store_true",
+        default=False,
+        help=(
+            "After the benchmark session finishes, generate the ROOT vs Parquet ingestion "
+            "comparison plot (tests/benchmarks/plot_root_vs_parquet.py) from the freshly "
+            "autosaved pytest-benchmark JSON. Only has an effect together with --benchmark-only."
+        ),
+    )
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Generate the ROOT vs Parquet benchmark plot when `--benchmark-plot` was passed.
+
+    Runs after pytest-benchmark's own `--benchmark-autosave` hook (via `trylast=True`) so the
+    freshly written JSON is already on disk. Best-effort: a plotting failure is reported but does
+    not fail an otherwise-successful test session.
+    """
+    if not session.config.getoption("--benchmark-plot"):
+        return
+
+    import importlib.util
+
+    script_path = Path(__file__).parent / "benchmarks" / "plot_root_vs_parquet.py"
+    spec = importlib.util.spec_from_file_location("plot_root_vs_parquet", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    try:
+        output_path = module.main([])
+        print(f"\n[benchmark-plot] Saved plot to {output_path}")
+    except Exception as exc:  # pragma: no cover - best-effort convenience hook
+        print(f"\n[benchmark-plot] Failed to generate plot: {exc}")
+
+
 @pytest.fixture
 def simple_sample(make_parquet_file: Callable) -> str:
     template = ArrayField(dtype=float, shape=(10000, 1, 1))
@@ -118,6 +157,25 @@ def check_cli_path() -> Callable[[str], str]:
 @pytest.fixture()
 def fair_universe_sample(check_cli_path) -> str:
     return check_cli_path("FAIR_UNIVERSE_DATA", "parquet")
+
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+FAIR_UNIVERSE_DEMO_DATA = (
+    _REPO_ROOT / "examples" / "fair_universe_demo" / "test_data" / "FAIR_Universe_HiggsML_data.parquet"
+)
+
+
+@pytest.fixture(scope="session")
+def fair_universe_demo_parquet() -> Path:
+    """Bundled fair_universe_demo test parquet, resolved by relative repo path.
+
+    Unlike ``fair_universe_sample`` this never depends on the ``FAIR_UNIVERSE_DATA``
+    environment variable or OmegaConf's ``${oc.env:...}`` interpolation - it always
+    resolves to the small parquet file checked into ``examples/fair_universe_demo/test_data/``,
+    so pipeline/CLI tests run the same locally and in CI without extra setup.
+    """
+    assert FAIR_UNIVERSE_DEMO_DATA.exists(), f"Missing bundled test data at {FAIR_UNIVERSE_DEMO_DATA}"
+    return FAIR_UNIVERSE_DEMO_DATA
 
 
 @pytest.fixture()

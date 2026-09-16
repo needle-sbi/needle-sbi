@@ -21,10 +21,6 @@ Config Schema
    :no-members:
    :no-undoc-members:
 
-.. autoclass:: needle.utils.config_schema.AggregationConfig
-   :no-members:
-   :no-undoc-members:
-
 .. autoclass:: needle.utils.config_schema.DatasetConfig
    :no-members:
    :no-undoc-members:

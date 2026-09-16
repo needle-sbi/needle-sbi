@@ -53,9 +53,9 @@ class ColorFormatter(logging.Formatter):
         """
         Create a new logger with the specified name.
 
-        Format:
-            "%(levelname)s: NEEDLE-%(name)s (%(asctime)s) - %(message)s"
-        With the time formatter
+        Log lines are formatted as
+        ``"%(levelname)s: NEEDLE-%(name)s (%(asctime)s) - %(message)s"``, with the time
+        formatted as ``%H:%M:%S``.
         """
         new_logger = logging.getLogger(name)
 
@@ -94,6 +94,7 @@ class LogOnce:
 
 def timing(func):
     """Decorator to time a function's execution"""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start = time.perf_counter()
