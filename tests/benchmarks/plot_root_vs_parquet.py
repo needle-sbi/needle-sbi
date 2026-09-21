@@ -184,7 +184,7 @@ def plot_root_vs_parquet(
             bar_height = times[ft][i]
             unit = "ms" if bar_height < 1 else "s"
             value = bar_height * 1000 if unit == "ms" else bar_height
-            ax.text(bar_x, bar_height + 0.01, f"{value:.1f}{unit}", ha="center", va="bottom", fontsize=8)
+            ax.text(bar_x, bar_height + 10, f"{value:.1f}{unit}", ha="center", va="bottom", fontsize=12)
 
     ax.set_xlabel("File Type")
     ax.set_ylabel("Average Time [s]")
