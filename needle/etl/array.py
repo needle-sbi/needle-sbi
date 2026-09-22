@@ -8,6 +8,7 @@ import awkward as ak
 import dask_awkward as dak
 import numpy as np
 import pyarrow.parquet as pq
+import uproot
 from awkward.errors import FieldNotFoundError
 from pyarrow import ArrowInvalid
 
@@ -45,26 +46,43 @@ def resolve_paths(
 
 def brute_force_divisions(
     paths: list[str],
+    file_type: Literal["parquet", "root"] = "parquet",
+    treename: str | None = None,
 ) -> tuple[int, ...]:
-    """Resolve the divisions of a potential array based on the parquet files directly
+    """Resolve the divisions of a potential array directly from file metadata, without reading
+    any event data.
 
     Args:
-        paths (list[str]): List of unique file paths (without wildcards) to loop over
+        paths (list[str]): List of unique file paths (without wildcards) to loop over.
+        file_type (Literal["parquet", "root"]): Format of `paths`.
+        treename (str | None): Name of the `TTree` to read. Required when `file_type` is `"root"`.
 
     Returns:
-        tuple[int]: The file sizes in the dask divisions schema, starting from zero
+        tuple[int, ...]: The file sizes in the dask divisions schema, starting from zero.
+    Raises:
+        ValueError: If `file_type` is `"root"` and `treename` is not given.
 
     Note:
         This method only works for Arrays whose partitions are all the file boundaries.
     """
     divisions: list[int] = [0]
 
-    try:
-        for file_path in paths:
-            length_file: int = pq.ParquetFile(file_path).metadata.num_rows
-            divisions.append(length_file)
-    except ArrowInvalid as e:
-        logger.error(f"Could not determine length of array:\n{e}")
+    match file_type:
+        case "parquet":
+            try:
+                for file_path in paths:
+                    length_file: int = pq.ParquetFile(file_path).metadata.num_rows
+                    divisions.append(length_file)
+            except ArrowInvalid as e:
+                logger.error(f"Could not determine length of array:\n{e}")
+        case "root":
+            if treename is None:
+                raise ValueError("'treename' is required when file_type == 'root'.")
+            for _file_path, _treename, num_entries in uproot.num_entries([f"{p}:{treename}" for p in paths]):
+                divisions.append(num_entries)
+        case _:
+            raise ValueError("File type not supported")
+
     array = np.cumsum(np.array(divisions))
     return tuple(array.tolist())  # type: ignore
 
@@ -81,6 +99,121 @@ def brute_force_length(
         int: The total length of the array
     """
     return brute_force_divisions(paths)[-1]
+
+
+def brute_force_row_group_divisions(
+    path: str,
+) -> tuple[int, ...]:
+    """Resolve per-row-group divisions directly from a single parquet file's metadata.
+
+    Used as a fallback for a single input file whose partitions were split by row group (e.g.
+    via ``dak.from_parquet(..., split_row_groups=True)``), matching one partition per row group.
+    Unlike :func:`brute_force_divisions`, which produces only one boundary per *file*, this
+    produces one boundary per *row group* within a single file.
+
+    Args:
+        path (str): Path to a single parquet file (not a glob pattern, not a list).
+
+    Returns:
+        tuple[int, ...]: Cumulative row counts, one entry per row group, starting at zero. Has
+            length `num_row_groups + 1`, matching dask's `npartitions + 1` divisions convention.
+    """
+    parquet_file = pq.ParquetFile(path)
+    divisions: list[int] = [0]
+
+    for row_group_index in range(parquet_file.num_row_groups):
+        divisions.append(parquet_file.metadata.row_group(row_group_index).num_rows)
+
+    array = np.cumsum(np.array(divisions))
+    return tuple(array.tolist())  # type: ignore
+
+
+def are_divisions_valid(
+    divisions: tuple[int, ...],
+) -> bool:
+    """Check that a dask divisions tuple is a valid, strictly increasing boundary sequence.
+
+    A dask_awkward Array's divisions must start at zero and strictly increase — each entry marks
+    the cumulative event count up to and including that partition.
+
+    Note:
+        `eager_compute_divisions()` can silently register `0` for every interior/trailing boundary
+        when a single parquet file is split into several partitions via `split_row_groups=True`
+        (each row-group partition's length lookup fails and defaults to zero), producing a
+        `(0, 0, 0, ..., 0)` division tuple. A naive `not any(divisions)` check (as used previously)
+        happens to catch this specific all-zero case, but the fix must still reconstruct the
+        correct *per-row-group* boundaries (not just the file-level total) — see
+        :func:`brute_force_row_group_divisions`.
+
+    Args:
+        divisions (tuple[int, ...]): Divisions tuple to validate, as returned by
+            `dask_awkward.Array.divisions`.
+
+    Returns:
+        bool: True if `divisions` starts at zero and is strictly increasing.
+    """
+    if not divisions or divisions[0] != 0:
+        return False
+
+    return all(upper > lower for lower, upper in zip(divisions, divisions[1:]))
+
+
+def resolve_input_format(
+    fmt: str,
+    path: str,
+    valid_formats: set[str],
+) -> str:
+    """Resolve the file format to use for reading, inferring it from `path`'s extension if needed.
+
+    Shared by every `needle.etl` Ingestor so that `format="automatic"` behaves identically
+    regardless of the backend (dask-backed or not).
+
+    Args:
+        fmt (str): Either `"automatic"` (infer from `path`'s extension) or one of
+            `valid_formats` to use as-is.
+        path (str): A representative file path, used only for automatic format detection by
+            extension matching (e.g. `"data.parquet"` -> `"parquet"`).
+        valid_formats (set[str]): The formats supported by the calling Ingestor, e.g.
+            `{"parquet", "root"}`.
+
+    Returns:
+        str: The resolved format name, guaranteed to be a member of `valid_formats`.
+
+    Raises:
+        ValueError: If `fmt` is not `"automatic"` and not in `valid_formats`, or if `fmt` is
+            `"automatic"` and no member of `valid_formats` matches `path`'s extension.
+    """
+    if fmt == "automatic":
+        for candidate in valid_formats:
+            if path.endswith(f".{candidate}"):
+                return candidate
+        raise ValueError(
+            f"Could not infer file format based on its extension: '{path}'. Currently supported "
+            f"are: {valid_formats}."
+        )
+    if fmt in valid_formats:
+        return fmt
+    raise ValueError(f"Unsupported format: {fmt}. Currently supported are: {valid_formats}.")
+
+
+def check_columns_found(
+    requested_columns: list[str],
+    loaded_fields: list[str],
+) -> None:
+    """Check that every requested column was actually found when loading a file's schema.
+
+    Args:
+        requested_columns (list[str]): Columns the caller asked for. An empty list always passes.
+        loaded_fields (list[str]): Columns actually found while resolving the input file(s)'
+            schema.
+
+    Raises:
+        ValueError: If any of `requested_columns` is not present in `loaded_fields`.
+    """
+    missing_columns = set(requested_columns) - set(loaded_fields)
+
+    if missing_columns:
+        raise ValueError(f"Missing columns in ingested data: {missing_columns}")
 
 
 class NestedArrayIndexer:

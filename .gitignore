@@ -9,6 +9,7 @@ mlruns*
 lightning_logs*
 *.log
 .benchmarks
+tests/benchmarks/plots/
 .claude
 .law
 .mypy_cache
@@ -17,6 +18,8 @@ lightning_logs*
 .coverage
 docs/_build/
 tests/**/*.ipynb
+tests/benchmarks/plots/*
+tests/benchmarks/results/*
 conf/
 law.cfg
 index

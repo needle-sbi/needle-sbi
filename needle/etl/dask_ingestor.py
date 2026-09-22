@@ -3,6 +3,10 @@ Ingestor class for reading input files using Dask Awkward Arrays. Currently supp
 files. This class has low footprint since the dask delayed objects are not loaded at runtime, but
 only when running `dask.compute()` on the Array. This makes it safe to use this class for all files
 at once without running into memory issues.
+
+For a non-dask counterpart that streams chunks instead of exposing whole-dataset columns, see
+`needle.etl.iterative_ingestor.IterableIngestor`. `needle.etl.protocols` documents the shared
+schema and the column-vs-chunk distinction between the two.
 """
 
 import reprlib
@@ -14,8 +18,12 @@ import uproot
 
 from needle.etl.array import (
     NestedArrayIndexer,
+    are_divisions_valid,
     brute_force_divisions,
     brute_force_length,
+    brute_force_row_group_divisions,
+    check_columns_found,
+    resolve_input_format,
     resolve_paths,
 )
 from needle.utils.logging import ColorFormatter
@@ -33,6 +41,7 @@ class Ingestor:
 
     Attributes:
         array (dak.Array): Dask Awkward Array containing the data.
+        paths (list[str]): Resolved input file paths (glob patterns already expanded).
         fields (list[str]): List of fields in the array.
         num_classes (int): Number of fields in the array.
         length (int): Number of events in the array.
@@ -41,12 +50,13 @@ class Ingestor:
 
     Important:
         New methods for reading other formats must implement the following:
-        - Be added to the '__init__' method by being:
+        - Be added to the '__init__' method
         - Listed as a supported format in the 'format' argument
         - [Optional] Added to the 'format == "automatic"' clause and corresponding logger
     """
 
     array: dak.Array  # type: ignore
+    paths: list[str]
     fields: list[str]
     num_classes: int
     length: int
@@ -79,34 +89,39 @@ class Ingestor:
         """
         paths = [paths] if isinstance(paths, str) else paths
         columns = [columns] if isinstance(columns, str) else columns
-        format = self._resolve_format(format, paths[0])  # type: ignore
+        self.paths = resolve_paths(paths)
+
+        if not self.paths:
+            raise FileNotFoundError(f"No files could be found with pattern {paths}")
+
+        format = self._resolve_format(format, self.paths[0])  # type: ignore
         reader_kwargs = reader_kwargs or {}
 
         match format:
             case "parquet":
-                self.array = dak.from_parquet(paths, columns=columns, **reader_kwargs)  # type: ignore
+                self.array = dak.from_parquet(self.paths, columns=columns, **reader_kwargs)  # type: ignore
             case "root":
-                self.array = uproot.dask(paths, columns=columns, **reader_kwargs)  # type: ignore
+                self.array = uproot.dask(self.paths, columns=columns, **reader_kwargs)  # type: ignore
 
         self.array.eager_compute_divisions()  # type: ignore
-        self._inspect_array(self.array, paths)
+        self._inspect_array(self.array, self.paths)
 
         loaded_columns = NestedArrayIndexer.list_all_fields(self.array, separator=self.SEPARATOR, as_tuple=False)
 
-        self._check_if_all_columns_found(columns or [], loaded_columns)
+        check_columns_found(columns or [], loaded_columns)
         self.fields = columns or loaded_columns
         self.num_classes = len(self.fields)
 
         if max_number_events > 0:
             self.array = self.array[0:max_number_events]
 
-        self.length = self._get_length(self[self.fields[0]], paths)
+        self.length = self._get_length(self[self.fields[0]], self.paths)
 
         logger.info(f"Loaded {self.length} events with {self.num_classes} column(s): {reprlib.repr(self.fields)}")
         return None
 
     def __getitem__(self, field: str) -> dak.Array:  # type: ignore
-        """Return the specified field from the array.
+        """Return the specified field from the array as a whole-dataset column.
 
         Handles both flat and nested fields.
 
@@ -114,7 +129,8 @@ class Ingestor:
             field (str): Field to return.
 
         Returns:
-            dak.Array: Dask Awkward Array for the specified field.
+            Dask Awkward Array for the specified field, spanning every event in
+                every input file.
 
         Raises:
             ValueError: If the specified field is not included in the list of fields.
@@ -123,28 +139,6 @@ class Ingestor:
             raise ValueError(f"Field '{field}' not found in array.")
 
         return NestedArrayIndexer.get_nested_field(self.array, field, self.SEPARATOR)
-
-    def _check_if_all_columns_found(
-        self,
-        columns: list[str],
-        loaded_fields: list[str],
-    ) -> None:
-        """Check that all columns were found when loading the data.
-
-        Args:
-            columns (list[str]): List of columns to check.
-            loaded_fields (list[str]): List of columns that were actually loaded.
-
-        Returns:
-            None
-
-        Raises:
-            ValueError: If any of the columns in 'columns' are not found in 'loaded_fields'.
-        """
-        missing_columns = set(columns) - set(loaded_fields)
-
-        if missing_columns:
-            raise ValueError(f"Missing columns in ingested data: {missing_columns}")
 
     @staticmethod
     def _get_length(array: dak.Array, paths: str | list[str]) -> int:  # type: ignore
@@ -222,8 +216,19 @@ class Ingestor:
             except AttributeError:
                 raise ValueError("Input array does not have attribute 'fields' or is empty.")
 
-        if not any(array.divisions):
-            self.array._divisions = brute_force_divisions(resolve_paths(paths))
+        if not are_divisions_valid(array.divisions):
+            resolved_paths = resolve_paths(paths)
+
+            if len(resolved_paths) == 1 and array.npartitions > 1:
+                # A single input file was split into several partitions (e.g. via
+                # `split_row_groups=True`), so `eager_compute_divisions()` cannot rely on
+                # per-file lengths. Reconstruct the per-row-group boundaries directly from the
+                # file's parquet metadata instead.
+                self.array._divisions = brute_force_row_group_divisions(resolved_paths[0])
+                logger.debug("Found divisions using per-row-group 'brute force' method (pyarrow.parquet)")
+            else:
+                self.array._divisions = brute_force_divisions(resolved_paths)
+                logger.debug("Found divisions using per-file 'brute force' method (pyarrow.parquet)")
 
     @classmethod
     def _resolve_format(cls: Type[Self], fmt: str, path: str) -> str:
@@ -240,14 +245,4 @@ class Ingestor:
         Raises:
             ValueError: If the format is not supported or cannot be determined from the file path.
         """
-        if fmt == "automatic":
-            for f in cls.VALID_FORMATS:
-                if path.endswith(f".{f}"):
-                    return f
-            raise ValueError(
-                f"Could not infer file format based on its extension: '{path}'. Currently supported "
-                f"are: {cls.VALID_FORMATS}."
-            )
-        if fmt in cls.VALID_FORMATS:
-            return fmt
-        raise ValueError(f"Unsupported format: {fmt}. Currently supported are: {cls.VALID_FORMATS}.")
+        return resolve_input_format(fmt, path, cls.VALID_FORMATS)
