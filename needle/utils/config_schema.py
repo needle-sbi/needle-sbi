@@ -36,6 +36,18 @@ class DatasetConfig(SerializableDataclass):
 
 
 @dataclass
+class AggregationSpec(SerializableDataclass):
+    """How a set of sibling predictions combine into their parent's prediction.
+
+    `method` is one of "mean", "sum", "best", "weighted_mean".
+    """
+
+    method: str = "mean"
+    weights: Optional[List[float]] = None  # only for "weighted_mean"
+    metric_key: Optional[str] = None  # only for "best"
+
+
+@dataclass
 class SystematicConfig(SerializableDataclass):
     """In contrast to the `EstimatorConfig` dataclass, entries here can be inferred from the Asimov
     dataclass, e.g. by adopting the entries from the parent estimator.
@@ -50,18 +62,34 @@ class SystematicConfig(SerializableDataclass):
     trainer: Optional[str] = None
     trainer_override: Optional[Any] = None
     resources: Optional[dict] = None
+    aggregation: AggregationSpec = field(default_factory=AggregationSpec)
 
 
 @dataclass
 class EnsembleConfig(SerializableDataclass):
-    num_ensembles: int = 1
+    """Also accepts a plain int in the config, e.g. `ensembles: 3`, resolved to `num` by
+    `config_utils.resolve_defaults`.
+    """
+
+    num: int = 1
+    aggregation: AggregationSpec = field(default_factory=AggregationSpec)
+
+
+@dataclass
+class FoldConfig(SerializableDataclass):
+    """Also accepts a plain int in the config, e.g. `folds: 5`, resolved to `num` by
+    `config_utils.resolve_defaults`.
+    """
+
+    num: int = 1
+    aggregation: AggregationSpec = field(default_factory=AggregationSpec)
 
 
 @dataclass
 class ExpansionConfig(SerializableDataclass):
-    ensembles: EnsembleConfig = field(default_factory=EnsembleConfig)
+    ensembles: Any = 1   # type: int | EnsembleConfig
     systematics: dict[str, SystematicConfig] = field(default_factory=lambda: {"nominal": SystematicConfig()})
-    folds: int = 1
+    folds: Any = 1  # type: int | FoldConfig
 
 
 @dataclass
@@ -93,6 +121,7 @@ class EstimatorConfig(SerializableDataclass):
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
     requires: Optional[List[str]] = None
     resources: Optional[dict] = None
+    aggregation: AggregationSpec = field(default_factory=lambda: AggregationSpec(method="mean"))
 
 
 @dataclass

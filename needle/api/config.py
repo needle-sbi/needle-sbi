@@ -40,7 +40,7 @@ class Config:
 
         Look up a nested value by dot-notation key, with a default if missing::
 
-            n_folds = cfg.get("estimators.model_A.expands.folds", default=1)
+            n_folds = cfg.get("estimators.model_A.expands.folds.num", default=1)
 
         Access the raw, fully-resolved dataclass directly::
 

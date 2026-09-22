@@ -49,7 +49,7 @@ def test_get_resolves_nested_dot_notation_key() -> None:
     cfg = Config(CONFIG_PATH)
 
     assert cfg.get("estimators.model_A.model") == "mock_transformer"
-    assert cfg.get("estimators.model_A.expands.folds") == 2
+    assert cfg.get("estimators.model_A.expands.folds.num") == 2
 
 
 def test_get_returns_default_for_missing_key() -> None:
