@@ -8,7 +8,6 @@ import needle.utils.logging  # noqa: F401
 if TYPE_CHECKING:
     from needle import etl, ml, utils
     from needle.api import (
-        load_config,
         Estimator,
         InitResult,
         RunResult,
@@ -16,6 +15,7 @@ if TYPE_CHECKING:
         configure_b2luigi,
         configure_law,
         init,
+        load_config,
         run,
         train_single,
     )

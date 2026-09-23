@@ -313,7 +313,10 @@ class Estimator(nn.Module):
             (only_output,) = systematic_outputs.values()
             return only_output, torch.zeros_like(only_output)
 
-        return aggregate_siblings(list(systematic_outputs.values()), self.estimator_config.systematic_aggregation)
+        return aggregate_siblings(
+            list(systematic_outputs.values()),
+            self.estimator_config.systematic_aggregation,
+        )
 
 
 __all__ = [
