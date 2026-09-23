@@ -233,7 +233,7 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
             dataset_config=dataset_config,
             input_models=self.input_model_paths,
             fold_index=0 if self.single else self.fold_index,
-            n_folds=1 if self.single else self.estimator_config.expands.folds,
+            n_folds=1 if self.single else self.estimator_config.expands.folds.num,
         )
 
         trainer: lightning.Trainer = hydra.utils.instantiate(

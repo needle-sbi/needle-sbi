@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Literal, Mapping, Optional, Sequence, Tuple, Union
 
 from needle.utils.logging import ColorFormatter
@@ -50,8 +51,8 @@ def run(
     task: str = "MainTask",
     *,
     backend: Literal["law", "b2luigi"] = "b2luigi",
-    config_file: str = "conf/config.yaml",
-    results_path: str = "runs",
+    config_file: Optional[Union[str, Path]] = "conf/config.yaml",
+    results_path: Optional[str] = "runs",
     batch_system: str = "local",
     workers: int = 1,
     params: Union[Mapping[str, ParamValue], Sequence[str], None] = None,
@@ -82,6 +83,8 @@ def run(
         UnknownTaskError: if the Task name is not a known b2luigi task class name.
     """
     normalized_params = _normalize_params(params)
+    if config_file is not None:
+        config_file = str(config_file)
 
     if backend == "law":
         logger.info("Running with `law` workflow backend")

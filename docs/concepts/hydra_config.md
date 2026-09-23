@@ -202,6 +202,76 @@ if-else statements for each site.
 :::
 
 
+### The `aggregation` block
+
+`FoldConfig` and `EnsembleConfig` each carry an `aggregation: AggregationSpec` field, and
+`EstimatorConfig` carries `systematic_aggregation: AggregationSpec`. Together they control how
+`needle.api.eval.Estimator` combines sibling predictions bottom-up at inference time, it is not used
+during training.
+
+| Field        | Python Type | Description |
+|--------------|-------------|-------------|
+| `method`     | `str`       | One of the built-ins `"mean"`, `"sum"`, `"best"`, or a dotted import path to a custom callable (see below). |
+| `metric_key` | `Optional[str]` | Reserved for `"best"`. Pass `metrics` explicitly if you call `aggregate_siblings` yourself. |
+
+```yaml
+estimators:
+  my_estimator:
+    expands:
+      folds: 5
+      ensembles:
+        num: 3
+        aggregation:
+          method: "best"   # pick the best ensemble member instead of averaging
+    systematic_aggregation:
+      method: "mean"        # default: average across systematic variations
+```
+
+#### Writing a custom aggregator
+
+There is the possibility to include your own aggregation function which gets executed for siblings of
+a given layer. The `aggregation` field is meant to be generic, so specific implementations such as a
+`weighted_mean` for example can be supplied by you for your own analysis. In order to do so, replace
+the `aggregation` with a dotted `method` path (see the resolution with `needle.api.eval.aggregate_siblings`)
+in the same way Hydra usually resolves `_target_` strings elsewhere in the config. The callable must
+accept the same signature as `aggregate_siblings` uses.
+
+Example:
+
+```python
+def weighted_mean(outputs, spec, metrics=None):
+    """outputs: list[Tensor] (one per sibling); spec: the AggregationSpec that named this
+    callable; metrics: per-sibling validation metric, only populated for "best"-style use cases.
+
+    Must return (aggregated, std) Tensors, matching the shape of a single sibling's output.
+
+    Weights aren't part of the framework's aggregation contract, so supply them yourself, e.g.
+    read them off your own config, hardcode them, or bind them with `functools.partial`.
+    """
+    weights = [3.0, 1.0, 1.0]
+    stacked = torch.stack(outputs, dim=0)
+    w = torch.tensor(weights, dtype=stacked.dtype)
+    w = w / w.sum()
+    view_shape = (-1,) + (1,) * (stacked.dim() - 1)
+    aggregated = (w.view(view_shape) * stacked).sum(dim=0)
+    std = torch.sqrt((w.view(view_shape) * (stacked - aggregated) ** 2).sum(dim=0))
+    return aggregated, std
+```
+
+Reference it by dotted path, e.g. if it lives in `my_package/aggregators.py`:
+
+```yaml
+expands:
+  ensembles:
+    num: 3
+    aggregation:
+      method: "my_package.aggregators.weighted_mean"
+```
+
+See `tests/api/test_eval.py::TestAggregate` (`_weighted_mean`) for a complete, runnable version
+of this example.
+
+
 ## Estimator groups
 
 In contrast to regular configs blocks as above, groups point to a further sub-config file with the

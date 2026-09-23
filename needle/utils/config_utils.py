@@ -19,7 +19,7 @@ from omegaconf.errors import (
 if TYPE_CHECKING:
     from luigi import Task
 
-from needle.utils.config_schema import MainConfig
+from needle.utils.config_schema import EnsembleConfig, FoldConfig, MainConfig
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("config")
@@ -109,6 +109,17 @@ def validate_graph(self: "MainConfig") -> None:
 
     list(graphlib.TopologicalSorter(graph).static_order())
     return None
+
+
+def _normalize_expansion(value: Any, cls: Type) -> Any:
+    """Resolve a `int | dict` shorthand. If int, the value is assigned to `cls(num=<value>)`, a dict
+    is merged into the `cls`'s defaults.
+    """
+    if isinstance(value, int):
+        return OmegaConf.structured(cls(num=value))
+    if isinstance(value, (dict, DictConfig)):
+        return OmegaConf.merge(OmegaConf.structured(cls), value)
+    return value
 
 
 def initialize_hydra_config(
@@ -207,6 +218,9 @@ def resolve_defaults(
     estimators: DictConfig = cfg.get(node, {})
 
     for _, est_cfg in estimators.items():
+        est_cfg.expands.ensembles = _normalize_expansion(est_cfg.expands.ensembles, EnsembleConfig)
+        est_cfg.expands.folds = _normalize_expansion(est_cfg.expands.folds, FoldConfig)
+
         for field, group in DEFAULT_GROUPS.items():
             group_member: str = est_cfg.get(field)
 
