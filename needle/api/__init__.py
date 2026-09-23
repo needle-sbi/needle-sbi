@@ -2,7 +2,8 @@ import importlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from needle.api.config import Config
+    from needle.api.config import load_config
+    from needle.api.eval import Estimator, aggregate_siblings, load_snapshot
     from needle.api.init import InitResult, init
     from needle.api.law_settings import configure_law
     from needle.api.run import RunResult, UnknownTaskError, run
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
     from needle.tasks.b2luigi.workflows.common import configure_b2luigi
 
 __all__ = [
-    "Config",
+    "load_config",
     "train_single",
     "run",
     "RunResult",
@@ -19,10 +20,13 @@ __all__ = [
     "InitResult",
     "configure_law",
     "configure_b2luigi",
+    "Estimator",
+    "aggregate_siblings",
+    "load_snapshot",
 ]
 
 _MODULE_BY_NAME = {
-    "Config": "needle.api.config",
+    "load_config": "needle.api.config",
     "Model": "needle.api.model",
     "Dataset": "needle.api.dataset",
     "train_single": "needle.api.train",
@@ -33,6 +37,9 @@ _MODULE_BY_NAME = {
     "InitResult": "needle.api.init",
     "configure_law": "needle.api.law_settings",
     "configure_b2luigi": "needle.tasks.b2luigi.workflows.common",
+    "Estimator": "needle.api.eval",
+    "load_snapshot": "needle.api.eval",
+    "aggregate_siblings": "needle.api.eval",
 }
 
 

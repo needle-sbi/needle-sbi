@@ -39,11 +39,14 @@ class DatasetConfig(SerializableDataclass):
 class AggregationSpec(SerializableDataclass):
     """How a set of sibling predictions combine into their parent's prediction.
 
-    `method` is one of "mean", "sum", "best", "weighted_mean".
+    `method` is either one of the built-ins "mean", "sum", "best", or a dotted import path to a
+    user-supplied aggregation callable (e.g. "my_package.my_module.my_aggregator"), see
+    `needle.api.eval.aggregate_siblings`. There is deliberately no generic `weights` field: a custom
+    callable that needs weights (or anything else) captures it itself rather than routing it
+    through the framework.
     """
 
     method: str = "mean"
-    weights: Optional[List[float]] = None  # only for "weighted_mean"
     metric_key: Optional[str] = None  # only for "best"
 
 
@@ -62,7 +65,6 @@ class SystematicConfig(SerializableDataclass):
     trainer: Optional[str] = None
     trainer_override: Optional[Any] = None
     resources: Optional[dict] = None
-    aggregation: AggregationSpec = field(default_factory=AggregationSpec)
 
 
 @dataclass
@@ -87,7 +89,7 @@ class FoldConfig(SerializableDataclass):
 
 @dataclass
 class ExpansionConfig(SerializableDataclass):
-    ensembles: Any = 1   # type: int | EnsembleConfig
+    ensembles: Any = 1  # type: int | EnsembleConfig
     systematics: dict[str, SystematicConfig] = field(default_factory=lambda: {"nominal": SystematicConfig()})
     folds: Any = 1  # type: int | FoldConfig
 
@@ -121,7 +123,7 @@ class EstimatorConfig(SerializableDataclass):
     expands: ExpansionConfig = field(default_factory=ExpansionConfig)
     requires: Optional[List[str]] = None
     resources: Optional[dict] = None
-    aggregation: AggregationSpec = field(default_factory=lambda: AggregationSpec(method="mean"))
+    systematic_aggregation: AggregationSpec = field(default_factory=lambda: AggregationSpec(method="mean"))
 
 
 @dataclass
