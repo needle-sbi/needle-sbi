@@ -139,19 +139,23 @@ def initialize_hydra_config(
         ):
             cfg_as_dict: DictConfig = OmegaConf.merge(
                 OmegaConf.structured(MainConfig),
-                hydra.compose(config_name=config_name, overrides=overrides),
+                hydra.compose(config_name=config_name),
             )  # type: ignore
+
+            if overrides:
+                cfg_as_dict = OmegaConf.merge(cfg_as_dict, OmegaConf.from_dotlist(overrides))
+
             cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
             OmegaConf.resolve(cfg_as_dict)
             cfg: MainConfig = cast(MainConfig, cfg_as_dict)
     except ConfigKeyError as e:
-        raise NeedleConfigError(_describe_config_key_error(e)) from None
+        raise NeedleConfigError(_describe_config_key_error(e)) from e
     except MissingMandatoryValue as e:
-        raise NeedleConfigError(_describe_missing_mandatory(e)) from None
+        raise NeedleConfigError(_describe_missing_mandatory(e)) from e
     except ConfigCompositionException as e:
-        raise NeedleConfigError(_describe_composition_error(e, config_name)) from None
+        raise NeedleConfigError(_describe_composition_error(e, config_name)) from e
     except OmegaConfBaseException as e:
-        raise NeedleConfigError(_describe_omegaconf_error(e)) from None
+        raise NeedleConfigError(_describe_omegaconf_error(e)) from e
 
     validate_graph(cfg)
     return cfg
@@ -224,12 +228,15 @@ def resolve_defaults(
             base_cfg = est_cfg.get(override_key)
 
             if base_cfg:
+                # Fields written directly in `*_override` (manual overrides in the config file, or
+                # runtime `--hydra-overrides`) must win over fields loaded from the sub-config, so
+                # `base_cfg` is merged on top of `group_cfg`, not the other way around.
                 if override_key == "dataset_override":
-                    est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
+                    est_cfg[override_key] = OmegaConf.merge(group_cfg, base_cfg)
                 else:
                     base_dict = OmegaConf.to_container(base_cfg, resolve=False)
                     group_dict = OmegaConf.to_container(group_cfg, resolve=False)
-                    est_cfg[override_key] = OmegaConf.create({**base_dict, **group_dict})  # type: ignore
+                    est_cfg[override_key] = OmegaConf.create({**group_dict, **base_dict})  # type: ignore
             else:
                 est_cfg[override_key] = group_cfg
 
