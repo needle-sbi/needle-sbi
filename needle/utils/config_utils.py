@@ -137,12 +137,6 @@ def initialize_hydra_config(
             config_dir=config_dir,
             version_base=None,
         ):
-            # Overrides are applied *after* merging in the `MainConfig` schema (rather than being
-            # passed to `hydra.compose` directly) so that any field defined in the schema - even one
-            # not literally written out in the config file - can be overridden. `hydra.compose`
-            # validates overrides against the composed config as-is, which (before the schema merge)
-            # only contains the keys actually present in the YAML file, and rejects anything else
-            # unless prefixed with `+`.
             cfg_as_dict: DictConfig = OmegaConf.merge(
                 OmegaConf.structured(MainConfig),
                 hydra.compose(config_name=config_name),
