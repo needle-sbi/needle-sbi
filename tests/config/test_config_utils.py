@@ -1,4 +1,5 @@
 import graphlib
+from pathlib import Path
 from typing import Generator
 
 import hydra
@@ -10,7 +11,9 @@ from needle.utils.config_schema import (
     MainConfig,
     SystematicConfig,
 )
-from needle.utils.config_utils import validate_graph
+from needle.utils.config_utils import NeedleConfigError, initialize_hydra_config, validate_graph
+
+CONF_TESTS_DIR = Path(__file__).parent.parent / "conf_tests"
 
 
 class TestResourcesField:
@@ -75,3 +78,44 @@ def hydra_initialize_context() -> Generator:
 class TestResolveDefaults:
     # TODO
     pass
+
+
+class TestHydraOverrides:
+    """Regression tests for GH #12: overrides on fields absent from the raw YAML, and the
+    override/sub-config precedence order documented in `docs/concepts/lightning_and_hydra_integration.md`.
+    """
+
+    def test_override_on_field_absent_from_yaml(self) -> None:
+        # `model_B` in conf_tests/config.yaml declares no `dataset_override` at all - only the
+        # schema default provides it - so this override key is not literally present in the file.
+        cfg = initialize_hydra_config(
+            config_dir=str(CONF_TESTS_DIR),
+            config_name="config",
+            overrides=["estimators.model_B.dataset_override.paths=/tmp/demo.parquet"],
+        )
+
+        assert cfg.estimators["model_B"].dataset_override.paths == "/tmp/demo.parquet"
+
+    def test_manual_override_in_yaml_takes_precedence_over_sub_config(self) -> None:
+        # `model_A` sets `dataset_override.labels_columns` in the yaml, while the referenced
+        # `fair_universe` dataset sub-config sets its own (different) `labels_columns`.
+        cfg = initialize_hydra_config(config_dir=str(CONF_TESTS_DIR), config_name="config")
+
+        assert cfg.estimators["model_A"].dataset_override.labels_columns == ["PRI_lep_eta"]
+
+    def test_runtime_override_takes_precedence_over_manual_yaml_override(self) -> None:
+        cfg = initialize_hydra_config(
+            config_dir=str(CONF_TESTS_DIR),
+            config_name="config",
+            overrides=["estimators.model_A.dataset_override.labels_columns=[PRI_n_jets]"],
+        )
+
+        assert cfg.estimators["model_A"].dataset_override.labels_columns == ["PRI_n_jets"]
+
+    def test_unknown_override_key_still_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="Unknown config key"):
+            initialize_hydra_config(
+                config_dir=str(CONF_TESTS_DIR),
+                config_name="config",
+                overrides=["estimators.model_A.doesnotexist=1"],
+            )
