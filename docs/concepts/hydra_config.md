@@ -212,7 +212,7 @@ during training.
 | Field        | Python Type | Description |
 |--------------|-------------|-------------|
 | `method`     | `str`       | One of the built-ins `"mean"`, `"sum"`, `"best"`, or a dotted import path to a custom callable (see below). |
-| `metric_key` | `Optional[str]` | Reserved for `"best"`. Pass `metrics` explicitly if you call `aggregate_siblings` yourself. |
+| `metric_key` | `Optional[str]` | Reserved for `"best"`. Unused by the built-ins; forwarded as a kwarg to a custom aggregator. |
 
 ```yaml
 estimators:
@@ -234,14 +234,26 @@ a given layer. The `aggregation` field is meant to be generic, so specific imple
 `weighted_mean` for example can be supplied by you for your own analysis. In order to do so, replace
 the `aggregation` with a dotted `method` path (see the resolution with `needle.api.eval.aggregate_siblings`)
 in the same way Hydra usually resolves `_target_` strings elsewhere in the config. The callable must
-accept the same signature as `aggregate_siblings` uses.
+implement the `needle.api.eval.Aggregator` protocol - the single, formal definition of this
+signature (not restated here, so the two never drift apart):
+
+```python
+class Aggregator(Protocol):
+    def __call__(
+        self, outputs: list[Tensor], metrics: list[float] | None = None, **kwargs
+    ) -> tuple[Tensor, Tensor]: ...
+```
+
+`**kwargs` carries any other field your `AggregationSpec` sets (e.g. `metric_key`), since
+`aggregate_siblings` is called as `aggregate_siblings(outputs, method=spec.method,
+metric_key=spec.metric_key)`.
 
 Example:
 
 ```python
-def weighted_mean(outputs, spec, metrics=None):
-    """outputs: list[Tensor] (one per sibling); spec: the AggregationSpec that named this
-    callable; metrics: per-sibling validation metric, only populated for "best"-style use cases.
+def weighted_mean(outputs, metrics=None, **kwargs):
+    """outputs: list[Tensor] (one per sibling); metrics: per-sibling validation metric, only
+    populated for "best"-style use cases; **kwargs: any other `AggregationSpec` field (unused here).
 
     Must return (aggregated, std) Tensors, matching the shape of a single sibling's output.
 
@@ -257,6 +269,10 @@ def weighted_mean(outputs, spec, metrics=None):
     std = torch.sqrt((w.view(view_shape) * (stacked - aggregated) ** 2).sum(dim=0))
     return aggregated, std
 ```
+
+Called directly (outside a config-driven `AggregationSpec`), `aggregate_siblings` also takes
+`method`/`metrics` as plain keyword arguments, e.g. `aggregate_siblings(outputs, method="mean")` or
+`aggregate_siblings(outputs, method="my_package.my_module.weighted_mean")`.
 
 Reference it by dotted path, e.g. if it lives in `my_package/aggregators.py`:
 

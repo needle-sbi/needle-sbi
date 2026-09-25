@@ -40,8 +40,9 @@ class AggregationSpec(SerializableDataclass):
     """How a set of sibling predictions combine into their parent's prediction.
 
     `method` is either one of the built-ins "mean", "sum", "best", or a dotted import path to a
-    user-supplied aggregation callable (e.g. "my_package.my_module.my_aggregator"), see
-    `needle.api.eval.aggregate_siblings`. There is deliberately no generic `weights` field: a custom
+    user-supplied aggregation callable matching `needle.api.eval.Aggregator`, resolved by
+    `needle.api.eval.aggregate_siblings` (called as `aggregate_siblings(outputs, method=spec.method,
+    metric_key=spec.metric_key)`). There is deliberately no generic `weights` field: a custom
     callable that needs weights (or anything else) captures it itself rather than routing it
     through the framework.
     """

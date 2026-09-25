@@ -29,14 +29,14 @@ def _write_snapshot(tmp_path: Path, flat: dict) -> None:
 
 def _weighted_mean(
     outputs: list[torch.Tensor],
-    spec: AggregationSpec,
     metrics: list[float] | None = None,
+    **kwargs: object,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Example user-defined aggregator, wired in via a dotted `AggregationSpec.method` path (see
-    `aggregate_siblings` in `needle.api.eval`). NEEDLE has no built-in "weighted_mean" and
-    `AggregationSpec` carries no generic `weights` field on purpose: a custom aggregator that wants
-    weights just captures them itself (a module-level constant here; a real project would more
-    likely read them off its own config, or use `functools.partial`) instead of routing them
+    """Example user-defined aggregator, wired in via a dotted `AggregationSpec.method` path,
+    implementing the `needle.api.eval.Aggregator` protocol. NEEDLE has no built-in "weighted_mean"
+    and `AggregationSpec` carries no generic `weights` field on purpose: a custom aggregator that
+    wants weights just captures them itself (a module-level constant here; a real project would
+    more likely read them off its own config, or use `functools.partial`) instead of routing them
     through the framework.
 
     A real project would put this in its own installed package rather than a test module.
@@ -83,51 +83,59 @@ def test_load_snapshot_raises_if_missing(tmp_path: Path) -> None:
 
 
 class TestAggregate:
-    def test_mean(self) -> None:
+    def test_mean_is_the_default(self) -> None:
         outputs = [torch.ones(2, 1), torch.zeros(2, 1)]
-        mean, std = aggregate_siblings(outputs, AggregationSpec(method="mean"))
+        mean, std = aggregate_siblings(outputs)
         assert torch.allclose(mean, torch.full((2, 1), 0.5))
         assert torch.allclose(std, torch.stack(outputs, dim=0).std(dim=0))
 
     def test_sum(self) -> None:
         outputs = [torch.ones(2, 1), torch.ones(2, 1)]
-        total, _ = aggregate_siblings(outputs, AggregationSpec(method="sum"))
+        total, _ = aggregate_siblings(outputs, method="sum")
         assert torch.allclose(total, torch.full((2, 1), 2.0))
 
     def test_best_selects_lowest_metric(self) -> None:
         outputs = [torch.full((2, 1), 10.0), torch.full((2, 1), 20.0)]
-        best, std = aggregate_siblings(outputs, AggregationSpec(method="best"), metrics=[0.5, 0.1])
+        best, std = aggregate_siblings(outputs, method="best", metrics=[0.5, 0.1])
         assert torch.allclose(best, torch.full((2, 1), 20.0))
         assert torch.allclose(std, torch.zeros(2, 1))
 
     def test_best_requires_metrics(self) -> None:
         outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
         with pytest.raises(ValueError, match="metrics required"):
-            aggregate_siblings(outputs, AggregationSpec(method="best"))
+            aggregate_siblings(outputs, method="best")
 
     def test_custom_aggregator_implements_weighted_mean(self) -> None:
         # NEEDLE has no built-in "weighted_mean" method; this shows how to add one yourself via a
-        # dotted-path `AggregationSpec.method`, resolved by `aggregate_siblings`. See
-        # `_weighted_mean` above and docs/concepts/hydra_config.md for the same example.
+        # dotted-path `method`, resolved by `aggregate_siblings`. See `_weighted_mean` above and
+        # docs/concepts/hydra_config.md for the same example.
         outputs = [torch.zeros(2, 1), torch.full((2, 1), 4.0)]
-        mean, _ = aggregate_siblings(outputs, AggregationSpec(method="tests.api.test_eval._weighted_mean"))
+        mean, _ = aggregate_siblings(outputs, method="tests.api.test_eval._weighted_mean")
         assert torch.allclose(mean, torch.full((2, 1), 1.0))
 
     def test_custom_aggregator_missing_attribute_raises_unknown_method(self) -> None:
         outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
         with pytest.raises(ValueError, match="Unknown aggregation method"):
-            aggregate_siblings(outputs, AggregationSpec(method="tests.api.test_eval._does_not_exist"))
+            aggregate_siblings(outputs, method="tests.api.test_eval._does_not_exist")
 
     def test_single_output_is_passthrough(self) -> None:
         output = torch.full((2, 1), 3.0)
-        mean, std = aggregate_siblings([output], AggregationSpec(method="mean"))
+        mean, std = aggregate_siblings([output])
         assert torch.equal(mean, output)
         assert torch.equal(std, torch.zeros_like(output))
 
     def test_unknown_method_raises(self) -> None:
         outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
         with pytest.raises(ValueError, match="Unknown aggregation method"):
-            aggregate_siblings(outputs, AggregationSpec(method="median"))
+            aggregate_siblings(outputs, method="median")
+
+    def test_config_driven_spec_forwards_via_call_signature(self) -> None:
+        # This is how `Estimator.forward` calls `aggregate_siblings`: reading `method`/`metric_key`
+        # off an `AggregationSpec` straight from the resolved config.
+        outputs = [torch.ones(2, 1), torch.zeros(2, 1)]
+        spec = AggregationSpec(method="mean")
+        mean, _ = aggregate_siblings(outputs, method=spec.method, metric_key=spec.metric_key)
+        assert torch.allclose(mean, torch.full((2, 1), 0.5))
 
 
 @pytest.mark.b2luigi
