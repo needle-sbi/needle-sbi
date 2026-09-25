@@ -29,6 +29,20 @@ class RunResult:
 ParamValue = Union[str, bool]
 
 
+def _reset_b2luigi_process_guard() -> None:
+    """Clear b2luigi's "process can only run once per process" guard.
+
+    ``b2luigi.cli.process.process()`` sets a module-level ``__has_run_already`` flag and
+    refuses to run a second time in the same interpreter. That's fine for a `tasks.py` script
+    invoked once from the CLI, but needle's :func:`run` must support being called repeatedly
+    from the same process (e.g. successive cells in a notebook). Each b2luigi call below is a
+    fully independent build (its own task instance and settings), so resetting the flag is safe.
+    """
+    import b2luigi.cli.process as _b2luigi_process
+
+    setattr(_b2luigi_process, "__has_run_already", False)
+
+
 def _normalize_params(params: Union[Mapping[str, ParamValue], Sequence[str], None]) -> List[Tuple[str, ParamValue]]:
     """Normalize CLI-style ``"KEY=VALUE"``/bare-flag strings or a plain dict into
     a list of ``(key, value)`` pairs, where ``value is True`` means a bare flag.
@@ -116,6 +130,7 @@ def run(
         extra_params: Dict[str, ParamValue] = dict(normalized_params)
 
         configure_b2luigi(batch_system=batch_system)
+        _reset_b2luigi_process_guard()
 
         task_instance = task_cls(
             config_file=resolved_config_file,
