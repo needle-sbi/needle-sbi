@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
 from urllib.parse import parse_qsl
 
 import torch
@@ -12,12 +12,7 @@ from hydra.utils import get_method
 from omegaconf import OmegaConf
 
 from needle.api.config import load_config
-from needle.utils.config_schema import (
-    AggregationSpec,
-    EstimatorConfig,
-    MainConfig,
-    SystematicConfig,
-)
+from needle.utils.config_schema import EstimatorConfig, MainConfig, SystematicConfig
 from needle.utils.config_utils import hydra_instantiate
 from needle.utils.logging import ColorFormatter
 
@@ -124,22 +119,42 @@ def _clean_state_dict(state_dict: Dict[str, Any], model: nn.Module) -> Dict[str,
     return state_dict
 
 
+class Aggregator(Protocol):
+    """The one, formal definition of what a custom aggregation callable must look like.
+
+    A dotted `AggregationSpec.method` path is resolved to a callable matching this signature -
+    there's no separate prose description of the signature to keep in sync elsewhere; `aggregate_siblings`
+    itself satisfies this protocol for its built-in "mean"/"sum"/"best" methods too.
+    """
+
+    def __call__(
+        self,
+        outputs: List[torch.Tensor],
+        metrics: Optional[List[float]] = None,
+        **kwargs: Any,
+    ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+
+
 def aggregate_siblings(
     outputs: List[torch.Tensor],
-    spec: AggregationSpec,
+    method: str = "mean",
     metrics: Optional[List[float]] = None,
+    **kwargs: Any,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Combine sibling predictions into a single Tensor. A sibling can be either `systematic`,
     `ensemble` or `fold`.
 
     Args:
         outputs: One prediction Tensor per sibling, in the same order as `metrics`.
-        spec: Instance of ``AggregationSpec``. The `spec.method` selects "mean" / "sum" / "best", or
-            is a dotted import path to a custom aggregation callable (see
-            `_resolve_custom_aggregator`). There is no generic `weights` mechanism: a custom
-            aggregator that needs weights (or any other extra input) captures it itself rather than
-            routing it through `aggregate_siblings`.
+        method: One of the built-ins "mean" / "sum" / "best", or a dotted import path to a custom
+            aggregation callable matching the `Aggregator` protocol. Equivalent to
+            `AggregationSpec.method`; call as `aggregate_siblings(outputs, method=spec.method,
+            metric_key=spec.metric_key)` from a config-driven `AggregationSpec`.
         metrics: Per-sibling validation metric, required for `method == "best"`.
+        **kwargs: Forwarded verbatim to a custom aggregator (e.g. `metric_key`, or any other field
+            your own `AggregationSpec` carries). Ignored by the built-in methods, which need nothing
+            beyond `outputs`/`metrics`. There is no generic `weights` mechanism: a custom aggregator
+            that needs weights captures them itself rather than routing them through this function.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: (aggregated, std) where `aggregated` is the merged result
@@ -150,24 +165,24 @@ def aggregate_siblings(
         - "mean": `mean()`
         - "sum": `sum()`
         - "best": `outputs[metrics.argmin()]` (lower metric is better)
-    Anything else is resolved as a dotted path to a user-supplied callable (see
-    `_resolve_custom_aggregator`); see ``docs/concepts/hydra_config.md`` for a worked example
-    (a weighted mean implemented as a custom aggregator).
+    Anything else is resolved as a dotted path to a user-supplied callable (see `Aggregator`); see
+    ``docs/concepts/hydra_config.md`` for a worked example (a weighted mean implemented as a custom
+    aggregator).
     """
     if len(outputs) == 1:
         return outputs[0], torch.zeros_like(outputs[0])
 
     stacked = torch.stack(outputs, dim=0)
 
-    if spec.method == "mean":
+    if method == "mean":
         return stacked.mean(dim=0), stacked.std(dim=0)
 
-    if spec.method == "sum":
+    if method == "sum":
         variances = stacked.var(dim=0)
         std = torch.sqrt(variances.sum(dim=0, keepdim=True).expand_as(variances))
         return stacked.sum(dim=0), std
 
-    if spec.method == "best":
+    if method == "best":
         if metrics is None:
             raise ValueError("metrics required for 'best' aggregation")
 
@@ -175,11 +190,11 @@ def aggregate_siblings(
         return outputs[best_idx], torch.zeros_like(outputs[best_idx])
 
     try:
-        aggregator = get_method(spec.method)
+        aggregator: Aggregator = get_method(method)
     except (ImportError, AttributeError, ValueError) as exc:
-        raise ValueError(f"Unknown aggregation method: {spec.method}") from exc
+        raise ValueError(f"Unknown aggregation method: {method}") from exc
 
-    return aggregator(outputs, spec, metrics=metrics)
+    return aggregator(outputs, metrics=metrics, **kwargs)
 
 
 class Estimator(nn.Module):
@@ -300,10 +315,14 @@ class Estimator(nn.Module):
                     self.models[self._checkpoint_key(systematic, ensemble, fold)](x)
                     for fold, _ in sorted(folds.items())
                 ]
-                aggregated, _ = aggregate_siblings(fold_outputs, fold_spec)
+                aggregated, _ = aggregate_siblings(
+                    fold_outputs, method=fold_spec.method, metric_key=fold_spec.metric_key
+                )
                 ensemble_outputs.append(aggregated)
 
-            aggregated, _ = aggregate_siblings(ensemble_outputs, ensemble_spec)
+            aggregated, _ = aggregate_siblings(
+                ensemble_outputs, method=ensemble_spec.method, metric_key=ensemble_spec.metric_key
+            )
             systematic_outputs[systematic] = aggregated
 
         if not systematic_outputs:
@@ -313,13 +332,16 @@ class Estimator(nn.Module):
             (only_output,) = systematic_outputs.values()
             return only_output, torch.zeros_like(only_output)
 
+        systematic_spec = self.estimator_config.systematic_aggregation
         return aggregate_siblings(
             list(systematic_outputs.values()),
-            self.estimator_config.systematic_aggregation,
+            method=systematic_spec.method,
+            metric_key=systematic_spec.metric_key,
         )
 
 
 __all__ = [
+    "Aggregator",
     "Estimator",
     "load_snapshot",
     "aggregate_siblings",
