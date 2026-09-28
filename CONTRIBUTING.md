@@ -37,11 +37,11 @@ Before opening a PR:
 `<type>` is one of:
 
 | type       | use for                                                              |
-|------------|-----------------------------------------------------------------------|
+|------------|----------------------------------------------------------------------|
 | `feat`     | new functionality                                                    |
-| `fix`      | bug fix                                                               |
+| `fix`      | bug fix                                                              |
 | `refactor` | internal restructuring with no behavior change                       |
-| `docs`     | documentation only                                                    |
+| `docs`     | documentation only                                                   |
 | `test`     | tests only (no production code change)                               |
 | `chore`    | tooling, CI, dependency bumps                                        |
 | `perf`     | performance work (e.g. ingestion/profiling changes)                  |
@@ -50,8 +50,8 @@ Before opening a PR:
 opening the branch. Include the issue number when the branch resolves a tracked issue.
 
 If you are an agent working from a worktree, the worktree/branch name your tool generates
-(`worktree-...`) does not need to match this convention exactly, but rename or note the intended
-branch name in the PR title/description so history stays legible.
+(`worktree-...`) should try to match this convention. Renaming or noting the intended
+branch name in the PR title/description so history stays legible is also preferred.
 
 ## Commit messages
 
