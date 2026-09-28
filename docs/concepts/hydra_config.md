@@ -30,6 +30,8 @@ conf/
 │   └── other_model.yaml
 ├── datamodules/
 │   └── my_datamodule.yaml
+├── datasets/
+│   └── my_dataset.yaml
 └── trainers/
     └── default.yaml
 ```
