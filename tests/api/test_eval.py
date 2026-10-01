@@ -21,7 +21,7 @@ from needle.api.eval import (
     Estimator,
     _clean_state_dict,
     _resolve_devices,
-    _VectorizedEnsemble,
+    _VectorizedSiblings,
     aggregate_siblings,
     load_snapshot,
 )
@@ -169,7 +169,7 @@ class TestVectorizedEnsemble:
     def test_matches_individual_models_and_registers_buffers(self) -> None:
         models = [nn.Linear(3, 2).eval() for _ in range(3)]
         keys = ["a", "b", "c"]
-        group = _VectorizedEnsemble(keys, models, torch.device("cpu"))
+        group = _VectorizedSiblings(keys, models, torch.device("cpu"))
         x = torch.rand(4, 3)
         out = group(x)
         for key, model in zip(keys, models):
@@ -180,7 +180,7 @@ class TestVectorizedEnsemble:
         models = [nn.BatchNorm1d(3).eval() for _ in range(2)]
         models[1].running_mean.fill_(5.0)
         with pytest.raises(ValueError, match="differing buffers"):
-            _VectorizedEnsemble(["a", "b"], models, torch.device("cpu"))
+            _VectorizedSiblings(["a", "b"], models, torch.device("cpu"))
 
 
 @pytest.mark.b2luigi

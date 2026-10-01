@@ -213,6 +213,8 @@ def _resolve_devices(device: Optional[str], n_gpus: int) -> List[torch.device]:
     Works for any accelerator PyTorch exposes through `torch.accelerator` (CUDA, ROCm, XPU, MPS, ...);
     nothing here is CUDA specific. Without an explicit ``device`` the current accelerator is used,
     falling back to the CPU.
+
+    Does not actually check whether the primary device exists.
     """
     if device is None:
         accelerator = torch.accelerator.current_accelerator() if torch.accelerator.is_available() else None
@@ -236,7 +238,7 @@ def _resolve_devices(device: Optional[str], n_gpus: int) -> List[torch.device]:
     return [primary, *others[: n_use - 1]]
 
 
-class _VectorizedEnsemble(nn.Module):
+class _VectorizedSiblings(nn.Module):
     """Batches a group of structurally-identical sibling models into a single `torch.vmap`'d
     forward pass, used by `Estimator(execution="vectorized")`.
 
@@ -296,25 +298,29 @@ class Estimator(nn.Module):
               └─> systematic variations     (via ``estimator.systematic_aggregation``)
                   └─> Estimator
 
+    (So really the inverse of the training DAG).
+
     Each level's `AggregationSpec.method` is one of the built-ins ("mean" / "sum" / "best") or a
-    dotted path to a custom callable (see `aggregate_siblings`).
+    dotted path to a custom callable (see `needle.aggregate_siblings`).
 
     The leaf models (one per systematic/ensemble/fold combination) can be evaluated in one of
     three ``execution`` modes, settable at construction and overridable per-call via
     `forward(..., execution=...)`:
+
         - "sequential" (default): one Python-level forward call per leaf model. Simplest, always
           correct, no extra memory overhead.
-        - "parallel": every leaf model (across all systematics/ensembles/folds at once - they are
-          all mutually independent) is submitted to a `ThreadPoolExecutor` with ``num_workers``
-          threads. PyTorch releases the GIL inside its kernels, so this overlaps Python/launch overhead
-          and, when constructed with ``n_gpus > 1``, runs the models of different devices concurrently.
+
+        - "parallel": every leaf model (across all systematics/ensembles/folds at once)
+          is submitted to a `ThreadPoolExecutor` with ``num_workers`` threads.
+          PyTorch releases the GIL inside its kernels, so this overlaps Python/launch overhead.
+          When constructed with ``n_gpus > 1``, runs the models of different devices concurrently.
           Models on the same device still share that device's stream, and on the CPU the threads
           compete for PyTorch's intra-op thread pool, so expect gains mainly for many small models
           or several devices. Works on any accelerator, not only CUDA.
-        - "vectorized": siblings within one systematic share the same `model_override`, and are
-          therefore guaranteed identical architecture, so they are batched into a single
-          `torch.vmap` call instead of a Python loop. Fastest on GPU for many small sibling
-          models; see `_VectorizedEnsemble` for the buffer restrictions.
+
+        - "vectorized": siblings within one systematic are guaranteed to have the identical
+            architecture, so they are batched into a single `torch.vmap` call.
+            Fastest on GPU for many small sibling models. See `_VectorizedSiblings` for the buffer restrictions.
 
     Examples:
         >>> from needle.api.eval import Estimator
@@ -322,6 +328,9 @@ class Estimator(nn.Module):
         >>> mean, std = model(x)
         >>> model_parallel = Estimator("runs/my_run", "model_A", execution="parallel", n_gpus=2)
         >>> mean, std = model_parallel(x)
+
+    If you instantiate this class with execution "sequential" or "vectorized" but later call it with
+    "parallel", parallelization will happen on the device that the models were loaded on.
     """
 
     def __init__(
@@ -415,13 +424,13 @@ class Estimator(nn.Module):
 
         return model
 
-    def _vectorized_group(self, systematic: str) -> _VectorizedEnsemble:
-        """Build (and cache) the `_VectorizedEnsemble` batching every ensemble/fold sibling under
-        one systematic - they share `model_override`, so they're guaranteed identical architecture.
+    def _vectorized_group(self, systematic: str) -> _VectorizedSiblings:
+        """Build (and cache) the `_VectorizedSiblings` batching every ensemble/fold sibling under
+        one systematic.
         """
         if systematic not in self._vectorized_groups:
             keys = [key for *_, key in self._leaves([systematic])]
-            self._vectorized_groups[systematic] = _VectorizedEnsemble(
+            self._vectorized_groups[systematic] = _VectorizedSiblings(
                 keys, [self.models[key] for key in keys], self.device
             )
 
@@ -433,14 +442,15 @@ class Estimator(nn.Module):
         systematics: List[str],
         execution: ExecutionMode,
     ) -> Dict[str, torch.Tensor]:
-        """Evaluate every leaf (systematic, ensemble, fold) model needed for this call, dispatched
-        according to `execution`. The result is a flat `{checkpoint_key: output}` map consumed by
+        """Evaluate every leaf. The result is a flat `{checkpoint_key: output}` map consumed by
         the fold -> ensemble -> systematic aggregation tree in `forward`.
         """
         if execution == "vectorized":
             outputs: Dict[str, torch.Tensor] = {}
+
             for systematic in systematics:
                 outputs.update(self._vectorized_group(systematic)(x))
+
             return outputs
 
         keys = [key for *_, key in self._leaves(systematics)]
@@ -449,11 +459,17 @@ class Estimator(nn.Module):
             return {key: self.models[key](x) for key in keys}
 
         # "parallel": models are mutually independent, and each runs on the device it was loaded to.
-        inputs = {device: x if device == self.device else x.to(device) for device in set(self._model_devices.values())}
+        inputs = {
+            device: x
+            if device == self.device
+            else x.to(device)
+            for device in set(self._model_devices.values())
+        }
 
         def _call(key: str) -> torch.Tensor:
             with torch.no_grad():
                 output = self.models[key](inputs[self._model_devices[key]])
+
             return output if output.device == self.device else output.to(self.device)
 
         with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
@@ -474,7 +490,8 @@ class Estimator(nn.Module):
                 docstring). Defaults to `self.execution`.
 
         Returns:
-            (mean, std): The aggregated estimator output and its cross-model uncertainty.
+            (mean, std): The aggregated estimator output and its cross-model uncertainty (for the
+                outer-most layer, intermediate uncertainties are not propagated).
         """
         execution = execution or self.execution
         _check_execution(execution)
@@ -497,19 +514,26 @@ class Estimator(nn.Module):
                     leaf_outputs[self._checkpoint_key(systematic, ensemble, fold)] for fold in sorted(folds)
                 ]
                 aggregated, _ = aggregate_siblings(
-                    fold_outputs, method=fold_spec.method, metric_key=fold_spec.metric_key
+                    fold_outputs,
+                    method=fold_spec.method,
+                    metric_key=fold_spec.metric_key,
                 )
                 ensemble_outputs.append(aggregated)
 
             aggregated, _ = aggregate_siblings(
-                ensemble_outputs, method=ensemble_spec.method, metric_key=ensemble_spec.metric_key
+                ensemble_outputs,
+                method=ensemble_spec.method,
+                metric_key=ensemble_spec.metric_key,
             )
             systematic_outputs.append(aggregated)
 
         systematic_spec = self.estimator_config.systematic_aggregation
-        return aggregate_siblings(
-            systematic_outputs, method=systematic_spec.method, metric_key=systematic_spec.metric_key
+        mean, std = aggregate_siblings(
+            systematic_outputs,
+            method=systematic_spec.method,
+            metric_key=systematic_spec.metric_key,
         )
+        return mean, std
 
 
 __all__ = [
