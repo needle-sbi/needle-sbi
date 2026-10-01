@@ -8,16 +8,19 @@ import needle.utils.logging  # noqa: F401
 if TYPE_CHECKING:
     from needle import etl, ml, utils
     from needle.api import (
-        Estimator,
-        InitResult,
+        load_config,
+        train_single,
+        run,
         RunResult,
         UnknownTaskError,
+        init,
+        InitResult,
         configure_b2luigi,
         configure_law,
-        init,
-        load_config,
-        run,
-        train_single,
+        Estimator,
+        aggregate_siblings,
+        Aggregator,
+        load_snapshot,
     )
 
 __all__ = [
@@ -34,9 +37,12 @@ __all__ = [
     "configure_law",
     "configure_b2luigi",
     "Estimator",
+    "aggregate_siblings",
+    "Aggregator",
+    "load_snapshot",
 ]
 
-_SUBMODULES = {"etl", "ml", "utils"}
+_SUBMODULES = {"etl", "ml", "utils", "eval"}
 _API_NAMES = set(__all__) - _SUBMODULES
 
 
