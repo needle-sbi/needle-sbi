@@ -15,8 +15,16 @@ from pathlib import Path
 import omegaconf
 import pytest
 import torch
+import torch.nn as nn
 
-from needle.api.eval import Estimator, aggregate_siblings, load_snapshot
+from needle.api.eval import (
+    Estimator,
+    _clean_state_dict,
+    _resolve_devices,
+    _VectorizedEnsemble,
+    aggregate_siblings,
+    load_snapshot,
+)
 from needle.api.run import run
 from needle.utils.config_schema import AggregationSpec
 from tests.conftest import MainConfigFactory
@@ -138,6 +146,43 @@ class TestAggregate:
         assert torch.allclose(mean, torch.full((2, 1), 0.5))
 
 
+class TestCleanStateDict:
+    def test_ignores_extra_unprefixed_keys(self) -> None:
+        model = nn.Linear(2, 1)
+        state = {f"model.{k}": v for k, v in model.state_dict().items()}
+        state["loss.weight"] = torch.ones(1)
+        cleaned = _clean_state_dict(state, model)
+        assert set(cleaned) == set(model.state_dict())
+        model.load_state_dict(cleaned)
+
+
+class TestResolveDevices:
+    def test_cpu_is_single_device(self) -> None:
+        assert _resolve_devices("cpu", n_gpus=4) == [torch.device("cpu")]
+
+    def test_default_resolves_to_a_device(self) -> None:
+        devices = _resolve_devices(None, n_gpus=1)
+        assert len(devices) == 1
+
+
+class TestVectorizedEnsemble:
+    def test_matches_individual_models_and_registers_buffers(self) -> None:
+        models = [nn.Linear(3, 2).eval() for _ in range(3)]
+        keys = ["a", "b", "c"]
+        group = _VectorizedEnsemble(keys, models, torch.device("cpu"))
+        x = torch.rand(4, 3)
+        out = group(x)
+        for key, model in zip(keys, models):
+            assert torch.allclose(out[key], model(x), atol=1e-6)
+        assert len(list(group.buffers())) == 2  # weight + bias stacks follow `.to()`
+
+    def test_rejects_differing_buffers(self) -> None:
+        models = [nn.BatchNorm1d(3).eval() for _ in range(2)]
+        models[1].running_mean.fill_(5.0)
+        with pytest.raises(ValueError, match="differing buffers"):
+            _VectorizedEnsemble(["a", "b"], models, torch.device("cpu"))
+
+
 @pytest.mark.b2luigi
 @pytest.mark.slow
 class TestEstimatorEndToEnd:
@@ -179,3 +224,12 @@ class TestEstimatorEndToEnd:
 
         assert mean.shape == std.shape
         assert mean.shape[0] == 5
+
+        # All execution modes must agree with the sequential reference.
+        for mode in ("parallel", "vectorized"):
+            mode_mean, mode_std = model(x, execution=mode)
+            assert torch.allclose(mode_mean, mean, atol=1e-5), mode
+            assert torch.allclose(mode_std, std, atol=1e-5), mode
+
+        with pytest.raises(ValueError, match="No systematics matched"):
+            model(x, systematics_keys=["does_not_exist"])

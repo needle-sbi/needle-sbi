@@ -19,11 +19,23 @@ from omegaconf.errors import (
 if TYPE_CHECKING:
     from luigi import Task
 
-from needle.utils.config_schema import EnsembleConfig, FoldConfig, MainConfig
+from needle.utils.config_schema import EnsembleConfig, EstimatorConfig, FoldConfig, MainConfig, SystematicConfig
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("config")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
+
+
+def merge_systematic_config(estimator_config: EstimatorConfig, systematic: str) -> SystematicConfig:
+    """Override the estimator config with the fields of one systematic variation.
+
+    Shared by the training/fold tasks and `needle.api.eval.Estimator` so a model is always rebuilt from
+    exactly the config it was trained with.
+    """
+    return OmegaConf.merge(
+        OmegaConf.to_container(estimator_config.expands.systematics[systematic], resolve=False),
+        estimator_config,
+    )  # type: ignore[return-value]
 
 
 class NeedleConfigError(Exception):

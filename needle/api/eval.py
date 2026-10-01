@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Protocol, Tuple, Union
 from urllib.parse import parse_qsl
 
 import torch
 import torch.nn as nn
 from hydra.utils import get_method
-from omegaconf import OmegaConf
+from torch.func import functional_call, vmap
 
 from needle.api.config import load_config
-from needle.utils.config_schema import EstimatorConfig, MainConfig, SystematicConfig
-from needle.utils.config_utils import hydra_instantiate
+from needle.utils.config_schema import EstimatorConfig, MainConfig
+from needle.utils.config_utils import hydra_instantiate, merge_systematic_config
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("eval")
@@ -109,8 +110,8 @@ def _clean_state_dict(state_dict: Dict[str, Any], model: nn.Module) -> Dict[str,
 
     for prefix in common_prefixes:
         if all(f"{prefix}{k}" in checkpoint_keys for k in model_keys):
-            cleaned = {k[len(prefix) :]: v for k, v in state_dict.items()}
-            return cleaned
+            # Keep only the wrapped model's own weights; extras (e.g. a loss module's) carry no prefix.
+            return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
 
     logger.warning(
         f"Could not automatically resolve checkpoint/model key mismatch. "
@@ -197,6 +198,93 @@ def aggregate_siblings(
     return aggregator(outputs, metrics=metrics, **kwargs)
 
 
+ExecutionMode = Literal["sequential", "parallel", "vectorized"]
+_EXECUTION_MODES = ("sequential", "parallel", "vectorized")
+
+
+def _check_execution(execution: str) -> None:
+    if execution not in _EXECUTION_MODES:
+        raise ValueError(f"Unknown execution mode: {execution!r}. Expected one of {_EXECUTION_MODES}.")
+
+
+def _resolve_devices(device: Optional[str], n_gpus: int) -> List[torch.device]:
+    """Resolve the primary device (first entry) and, for ``n_gpus > 1``, further devices of the same type.
+
+    Works for any accelerator PyTorch exposes through `torch.accelerator` (CUDA, ROCm, XPU, MPS, ...);
+    nothing here is CUDA specific. Without an explicit ``device`` the current accelerator is used,
+    falling back to the CPU.
+    """
+    if device is None:
+        accelerator = torch.accelerator.current_accelerator() if torch.accelerator.is_available() else None
+        primary = torch.device(accelerator) if accelerator is not None else torch.device("cpu")
+    else:
+        primary = torch.device(device)
+
+    if primary.type == "cpu":
+        return [primary]
+
+    backend = getattr(torch, primary.type)
+    if primary.index is None:
+        primary = torch.device(primary.type, backend.current_device())
+
+    n_available = backend.device_count() if hasattr(backend, "device_count") else 1
+    n_use = min(max(n_gpus, 1), n_available)
+    if n_use < n_gpus:
+        logger.warning(f"Requested {n_gpus} {primary.type} device(s) but only {n_available} available. Using {n_use}.")
+
+    others = [torch.device(primary.type, i) for i in range(n_available) if i != primary.index]
+    return [primary, *others[: n_use - 1]]
+
+
+class _VectorizedEnsemble(nn.Module):
+    """Batches a group of structurally-identical sibling models into a single `torch.vmap`'d
+    forward pass, used by `Estimator(execution="vectorized")`.
+
+    Only `nn.Module.parameters()` are batched. Buffers (e.g. BatchNorm running stats) are taken from
+    the first sibling and shared across the batch, so siblings whose buffers differ are rejected with
+    a `ValueError` instead of silently producing wrong results.
+
+    The stacked parameters are registered as (non-persistent) buffers, so `.to()` and friends move
+    them with the module. They are a copy: the sibling models' own weights stay alive in `Estimator.models`.
+    """
+
+    def __init__(self, keys: List[str], models: List[nn.Module], device: torch.device) -> None:
+        super().__init__()
+        self.keys = keys
+        self._template = models[0]
+
+        template_buffers = dict(models[0].named_buffers())
+        for key, model in zip(keys, models):
+            buffers = dict(model.named_buffers())
+            if buffers.keys() != template_buffers.keys() or any(
+                not torch.equal(buffers[name].to(device), template_buffers[name].to(device)) for name in buffers
+            ):
+                raise ValueError(
+                    f"Cannot vectorize siblings with differing buffers (model {key!r} differs from {keys[0]!r}); "
+                    f"use execution='sequential' or 'parallel' instead."
+                )
+
+        params = [dict(model.named_parameters()) for model in models]
+        self._param_names = [name for name, _ in models[0].named_parameters()]
+        for i, name in enumerate(self._param_names):
+            stacked = torch.stack([p[name].detach().to(device) for p in params], dim=0)
+            self.register_buffer(self._buffer_name(i), stacked, persistent=False)
+
+    @staticmethod
+    def _buffer_name(index: int) -> str:
+        # Parameter names contain dots, which `register_buffer` rejects; index by position instead.
+        return f"_stacked_{index}"
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        params = {name: getattr(self, self._buffer_name(i)) for i, name in enumerate(self._param_names)}
+
+        def model_fn(params: Dict[str, torch.Tensor], x: torch.Tensor) -> torch.Tensor:
+            return functional_call(self._template, params, (x,))
+
+        batched = vmap(model_fn, in_dims=(0, None))(params, x)
+        return {key: batched[i] for i, key in enumerate(self.keys)}
+
+
 class Estimator(nn.Module):
     """Combined inference model for one trained estimator.
 
@@ -211,10 +299,29 @@ class Estimator(nn.Module):
     Each level's `AggregationSpec.method` is one of the built-ins ("mean" / "sum" / "best") or a
     dotted path to a custom callable (see `aggregate_siblings`).
 
+    The leaf models (one per systematic/ensemble/fold combination) can be evaluated in one of
+    three ``execution`` modes, settable at construction and overridable per-call via
+    `forward(..., execution=...)`:
+        - "sequential" (default): one Python-level forward call per leaf model. Simplest, always
+          correct, no extra memory overhead.
+        - "parallel": every leaf model (across all systematics/ensembles/folds at once - they are
+          all mutually independent) is submitted to a `ThreadPoolExecutor` with ``num_workers``
+          threads. PyTorch releases the GIL inside its kernels, so this overlaps Python/launch overhead
+          and, when constructed with ``n_gpus > 1``, runs the models of different devices concurrently.
+          Models on the same device still share that device's stream, and on the CPU the threads
+          compete for PyTorch's intra-op thread pool, so expect gains mainly for many small models
+          or several devices. Works on any accelerator, not only CUDA.
+        - "vectorized": siblings within one systematic share the same `model_override`, and are
+          therefore guaranteed identical architecture, so they are batched into a single
+          `torch.vmap` call instead of a Python loop. Fastest on GPU for many small sibling
+          models; see `_VectorizedEnsemble` for the buffer restrictions.
+
     Examples:
         >>> from needle.api.eval import Estimator
         >>> model = Estimator("runs/my_run", "model_A")
         >>> mean, std = model(x)
+        >>> model_parallel = Estimator("runs/my_run", "model_A", execution="parallel", n_gpus=2)
+        >>> mean, std = model_parallel(x)
     """
 
     def __init__(
@@ -222,54 +329,78 @@ class Estimator(nn.Module):
         results_path: Union[str, Path],
         estimator: str,
         device: Optional[str] = None,
+        execution: ExecutionMode = "sequential",
+        num_workers: int = 4,
+        n_gpus: int = 1,
     ) -> None:
         super().__init__()
+        _check_execution(execution)
+
         self.results_path = Path(results_path).resolve()
         self.estimator_name = estimator
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.execution: ExecutionMode = execution
+        self.num_workers = num_workers
+
+        # Leaf models only get spread across several devices when "parallel" is requested at
+        # construction time, since that's when model placement happens (`_load_models`); a
+        # later per-call `execution="parallel"` override on a "sequential"/"vectorized" instance
+        # still parallelizes, just on whichever single device the models were already loaded to.
+        self._devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
+        self.device = self._devices[0]
 
         self.config: MainConfig = load_config(self.results_path / "config.yaml")
         self.estimator_config: EstimatorConfig = self.config.estimators[estimator]
         self.snapshot: _EstimatorSnapshot = load_snapshot(self.results_path, estimator)
 
         self.models = nn.ModuleDict()
+        self._model_devices: Dict[str, torch.device] = {}
+        self._vectorized_groups = nn.ModuleDict()
         self._load_models()
-
-    def _systematic_config(self, systematic: str) -> SystematicConfig:
-        """Merge the estimator config with its override for one systematic variation, mirroring
-        `needle.tasks.base.training.BaseTrainingTask.systematic_config`.
-        """
-        return OmegaConf.merge(
-            OmegaConf.to_container(self.estimator_config.expands.systematics[systematic], resolve=False),
-            self.estimator_config,
-        )  # type: ignore[return-value]
 
     @staticmethod
     def _checkpoint_key(systematic: str, ensemble: int, fold: int) -> str:
         return f"syst={systematic}&ensem={ensemble}&fold={fold}"
 
+    def _leaves(self, systematics: List[str]) -> List[Tuple[str, int, int, str]]:
+        """All ``(systematic, ensemble, fold, checkpoint_key)`` leaves of `systematics`, in a fixed
+        sorted order shared by loading, vectorization and aggregation.
+        """
+        return [
+            (systematic, ensemble, fold, self._checkpoint_key(systematic, ensemble, fold))
+            for systematic in systematics
+            for ensemble, folds in sorted(self.snapshot[systematic].items())
+            for fold in sorted(folds)
+        ]
+
     def _load_models(self) -> None:
-        logger.info(f"Loading models for estimator {self.estimator_name!r} onto device: {self.device}")
+        logger.info(f"Loading models for estimator {self.estimator_name!r} onto device(s): {self._devices}")
 
-        for systematic, ensembles in self.snapshot.items():
-            systematic_config = self._systematic_config(systematic)
-            model_config = systematic_config.model_override
-            dataset_config = systematic_config.dataset_override
+        systematic_configs = {
+            systematic: merge_systematic_config(self.estimator_config, systematic) for systematic in self.snapshot
+        }
 
-            for ensemble, folds in ensembles.items():
-                for fold, ckpt_path in folds.items():
-                    key = self._checkpoint_key(systematic, ensemble, fold)
-                    self.models[key] = self._load_single_model(model_config, dataset_config, ckpt_path)
+        for idx, (systematic, ensemble, fold, key) in enumerate(self._leaves(list(self.snapshot))):
+            systematic_config = systematic_configs[systematic]
+            target_device = self._devices[idx % len(self._devices)]
+            self._model_devices[key] = target_device
+            self.models[key] = self._load_single_model(
+                systematic_config.model_override,
+                systematic_config.dataset_override,
+                self.snapshot[systematic][ensemble][fold],
+                target_device,
+            )
 
         logger.info(f"Loaded {len(self.models)} models")
 
-    def _load_single_model(self, model_config: Any, dataset_config: Any, ckpt_path: str) -> nn.Module:
+    def _load_single_model(
+        self, model_config: Any, dataset_config: Any, ckpt_path: str, device: torch.device
+    ) -> nn.Module:
         model = hydra_instantiate(model_config, dataset_config=dataset_config)
 
         if hasattr(model, "configure_model"):
             model.configure_model()
 
-        checkpoint = torch.load(ckpt_path, map_location=self.device, weights_only=False)
+        checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
         state_dict = checkpoint.get("state_dict", checkpoint)
         model.load_state_dict(_clean_state_dict(state_dict, model))
 
@@ -277,43 +408,93 @@ class Estimator(nn.Module):
         if hasattr(model, "model"):
             model = model.model
 
-        model.eval().to(self.device)
+        model.eval().to(device)
 
         for param in model.parameters():
             param.requires_grad = False
 
         return model
 
+    def _vectorized_group(self, systematic: str) -> _VectorizedEnsemble:
+        """Build (and cache) the `_VectorizedEnsemble` batching every ensemble/fold sibling under
+        one systematic - they share `model_override`, so they're guaranteed identical architecture.
+        """
+        if systematic not in self._vectorized_groups:
+            keys = [key for *_, key in self._leaves([systematic])]
+            self._vectorized_groups[systematic] = _VectorizedEnsemble(
+                keys, [self.models[key] for key in keys], self.device
+            )
+
+        return self._vectorized_groups[systematic]  # type: ignore[return-value]
+
+    def _compute_leaf_outputs(
+        self,
+        x: torch.Tensor,
+        systematics: List[str],
+        execution: ExecutionMode,
+    ) -> Dict[str, torch.Tensor]:
+        """Evaluate every leaf (systematic, ensemble, fold) model needed for this call, dispatched
+        according to `execution`. The result is a flat `{checkpoint_key: output}` map consumed by
+        the fold -> ensemble -> systematic aggregation tree in `forward`.
+        """
+        if execution == "vectorized":
+            outputs: Dict[str, torch.Tensor] = {}
+            for systematic in systematics:
+                outputs.update(self._vectorized_group(systematic)(x))
+            return outputs
+
+        keys = [key for *_, key in self._leaves(systematics)]
+
+        if execution == "sequential":
+            return {key: self.models[key](x) for key in keys}
+
+        # "parallel": models are mutually independent, and each runs on the device it was loaded to.
+        inputs = {device: x if device == self.device else x.to(device) for device in set(self._model_devices.values())}
+
+        def _call(key: str) -> torch.Tensor:
+            with torch.no_grad():
+                output = self.models[key](inputs[self._model_devices[key]])
+            return output if output.device == self.device else output.to(self.device)
+
+        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+            return dict(zip(keys, executor.map(_call, keys)))
+
     def forward(
         self,
         x: torch.Tensor,
         systematics_keys: Optional[List[str]] = None,
+        execution: Optional[ExecutionMode] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Run inference and aggregate folds -> ensembles -> systematics.
 
         Args:
             x: Input tensor, forwarded to every fold model.
             systematics_keys: Restrict aggregation to these systematic keys (default: all trained).
+            execution: Override the instance's `execution` mode for this call only (see the class
+                docstring). Defaults to `self.execution`.
 
         Returns:
             (mean, std): The aggregated estimator output and its cross-model uncertainty.
         """
-        x = x.to(self.device)
+        execution = execution or self.execution
+        _check_execution(execution)
+
+        systematics = [s for s in self.snapshot if systematics_keys is None or s in systematics_keys]
+        if not systematics:
+            raise ValueError(f"No systematics matched {systematics_keys!r}. Available are: {list(self.snapshot)}")
+
         fold_spec = self.estimator_config.expands.folds.aggregation
         ensemble_spec = self.estimator_config.expands.ensembles.aggregation
 
-        systematic_outputs: Dict[str, torch.Tensor] = {}
+        leaf_outputs = self._compute_leaf_outputs(x.to(self.device), systematics, execution)
 
-        for systematic, ensembles in self.snapshot.items():
-            if systematics_keys is not None and systematic not in systematics_keys:
-                continue
-
+        systematic_outputs: List[torch.Tensor] = []
+        for systematic in systematics:
             ensemble_outputs = []
 
-            for ensemble, folds in sorted(ensembles.items()):
+            for ensemble, folds in sorted(self.snapshot[systematic].items()):
                 fold_outputs = [
-                    self.models[self._checkpoint_key(systematic, ensemble, fold)](x)
-                    for fold, _ in sorted(folds.items())
+                    leaf_outputs[self._checkpoint_key(systematic, ensemble, fold)] for fold in sorted(folds)
                 ]
                 aggregated, _ = aggregate_siblings(
                     fold_outputs, method=fold_spec.method, metric_key=fold_spec.metric_key
@@ -323,20 +504,11 @@ class Estimator(nn.Module):
             aggregated, _ = aggregate_siblings(
                 ensemble_outputs, method=ensemble_spec.method, metric_key=ensemble_spec.metric_key
             )
-            systematic_outputs[systematic] = aggregated
-
-        if not systematic_outputs:
-            raise ValueError(f"No systematics matched {systematics_keys!r}. Available are: {list(self.snapshot)}")
-
-        if len(systematic_outputs) == 1:
-            (only_output,) = systematic_outputs.values()
-            return only_output, torch.zeros_like(only_output)
+            systematic_outputs.append(aggregated)
 
         systematic_spec = self.estimator_config.systematic_aggregation
         return aggregate_siblings(
-            list(systematic_outputs.values()),
-            method=systematic_spec.method,
-            metric_key=systematic_spec.metric_key,
+            systematic_outputs, method=systematic_spec.method, metric_key=systematic_spec.metric_key
         )
 
 
