@@ -16,7 +16,7 @@ from omegaconf import OmegaConf
 
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
-from needle.utils.config_utils import hydra_check_if_arg_supported, hydra_instantiate
+from needle.utils.config_utils import hydra_check_if_arg_supported, hydra_instantiate, merge_systematic_config
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("training")
@@ -88,13 +88,7 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         Returns:
             SystematicConfig: Container with overridden fields for the current Systematics config
         """
-        return OmegaConf.merge(
-            OmegaConf.to_container(
-                self.estimator_config.expands.systematics[self.systematic],
-                resolve=False,
-            ),
-            self.estimator_config,
-        )  # type: ignore
+        return merge_systematic_config(self.estimator_config, self.systematic)
 
     @property
     def batch_resources(self) -> Dict[str, Any]:
