@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, List, Literal, NamedTuple, Optional, Protocol, Tuple, Union, get_args
 from urllib.parse import parse_qsl
 
+import lightning as L
 import torch
 import torch.nn as nn
 from hydra.utils import get_method
 from torch.func import functional_call, vmap
 
 from needle.api.config import load_config
-from needle.utils.config_schema import EstimatorConfig, MainConfig
+from needle.utils.config_schema import AggregationSpec, EstimatorConfig, MainConfig
 from needle.utils.config_utils import hydra_instantiate, merge_systematic_config
 from needle.utils.logging import ColorFormatter
 
@@ -120,6 +123,24 @@ def _clean_state_dict(state_dict: Dict[str, Any], model: nn.Module) -> Dict[str,
     return state_dict
 
 
+def _checkpoint_scores(checkpoint: Dict[str, Any]) -> Dict[str, float]:
+    """Best monitored score per metric name (e.g. ``{"val_loss": 0.12}``) recorded by Lightning's
+    `ModelCheckpoint` callbacks in `checkpoint`; this is what the "best" aggregation compares.
+    """
+    scores: Dict[str, float] = {}
+    for state in checkpoint.get("callbacks", {}).values():
+        if isinstance(state, dict) and state.get("monitor") and state.get("best_model_score") is not None:
+            scores[state["monitor"]] = float(state["best_model_score"])
+
+    return scores
+
+
+def _module_device(module: nn.Module) -> torch.device:
+    """The device `module` currently lives on, so it stays correct after `.to()`/`.cpu()`/`.cuda()`."""
+    tensor = next(chain(module.parameters(), module.buffers()), None)
+    return tensor.device if tensor is not None else torch.device("cpu")
+
+
 class Aggregator(Protocol):
     """The one, formal definition of what a custom aggregation callable must look like.
 
@@ -134,6 +155,35 @@ class Aggregator(Protocol):
         metrics: Optional[List[float]] = None,
         **kwargs: Any,
     ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+
+
+def _mean(
+    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    stacked = torch.stack(outputs, dim=0)
+    return stacked.mean(dim=0), stacked.std(dim=0)
+
+
+def _sum(
+    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    # The siblings are independent estimates, each with an uncertainty estimated by their spread.
+    # The std of their sum is then sqrt(n) * spread.
+    stacked = torch.stack(outputs, dim=0)
+    return stacked.sum(dim=0), stacked.std(dim=0) * math.sqrt(len(outputs))
+
+
+def _best(
+    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    if metrics is None:
+        raise ValueError("metrics required for 'best' aggregation")
+
+    best = outputs[int(torch.tensor(metrics).argmin())]
+    return best, torch.zeros_like(best)
+
+
+_BUILTIN_AGGREGATORS: Dict[str, Aggregator] = {"mean": _mean, "sum": _sum, "best": _best}
 
 
 def aggregate_siblings(
@@ -164,7 +214,7 @@ def aggregate_siblings(
     The Tensors are first stacked around the outer dimension (`dim=0`), then aggregated according to
     the method. Supported built-in methods (matching available keys in ``AggregationSpec``) are:
         - "mean": `mean()`
-        - "sum": `sum()`
+        - "sum": `sum()`, with std `sqrt(n_siblings) * spread` of the siblings
         - "best": `outputs[metrics.argmin()]` (lower metric is better)
     Anything else is resolved as a dotted path to a user-supplied callable (see `Aggregator`); see
     ``docs/concepts/hydra_config.md`` for a worked example (a weighted mean implemented as a custom
@@ -173,33 +223,18 @@ def aggregate_siblings(
     if len(outputs) == 1:
         return outputs[0], torch.zeros_like(outputs[0])
 
-    stacked = torch.stack(outputs, dim=0)
-
-    if method == "mean":
-        return stacked.mean(dim=0), stacked.std(dim=0)
-
-    if method == "sum":
-        variances = stacked.var(dim=0)
-        std = torch.sqrt(variances.sum(dim=0, keepdim=True).expand_as(variances))
-        return stacked.sum(dim=0), std
-
-    if method == "best":
-        if metrics is None:
-            raise ValueError("metrics required for 'best' aggregation")
-
-        best_idx = int(torch.tensor(metrics).argmin())
-        return outputs[best_idx], torch.zeros_like(outputs[best_idx])
-
-    try:
-        aggregator: Aggregator = get_method(method)
-    except (ImportError, AttributeError, ValueError) as exc:
-        raise ValueError(f"Unknown aggregation method: {method}") from exc
+    aggregator = _BUILTIN_AGGREGATORS.get(method)
+    if aggregator is None:
+        try:
+            aggregator = get_method(method)
+        except (ImportError, AttributeError, ValueError) as exc:
+            raise ValueError(f"Unknown aggregation method: {method}") from exc
 
     return aggregator(outputs, metrics=metrics, **kwargs)
 
 
 ExecutionMode = Literal["sequential", "parallel", "vectorized"]
-_EXECUTION_MODES = ("sequential", "parallel", "vectorized")
+_EXECUTION_MODES = get_args(ExecutionMode)
 
 
 def _check_execution(execution: str) -> None:
@@ -253,7 +288,8 @@ class _VectorizedSiblings(nn.Module):
     def __init__(self, keys: List[str], models: List[nn.Module], device: torch.device) -> None:
         super().__init__()
         self.keys = keys
-        self._template = models[0]
+        # A tuple, so `models[0]` is not also registered as a child module of this group.
+        self._template = (models[0],)
 
         template_buffers = dict(models[0].named_buffers())
         for key, model in zip(keys, models):
@@ -281,10 +317,32 @@ class _VectorizedSiblings(nn.Module):
         params = {name: getattr(self, self._buffer_name(i)) for i, name in enumerate(self._param_names)}
 
         def model_fn(params: Dict[str, torch.Tensor], x: torch.Tensor) -> torch.Tensor:
-            return functional_call(self._template, params, (x,))
+            return functional_call(self._template[0], params, (x,))
 
         batched = vmap(model_fn, in_dims=(0, None))(params, x)
         return {key: batched[i] for i, key in enumerate(self.keys)}
+
+
+class _Leaf(NamedTuple):
+    """One trained model: a (systematic, ensemble, fold) combination in the snapshot."""
+
+    systematic: str
+    ensemble: int
+    fold: int
+
+    @property
+    def key(self) -> str:
+        return f"syst={self.systematic}&ensem={self.ensemble}&fold={self.fold}"
+
+
+class _Node(NamedTuple):
+    """A prediction at any level of the aggregation tree, with the scores "best" can compare.
+
+    `scores` maps a monitored metric name to the lowest value among the leaves below this node.
+    """
+
+    output: torch.Tensor
+    scores: Dict[str, float]
 
 
 class Estimator(nn.Module):
@@ -301,7 +359,9 @@ class Estimator(nn.Module):
     (So really the inverse of the training DAG).
 
     Each level's `AggregationSpec.method` is one of the built-ins ("mean" / "sum" / "best") or a
-    dotted path to a custom callable (see `needle.aggregate_siblings`).
+    dotted path to a custom callable (see `needle.aggregate_siblings`). "best" picks the sibling with
+    the lowest `AggregationSpec.metric_key` (a metric monitored by a `ModelCheckpoint` during training,
+    e.g. "val_loss"); a group of siblings is scored by the lowest value among its models.
 
     The leaf models (one per systematic/ensemble/fold combination) can be evaluated in one of
     three ``execution`` modes, settable at construction and overridable per-call via
@@ -354,56 +414,57 @@ class Estimator(nn.Module):
         # construction time, since that's when model placement happens (`_load_models`); a
         # later per-call `execution="parallel"` override on a "sequential"/"vectorized" instance
         # still parallelizes, just on whichever single device the models were already loaded to.
-        self._devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
-        self.device = self._devices[0]
+        devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
 
         self.config: MainConfig = load_config(self.results_path / "config.yaml")
         self.estimator_config: EstimatorConfig = self.config.estimators[estimator]
         self.snapshot: _EstimatorSnapshot = load_snapshot(self.results_path, estimator)
 
         self.models = nn.ModuleDict()
-        self._model_devices: Dict[str, torch.device] = {}
+        self._scores: Dict[str, Dict[str, float]] = {}
         self._vectorized_groups = nn.ModuleDict()
-        self._load_models()
+        self._load_models(devices)
 
-    @staticmethod
-    def _checkpoint_key(systematic: str, ensemble: int, fold: int) -> str:
-        return f"syst={systematic}&ensem={ensemble}&fold={fold}"
+    @property
+    def device(self) -> torch.device:
+        """Where inputs go and outputs come back to: the device of the first loaded model."""
+        return _module_device(next(iter(self.models.values())))
 
-    def _leaves(self, systematics: List[str]) -> List[Tuple[str, int, int, str]]:
-        """All ``(systematic, ensemble, fold, checkpoint_key)`` leaves of `systematics`, in a fixed
-        sorted order shared by loading, vectorization and aggregation.
+    def _leaves(self, systematics: List[str]) -> List[_Leaf]:
+        """All leaves of `systematics`, in a fixed sorted order shared by loading, vectorization and
+        aggregation.
         """
         return [
-            (systematic, ensemble, fold, self._checkpoint_key(systematic, ensemble, fold))
+            _Leaf(systematic, ensemble, fold)
             for systematic in systematics
             for ensemble, folds in sorted(self.snapshot[systematic].items())
             for fold in sorted(folds)
         ]
 
-    def _load_models(self) -> None:
-        logger.info(f"Loading models for estimator {self.estimator_name!r} onto device(s): {self._devices}")
+    def _load_models(self, devices: List[torch.device]) -> None:
+        logger.info(f"Loading models for estimator {self.estimator_name!r} onto device(s): {devices}")
 
         systematic_configs = {
             systematic: merge_systematic_config(self.estimator_config, systematic) for systematic in self.snapshot
         }
 
-        for idx, (systematic, ensemble, fold, key) in enumerate(self._leaves(list(self.snapshot))):
-            systematic_config = systematic_configs[systematic]
-            target_device = self._devices[idx % len(self._devices)]
-            self._model_devices[key] = target_device
-            self.models[key] = self._load_single_model(
+        for idx, leaf in enumerate(self._leaves(list(self.snapshot))):
+            systematic_config = systematic_configs[leaf.systematic]
+            self.models[leaf.key], self._scores[leaf.key] = self._load_single_model(
                 systematic_config.model_override,
                 systematic_config.dataset_override,
-                self.snapshot[systematic][ensemble][fold],
-                target_device,
+                self.snapshot[leaf.systematic][leaf.ensemble][leaf.fold],
+                devices[idx % len(devices)],
             )
 
         logger.info(f"Loaded {len(self.models)} models")
 
     def _load_single_model(
         self, model_config: Any, dataset_config: Any, ckpt_path: str, device: torch.device
-    ) -> nn.Module:
+    ) -> Tuple[nn.Module, Dict[str, float]]:
+        """Load one checkpoint into a frozen, eval-mode model on `device`, together with the scores
+        its training recorded (see `_checkpoint_scores`).
+        """
         model = hydra_instantiate(model_config, dataset_config=dataset_config)
 
         if hasattr(model, "configure_model"):
@@ -414,7 +475,7 @@ class Estimator(nn.Module):
         model.load_state_dict(_clean_state_dict(state_dict, model))
 
         # Unwrap the Lightning module so `forward()` matches the raw model's signature.
-        if hasattr(model, "model"):
+        if isinstance(model, L.LightningModule) and hasattr(model, "model"):
             model = model.model
 
         model.eval().to(device)
@@ -422,14 +483,14 @@ class Estimator(nn.Module):
         for param in model.parameters():
             param.requires_grad = False
 
-        return model
+        return model, _checkpoint_scores(checkpoint)
 
     def _vectorized_group(self, systematic: str) -> _VectorizedSiblings:
         """Build (and cache) the `_VectorizedSiblings` batching every ensemble/fold sibling under
         one systematic.
         """
         if systematic not in self._vectorized_groups:
-            keys = [key for *_, key in self._leaves([systematic])]
+            keys = [leaf.key for leaf in self._leaves([systematic])]
             self._vectorized_groups[systematic] = _VectorizedSiblings(
                 keys, [self.models[key] for key in keys], self.device
             )
@@ -453,28 +514,54 @@ class Estimator(nn.Module):
 
             return outputs
 
-        keys = [key for *_, key in self._leaves(systematics)]
+        keys = [leaf.key for leaf in self._leaves(systematics)]
 
         if execution == "sequential":
             return {key: self.models[key](x) for key in keys}
 
-        # "parallel": models are mutually independent, and each runs on the device it was loaded to.
-        inputs = {
-            device: x
-            if device == self.device
-            else x.to(device)
-            for device in set(self._model_devices.values())
-        }
-
+        # "parallel": models are mutually independent, and each runs on the device it lives on.
+        # `.to()` is a no-op for a tensor that is already on the target device.
         def _call(key: str) -> torch.Tensor:
+            model = self.models[key]
             with torch.no_grad():
-                output = self.models[key](inputs[self._model_devices[key]])
-
-            return output if output.device == self.device else output.to(self.device)
+                return model(x.to(_module_device(model))).to(x.device)
 
         with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
             return dict(zip(keys, executor.map(_call, keys)))
 
+    @staticmethod
+    def _best_metrics(nodes: List[_Node], spec: AggregationSpec) -> Optional[List[float]]:
+        """The per-sibling metric "best" compares, or None for every other method (and for a lone sibling,
+        which is passed through).
+        """
+        if spec.method != "best" or len(nodes) == 1:
+            return None
+
+        metrics = [node.scores.get(spec.metric_key) for node in nodes] if spec.metric_key else [None]
+        if any(metric is None for metric in metrics):
+            raise ValueError(
+                f"'best' aggregation needs `metric_key` to name a metric monitored by a ModelCheckpoint "
+                f"in every checkpoint, got {spec.metric_key!r}."
+            )
+
+        return metrics  # type: ignore[return-value]
+
+    def _aggregate(self, nodes: List[_Node], spec: AggregationSpec) -> Tuple[_Node, torch.Tensor]:
+        """Combine sibling `nodes` into their parent node and the spread (std) between them, following `spec`."""
+        output, std = aggregate_siblings(
+            [node.output for node in nodes],
+            method=spec.method,
+            metrics=self._best_metrics(nodes, spec),
+            metric_key=spec.metric_key,
+        )
+        scores = {
+            name: min(node.scores[name] for node in nodes)
+            for name in nodes[0].scores
+            if all(name in node.scores for node in nodes)
+        }
+        return _Node(output, scores), std
+
+    @torch.no_grad()
     def forward(
         self,
         x: torch.Tensor,
@@ -500,40 +587,25 @@ class Estimator(nn.Module):
         if not systematics:
             raise ValueError(f"No systematics matched {systematics_keys!r}. Available are: {list(self.snapshot)}")
 
+        outputs = self._compute_leaf_outputs(x.to(self.device), systematics, execution)
+        leaf_nodes = {key: _Node(output, self._scores[key]) for key, output in outputs.items()}
+
         fold_spec = self.estimator_config.expands.folds.aggregation
         ensemble_spec = self.estimator_config.expands.ensembles.aggregation
+        systematic_spec = self.estimator_config.systematic_aggregation
 
-        leaf_outputs = self._compute_leaf_outputs(x.to(self.device), systematics, execution)
-
-        systematic_outputs: List[torch.Tensor] = []
+        systematic_nodes: List[_Node] = []
         for systematic in systematics:
-            ensemble_outputs = []
+            ensemble_nodes = []
 
             for ensemble, folds in sorted(self.snapshot[systematic].items()):
-                fold_outputs = [
-                    leaf_outputs[self._checkpoint_key(systematic, ensemble, fold)] for fold in sorted(folds)
-                ]
-                aggregated, _ = aggregate_siblings(
-                    fold_outputs,
-                    method=fold_spec.method,
-                    metric_key=fold_spec.metric_key,
-                )
-                ensemble_outputs.append(aggregated)
+                fold_nodes = [leaf_nodes[_Leaf(systematic, ensemble, fold).key] for fold in sorted(folds)]
+                ensemble_nodes.append(self._aggregate(fold_nodes, fold_spec)[0])
 
-            aggregated, _ = aggregate_siblings(
-                ensemble_outputs,
-                method=ensemble_spec.method,
-                metric_key=ensemble_spec.metric_key,
-            )
-            systematic_outputs.append(aggregated)
+            systematic_nodes.append(self._aggregate(ensemble_nodes, ensemble_spec)[0])
 
-        systematic_spec = self.estimator_config.systematic_aggregation
-        mean, std = aggregate_siblings(
-            systematic_outputs,
-            method=systematic_spec.method,
-            metric_key=systematic_spec.metric_key,
-        )
-        return mean, std
+        mean, std = self._aggregate(systematic_nodes, systematic_spec)
+        return mean.output, std
 
 
 __all__ = [

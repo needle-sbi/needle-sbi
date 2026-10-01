@@ -19,7 +19,9 @@ import torch.nn as nn
 
 from needle.api.eval import (
     Estimator,
+    _checkpoint_scores,
     _clean_state_dict,
+    _Node,
     _resolve_devices,
     _VectorizedSiblings,
     aggregate_siblings,
@@ -102,6 +104,14 @@ class TestAggregate:
         total, _ = aggregate_siblings(outputs, method="sum")
         assert torch.allclose(total, torch.full((2, 1), 2.0))
 
+    def test_sum_std_is_per_event_and_independent_of_batch(self) -> None:
+        # Events with identical sibling spread must get identical std, whatever else is in the batch.
+        outputs = [torch.tensor([[0.0], [0.0]]), torch.tensor([[2.0], [10.0]])]
+        _, std = aggregate_siblings(outputs, method="sum")
+        spread = torch.stack(outputs, dim=0).std(dim=0)
+        assert torch.allclose(std, spread * 2**0.5)
+        assert not torch.allclose(std[0], std[1])
+
     def test_best_selects_lowest_metric(self) -> None:
         outputs = [torch.full((2, 1), 10.0), torch.full((2, 1), 20.0)]
         best, std = aggregate_siblings(outputs, method="best", metrics=[0.5, 0.1])
@@ -156,6 +166,42 @@ class TestCleanStateDict:
         model.load_state_dict(cleaned)
 
 
+class TestCheckpointScores:
+    def test_reads_best_score_of_monitored_metric(self) -> None:
+        checkpoint = {
+            "callbacks": {
+                "ModelCheckpoint{...}": {"monitor": "val_loss", "best_model_score": torch.tensor(0.25)},
+                "EarlyStopping{...}": {"wait_count": 1},
+            }
+        }
+        assert _checkpoint_scores(checkpoint) == {"val_loss": 0.25}
+
+    def test_no_callbacks_gives_no_scores(self) -> None:
+        assert _checkpoint_scores({"state_dict": {}}) == {}
+
+
+class TestBestMetrics:
+    @staticmethod
+    def _nodes(*scores: dict) -> list[_Node]:
+        return [_Node(torch.zeros(1), s) for s in scores]
+
+    def test_looks_up_metric_key_per_sibling(self) -> None:
+        nodes = self._nodes({"val_loss": 0.5}, {"val_loss": 0.1})
+        metrics = Estimator._best_metrics(nodes, AggregationSpec(method="best", metric_key="val_loss"))
+        assert metrics == [0.5, 0.1]
+
+    def test_not_needed_for_other_methods_or_a_lone_sibling(self) -> None:
+        nodes = self._nodes({}, {})
+        assert Estimator._best_metrics(nodes, AggregationSpec(method="mean")) is None
+        assert Estimator._best_metrics(nodes[:1], AggregationSpec(method="best")) is None
+
+    @pytest.mark.parametrize("metric_key", [None, "missing"])
+    def test_missing_metric_raises_a_clear_error(self, metric_key: str | None) -> None:
+        nodes = self._nodes({"val_loss": 0.5}, {"val_loss": 0.1})
+        with pytest.raises(ValueError, match="metric_key"):
+            Estimator._best_metrics(nodes, AggregationSpec(method="best", metric_key=metric_key))
+
+
 class TestResolveDevices:
     def test_cpu_is_single_device(self) -> None:
         assert _resolve_devices("cpu", n_gpus=4) == [torch.device("cpu")]
@@ -175,6 +221,7 @@ class TestVectorizedEnsemble:
         for key, model in zip(keys, models):
             assert torch.allclose(out[key], model(x), atol=1e-6)
         assert len(list(group.buffers())) == 2  # weight + bias stacks follow `.to()`
+        assert len(list(group.modules())) == 1  # the template model is not registered a second time
 
     def test_rejects_differing_buffers(self) -> None:
         models = [nn.BatchNorm1d(3).eval() for _ in range(2)]

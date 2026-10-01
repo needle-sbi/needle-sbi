@@ -48,7 +48,7 @@ class AggregationSpec(SerializableDataclass):
     """
 
     method: str = "mean"
-    metric_key: Optional[str] = None  # only for "best"
+    metric_key: Optional[str] = None  # only for "best": a `ModelCheckpoint` monitor, e.g. "val_loss"
 
 
 @dataclass

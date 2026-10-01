@@ -214,7 +214,7 @@ during training.
 | Field        | Python Type | Description |
 |--------------|-------------|-------------|
 | `method`     | `str`       | One of the built-ins `"mean"`, `"sum"`, `"best"`, or a dotted import path to a custom callable (see below). |
-| `metric_key` | `Optional[str]` | Reserved for `"best"`. Unused by the built-ins; forwarded as a kwarg to a custom aggregator. |
+| `metric_key` | `Optional[str]` | Required for `"best"`: the metric monitored by a `ModelCheckpoint` during training (e.g. `"val_loss"`); the sibling with the lowest value wins. Also forwarded as a kwarg to a custom aggregator. |
 
 ```yaml
 estimators:
