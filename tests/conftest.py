@@ -13,7 +13,7 @@ from omegaconf import OmegaConf
 
 from needle.etl.dask_ingestor import Ingestor
 from needle.utils.config_schema import MainConfig
-from needle.utils.config_utils import resolve_defaults
+from needle.utils.config_utils import initialize_hydra_config
 
 type NestDictType = dict[str, "NestDictType | ArrayField"]
 
@@ -212,7 +212,7 @@ def config_factory() -> Callable[..., MainConfig]:
         Config with extra overrides
 
         ```python
-        config: MainConfig = config_factory(overrides=["datasets=delphes"])
+        config: MainConfig = config_factory(overrides=["estimators.model_B.dataset=delphes"])
         ```
 
     Note:
@@ -222,13 +222,8 @@ def config_factory() -> Callable[..., MainConfig]:
     """
 
     def _factory(overrides: List[str] | None = None):
-        with hydra.initialize(config_path="conf_tests"):
-            cfg_dict = hydra.compose(config_name="config", overrides=overrides)
-            cfg_defaults = OmegaConf.structured(MainConfig)
-            cfg = OmegaConf.merge(cfg_defaults, cfg_dict)
-            cfg_dir = Path(__file__).parent / "conf_tests"
-            cfg = resolve_defaults(cfg, cfg_dir)
-            return cast(MainConfig, cfg)
+        cfg_dir = Path(__file__).parent / "conf_tests"
+        return initialize_hydra_config(str(cfg_dir), "config", overrides)
 
     return _factory
 
