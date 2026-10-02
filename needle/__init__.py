@@ -8,19 +8,19 @@ import needle.utils.logging  # noqa: F401
 if TYPE_CHECKING:
     from needle import etl, ml, utils
     from needle.api import (
-        load_config,
-        train_single,
-        run,
+        Aggregator,
+        Estimator,
+        InitResult,
         RunResult,
         UnknownTaskError,
-        init,
-        InitResult,
+        aggregate_siblings,
         configure_b2luigi,
         configure_law,
-        Estimator,
-        aggregate_siblings,
-        Aggregator,
+        init,
+        load_config,
         load_snapshot,
+        run,
+        train_single,
     )
 
 __all__ = [

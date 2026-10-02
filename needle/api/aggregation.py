@@ -26,7 +26,8 @@ class Aggregator(Protocol):
         outputs: List[torch.Tensor],
         metrics: Optional[List[float]] = None,
         **kwargs: Any,
-    ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        ...
 
 
 def _mean(

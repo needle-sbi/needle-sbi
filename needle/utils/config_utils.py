@@ -19,7 +19,13 @@ from omegaconf.errors import (
 if TYPE_CHECKING:
     from luigi import Task
 
-from needle.utils.config_schema import EnsembleConfig, EstimatorConfig, FoldConfig, MainConfig, SystematicConfig
+from needle.utils.config_schema import (
+    EnsembleConfig,
+    EstimatorConfig,
+    FoldConfig,
+    MainConfig,
+    SystematicConfig,
+)
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("config")

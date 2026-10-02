@@ -94,9 +94,11 @@ class ScalerProtocol(Protocol):
     cache: dict[str, dict[str, Any]]
     """Format: ``{"<metric>": {"<field>": <value>}, ...}``"""
 
-    def apply(self, array: dak.Array) -> dak.Array: ...
+    def apply(self, array: dak.Array) -> dak.Array:
+        ...
 
-    def revert(self, array: dak.Array) -> dak.Array: ...
+    def revert(self, array: dak.Array) -> dak.Array:
+        ...
 
 
 class MinMaxScaler(ScalerProtocol):

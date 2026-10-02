@@ -67,7 +67,7 @@ Repository = "https://github.com/needle-sbi/needle-sbi"
 
 [dependency-groups]
 dev = [
-    "black>=25.1",
+    "black==23.12.1",
     "debugpy>=1.8",
     "flake8>=7.1",
     "flake8-debugger>=4.1",

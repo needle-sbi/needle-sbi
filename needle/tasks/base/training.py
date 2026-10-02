@@ -16,7 +16,11 @@ from omegaconf import OmegaConf
 
 from needle.tasks.mixins.hydra import HydraParamsMixin
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
-from needle.utils.config_utils import hydra_check_if_arg_supported, hydra_instantiate, merge_systematic_config
+from needle.utils.config_utils import (
+    hydra_check_if_arg_supported,
+    hydra_instantiate,
+    merge_systematic_config,
+)
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("training")

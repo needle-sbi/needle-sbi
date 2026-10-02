@@ -5,7 +5,17 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, Literal, NamedTuple, Optional, Tuple, Union, get_args
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    get_args,
+)
 from urllib.parse import parse_qsl
 
 import lightning as L
@@ -430,6 +440,7 @@ class Estimator(nn.Module):
                 return {key: self.models[key](x) for key in keys}
 
             case "parallel":
+
                 def _call(key: str) -> torch.Tensor:
                     model = self.models[key]
 

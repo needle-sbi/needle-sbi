@@ -259,11 +259,13 @@ class NestedArrayIndexer:
 
     @classmethod
     @overload
-    def get_nested_field(cls, array: ak.Array, field: str, separator: str | None = None) -> ak.Array: ...
+    def get_nested_field(cls, array: ak.Array, field: str, separator: str | None = None) -> ak.Array:
+        ...
 
     @classmethod
     @overload
-    def get_nested_field(cls, array: dak.Array, field: str, separator: str | None = None) -> dak.Array: ...
+    def get_nested_field(cls, array: dak.Array, field: str, separator: str | None = None) -> dak.Array:
+        ...
 
     @classmethod
     def get_nested_field(
@@ -292,7 +294,8 @@ class NestedArrayIndexer:
 
     @classmethod
     @overload
-    def list_all_fields(cls, array: dak.Array, as_tuple: Literal[True]) -> list[tuple[str, ...]]: ...
+    def list_all_fields(cls, array: dak.Array, as_tuple: Literal[True]) -> list[tuple[str, ...]]:
+        ...
 
     @classmethod
     @overload
@@ -301,7 +304,8 @@ class NestedArrayIndexer:
         array: dak.Array,
         as_tuple: Literal[False],
         separator: str,
-    ) -> list[str]: ...
+    ) -> list[str]:
+        ...
 
     @classmethod
     def list_all_fields(
