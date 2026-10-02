@@ -30,6 +30,8 @@ on Task A meaning A must finish before B can start.
 
 ::: {warning}
 Currently, the `venv` and `setup.sh` require a shared filesystem between worker and submission node.
+Batch systems without a shared filesystem (e.g. plain HTCondor) can work around this by shipping
+the repository with the job and having `setup.sh` rebuild the environment on the worker.
 :::
 
 

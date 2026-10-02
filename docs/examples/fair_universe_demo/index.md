@@ -50,6 +50,12 @@ Running the full demo trains 9 models (4 NFs × 2 systematic variants + 1 classi
 
 Output lands in `runs/fair_universe_demo_fixed_normalization/stat_only_histogram_mu_one/`.
 
+## Credit
+
+The physics analysis code in `fair_universe_demo/` (models, systematics, statistics and
+downstream tasks) is adapted from the original winning solution with [Contrastive Normalizing Flows](https://github.com/ibrahimEls/CNFParameterEstimation) by Ibrahim Elsharkawy for the
+[FAIR Universe HiggsML Challenge](https://github.com/FAIR-Universe/HEP-Challenge).
+
 ## Contents
 
 - [Overview](overview.md) — A bit more context on the FAIR Universe HiggsML Challenge
