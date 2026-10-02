@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
@@ -112,6 +113,11 @@ def _clean_state_dict(state_dict: Dict[str, Any], model: nn.Module) -> Dict[str,
     if model_keys == checkpoint_keys:
         return state_dict
 
+    # `torch.compile` inserts `_orig_mod.` anywhere in the key (e.g. `model._orig_mod.<name>`).
+    decompiled = {k.replace("_orig_mod.", "", 1): v for k, v in state_dict.items()}
+    if set(decompiled) == model_keys:
+        return decompiled
+
     common_prefixes = ["model.", "module.", "_orig_mod."]
 
     for prefix in common_prefixes:
@@ -139,7 +145,9 @@ def _checkpoint_scores(checkpoint: Dict[str, Any]) -> Dict[str, float]:
     scores: Dict[str, float] = {}
     for state in checkpoint.get("callbacks", {}).values():
         if isinstance(state, dict) and state.get("monitor") and state.get("best_model_score") is not None:
-            scores[state["monitor"]] = float(state["best_model_score"])
+            score = float(state["best_model_score"])
+            if math.isfinite(score):  # a diverged run's NaN must not be comparable
+                scores[state["monitor"]] = score
 
     return scores
 
@@ -335,6 +343,12 @@ class Estimator(nn.Module):
         devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
         self._load_models(devices)
 
+    def train(self, mode: bool = True) -> Estimator:
+        """Inference only: the leaf models always stay in eval mode (no active dropout/BatchNorm updates)."""
+        super().train(False)
+        self.training = mode
+        return self
+
     @property
     def device(self) -> torch.device:
         """Where inputs go and outputs come back to: the device of the first loaded model."""
@@ -506,9 +520,16 @@ class Estimator(nn.Module):
         execution = execution or self.execution
         _check_execution(execution)
 
+        if isinstance(systematics_keys, str):
+            systematics_keys = [systematics_keys]  # a bare str would otherwise be a substring match
+
         systematics = [s for s in self.snapshot if systematics_keys is None or s in systematics_keys]
         if not systematics:
             raise ValueError(f"No systematics matched {systematics_keys!r}. Available are: {list(self.snapshot)}")
+
+        unknown = [s for s in systematics_keys or [] if s not in self.snapshot]
+        if unknown:
+            raise ValueError(f"Unknown systematics {unknown!r}. Available are: {list(self.snapshot)}")
 
         outputs = self._compute_leaf_outputs(x.to(self.device), systematics, execution)
         leaf_nodes = {key: _Node(output, self._scores[key]) for key, output in outputs.items()}
