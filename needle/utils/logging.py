@@ -23,6 +23,11 @@ logging.getLogger("mlflow.utils.environment").setLevel(logging.ERROR)
 logging.getLogger("mlflow.models.model").setLevel(logging.ERROR)
 logging.getLogger("mlflow").setLevel(logging.WARNING)
 warnings.filterwarnings("once", message="The '*' does not have many workers*")
+warnings.filterwarnings(
+    "ignore",
+    message=r"`torch\.distributed\.reduce_op` is deprecated, please use `torch\.distributed\.ReduceOp` instead",
+    category=FutureWarning,
+)
 
 
 class ColorFormatter(logging.Formatter):
