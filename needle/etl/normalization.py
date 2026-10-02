@@ -4,6 +4,7 @@ Compute normalization constants from Parquet file metadata.
 Collects per-file (partition) column statistics such as min/max,
 without reading any data into memory.
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol
@@ -93,11 +94,9 @@ class ScalerProtocol(Protocol):
     cache: dict[str, dict[str, Any]]
     """Format: ``{"<metric>": {"<field>": <value>}, ...}``"""
 
-    def apply(self, array: dak.Array) -> dak.Array:
-        ...
+    def apply(self, array: dak.Array) -> dak.Array: ...
 
-    def revert(self, array: dak.Array) -> dak.Array:
-        ...
+    def revert(self, array: dak.Array) -> dak.Array: ...
 
 
 class MinMaxScaler(ScalerProtocol):
