@@ -12,8 +12,16 @@ from needle.utils.config_schema import (
     MainConfig,
     SystematicConfig,
 )
+<<<<<<< HEAD
 from needle.utils.config_utils import NeedleConfigError, initialize_hydra_config, validate_graph
 
+=======
+from needle.utils.config_utils import (
+    NeedleConfigError,
+    initialize_hydra_config,
+    validate_graph,
+)
+>>>>>>> f6a35b3 (Fix the overrides order with Hydra)
 
 CONF_TESTS_DIR = Path(__file__).parent.parent / "conf_tests"
 
