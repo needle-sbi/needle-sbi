@@ -1,8 +1,10 @@
 import graphlib
+from pathlib import Path
 from typing import Generator
 
 import hydra
 import pytest
+from omegaconf import OmegaConf
 
 from needle.utils.config_schema import (
     DownstreamTaskConfig,
@@ -10,7 +12,18 @@ from needle.utils.config_schema import (
     MainConfig,
     SystematicConfig,
 )
-from needle.utils.config_utils import validate_graph
+<<<<<<< HEAD
+from needle.utils.config_utils import NeedleConfigError, initialize_hydra_config, validate_graph
+
+=======
+from needle.utils.config_utils import (
+    NeedleConfigError,
+    initialize_hydra_config,
+    validate_graph,
+)
+>>>>>>> f6a35b3 (Fix the overrides order with Hydra)
+
+CONF_TESTS_DIR = Path(__file__).parent.parent / "conf_tests"
 
 
 class TestResourcesField:
@@ -75,3 +88,50 @@ def hydra_initialize_context() -> Generator:
 class TestResolveDefaults:
     # TODO
     pass
+
+
+class TestHydraOverrides:
+    """Precedence is schema defaults < referenced sub-config < YAML < runtime overrides."""
+
+    @staticmethod
+    def _load(overrides: list[str] | None = None) -> MainConfig:
+        return initialize_hydra_config(str(CONF_TESTS_DIR), "config", overrides)
+
+    def test_override_on_field_absent_from_yaml(self) -> None:
+        # model_B declares no `dataset_override` in the YAML
+        cfg = self._load(["estimators.model_B.dataset_override.paths=/tmp/demo.parquet"])
+
+        assert cfg.estimators["model_B"].dataset_override.paths == "/tmp/demo.parquet"
+
+    def test_schema_defaults_do_not_overwrite_sub_config(self) -> None:
+        cfg = self._load()
+        sub_cfg = OmegaConf.load(CONF_TESTS_DIR / "datasets" / "fair_universe.yaml")
+
+        assert cfg.estimators["model_B"].dataset_override.features_columns == sub_cfg.features_columns
+        assert cfg.estimators["model_B"].dataset_override.max_number_events == sub_cfg.max_number_events
+
+    def test_yaml_takes_precedence_over_sub_config(self) -> None:
+        cfg = self._load()
+
+        assert cfg.estimators["model_A"].dataset_override.labels_columns == ["PRI_lep_eta"]
+
+    def test_override_takes_precedence_over_yaml(self) -> None:
+        cfg = self._load(["estimators.model_A.dataset_override.labels_columns=[PRI_n_jets]"])
+
+        assert cfg.estimators["model_A"].dataset_override.labels_columns == ["PRI_n_jets"]
+
+    def test_override_of_group_name_reloads_sub_config(self) -> None:
+        cfg = self._load(["estimators.model_B.dataset=delphes"])
+        sub_cfg = OmegaConf.load(CONF_TESTS_DIR / "datasets" / "delphes.yaml")
+
+        assert cfg.estimators["model_B"].dataset_override.features_columns == sub_cfg.features_columns
+
+    def test_hydra_add_and_delete_syntax(self) -> None:
+        cfg = self._load(["+estimators.model_B.dataset_override.paths=/tmp/a.parquet", "~estimators.model_B.requires"])
+
+        assert cfg.estimators["model_B"].dataset_override.paths == "/tmp/a.parquet"
+        assert not cfg.estimators["model_B"].requires
+
+    def test_unknown_override_key_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="doesnotexist"):
+            self._load(["estimators.model_A.doesnotexist=1"])
