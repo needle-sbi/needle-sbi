@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from needle.api.config import load_config
-    from needle.api.eval import Aggregator, Estimator, aggregate_siblings, load_snapshot
+    from needle.api.aggregation import Aggregator, aggregate_siblings
+    from needle.api.eval import Estimator, load_snapshot
     from needle.api.init import InitResult, init
     from needle.api.law_settings import configure_law
     from needle.api.run import RunResult, UnknownTaskError, run
@@ -40,8 +41,8 @@ _MODULE_BY_NAME = {
     "configure_b2luigi": "needle.tasks.b2luigi.workflows.common",
     "Estimator": "needle.api.eval",
     "load_snapshot": "needle.api.eval",
-    "aggregate_siblings": "needle.api.eval",
-    "Aggregator": "needle.api.eval",
+    "aggregate_siblings": "needle.api.aggregation",
+    "Aggregator": "needle.api.aggregation",
 }
 
 

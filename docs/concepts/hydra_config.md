@@ -214,7 +214,7 @@ during training.
 | Field        | Python Type | Description |
 |--------------|-------------|-------------|
 | `method`     | `str`       | One of the built-ins `"mean"`, `"sum"`, `"best"`, or a dotted import path to a custom callable (see below). |
-| `metric_key` | `Optional[str]` | Required for `"best"`: the metric monitored by a `ModelCheckpoint` during training (e.g. `"val_loss"`); the sibling with the lowest value wins. Also forwarded as a kwarg to a custom aggregator. |
+| `metric_key` | `Optional[str]` | The metric monitored by a `ModelCheckpoint` during training (e.g. `"val_loss"`). Required for `"best"`, where the sibling with the lowest value wins. For any other method, including a custom aggregator, the per-sibling values are passed as `metrics` (and the key itself as the `metric_key` kwarg). Raises if a checkpoint lacks the metric. |
 
 ```yaml
 estimators:
@@ -234,9 +234,9 @@ estimators:
 There is the possibility to include your own aggregation function which gets executed for siblings of
 a given layer. The `aggregation` field is meant to be generic, so specific implementations such as a
 `weighted_mean` for example can be supplied by you for your own analysis. In order to do so, replace
-the `aggregation` with a dotted `method` path (see the resolution with `needle.api.eval.aggregate_siblings`)
+the `aggregation` with a dotted `method` path (see the resolution with `needle.api.aggregation.aggregate_siblings`)
 in the same way Hydra usually resolves `_target_` strings elsewhere in the config. The callable must
-implement the `needle.api.eval.Aggregator` protocol - the single, formal definition of this
+implement the `needle.api.aggregation.Aggregator` protocol - the single, formal definition of this
 signature (not restated here, so the two never drift apart):
 
 ```python
@@ -246,6 +246,7 @@ class Aggregator(Protocol):
     ) -> tuple[Tensor, Tensor]: ...
 ```
 
+`metrics` holds one value per sibling (same order as `outputs`) whenever `metric_key` is set, else `None`.
 `**kwargs` carries any other field your `AggregationSpec` sets (e.g. `metric_key`), since
 `aggregate_siblings` is called as `aggregate_siblings(outputs, method=spec.method,
 metric_key=spec.metric_key)`.

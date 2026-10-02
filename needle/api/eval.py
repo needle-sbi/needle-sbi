@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import json
-import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, Literal, NamedTuple, Optional, Protocol, Tuple, Union, get_args
+from typing import Any, Dict, List, Literal, NamedTuple, Optional, Tuple, Union, get_args
 from urllib.parse import parse_qsl
 
 import lightning as L
 import torch
 import torch.nn as nn
-from hydra.utils import get_method
 from torch.func import functional_call, vmap
 
+from needle.api.aggregation import aggregate_siblings
 from needle.api.config import load_config
 from needle.utils.config_schema import AggregationSpec, EstimatorConfig, MainConfig
 from needle.utils.config_utils import hydra_instantiate, merge_systematic_config
@@ -139,98 +138,6 @@ def _module_device(module: nn.Module) -> torch.device:
     """The device `module` currently lives on, so it stays correct after `.to()`/`.cpu()`/`.cuda()`."""
     tensor = next(chain(module.parameters(), module.buffers()), None)
     return tensor.device if tensor is not None else torch.device("cpu")
-
-
-class Aggregator(Protocol):
-    """The one, formal definition of what a custom aggregation callable must look like.
-
-    A dotted `AggregationSpec.method` path is resolved to a callable matching this signature -
-    there's no separate prose description of the signature to keep in sync elsewhere; `aggregate_siblings`
-    itself satisfies this protocol for its built-in "mean"/"sum"/"best" methods too.
-    """
-
-    def __call__(
-        self,
-        outputs: List[torch.Tensor],
-        metrics: Optional[List[float]] = None,
-        **kwargs: Any,
-    ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-
-
-def _mean(
-    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    stacked = torch.stack(outputs, dim=0)
-    return stacked.mean(dim=0), stacked.std(dim=0)
-
-
-def _sum(
-    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    # The siblings are independent estimates, each with an uncertainty estimated by their spread.
-    # The std of their sum is then sqrt(n) * spread.
-    stacked = torch.stack(outputs, dim=0)
-    return stacked.sum(dim=0), stacked.std(dim=0) * math.sqrt(len(outputs))
-
-
-def _best(
-    outputs: List[torch.Tensor], metrics: Optional[List[float]] = None, **kwargs: Any
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    if metrics is None:
-        raise ValueError("metrics required for 'best' aggregation")
-
-    best = outputs[int(torch.tensor(metrics).argmin())]
-    return best, torch.zeros_like(best)
-
-
-_BUILTIN_AGGREGATORS: Dict[str, Aggregator] = {"mean": _mean, "sum": _sum, "best": _best}
-
-
-def aggregate_siblings(
-    outputs: List[torch.Tensor],
-    method: str = "mean",
-    metrics: Optional[List[float]] = None,
-    **kwargs: Any,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Combine sibling predictions into a single Tensor. A sibling can be either `systematic`,
-    `ensemble` or `fold`.
-
-    Args:
-        outputs: One prediction Tensor per sibling, in the same order as `metrics`.
-        method: One of the built-ins "mean" / "sum" / "best", or a dotted import path to a custom
-            aggregation callable matching the `Aggregator` protocol. Equivalent to
-            `AggregationSpec.method`; call as `aggregate_siblings(outputs, method=spec.method,
-            metric_key=spec.metric_key)` from a config-driven `AggregationSpec`.
-        metrics: Per-sibling validation metric, required for `method == "best"`.
-        **kwargs: Forwarded verbatim to a custom aggregator (e.g. `metric_key`, or any other field
-            your own `AggregationSpec` carries). Ignored by the built-in methods, which need nothing
-            beyond `outputs`/`metrics`. There is no generic `weights` mechanism: a custom aggregator
-            that needs weights captures them itself rather than routing them through this function.
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor]: (aggregated, std) where `aggregated` is the merged result
-            and `std` is the spread across siblings (zero for "best").
-
-    The Tensors are first stacked around the outer dimension (`dim=0`), then aggregated according to
-    the method. Supported built-in methods (matching available keys in ``AggregationSpec``) are:
-        - "mean": `mean()`
-        - "sum": `sum()`, with std `sqrt(n_siblings) * spread` of the siblings
-        - "best": `outputs[metrics.argmin()]` (lower metric is better)
-    Anything else is resolved as a dotted path to a user-supplied callable (see `Aggregator`); see
-    ``docs/concepts/hydra_config.md`` for a worked example (a weighted mean implemented as a custom
-    aggregator).
-    """
-    if len(outputs) == 1:
-        return outputs[0], torch.zeros_like(outputs[0])
-
-    aggregator = _BUILTIN_AGGREGATORS.get(method)
-    if aggregator is None:
-        try:
-            aggregator = get_method(method)
-        except (ImportError, AttributeError, ValueError) as exc:
-            raise ValueError(f"Unknown aggregation method: {method}") from exc
-
-    return aggregator(outputs, metrics=metrics, **kwargs)
 
 
 ExecutionMode = Literal["sequential", "parallel", "vectorized"]
@@ -367,16 +274,14 @@ class Estimator(nn.Module):
     three ``execution`` modes, settable at construction and overridable per-call via
     `forward(..., execution=...)`:
 
-        - "sequential" (default): one Python-level forward call per leaf model. Simplest, always
-          correct, no extra memory overhead.
+        - "sequential" (default): one Python-level forward call per leaf model. Simplest, safe and
+            no extra memory overhead.
 
-        - "parallel": every leaf model (across all systematics/ensembles/folds at once)
-          is submitted to a `ThreadPoolExecutor` with ``num_workers`` threads.
-          PyTorch releases the GIL inside its kernels, so this overlaps Python/launch overhead.
-          When constructed with ``n_gpus > 1``, runs the models of different devices concurrently.
-          Models on the same device still share that device's stream, and on the CPU the threads
-          compete for PyTorch's intra-op thread pool, so expect gains mainly for many small models
-          or several devices. Works on any accelerator, not only CUDA.
+        - "parallel": every leaf model (resulting from TrainingTask) is submitted to a
+            `ThreadPoolExecutor` with ``num_workers`` threads.
+            When constructed with ``n_gpus > 1``, runs the models of different devices concurrently.
+            Models on the same device still share that device's stream. On CPU the gains are mainly
+            for many small models or several devices. Works on any accelerator in principle, not only CUDA.
 
         - "vectorized": siblings within one systematic are guaranteed to have the identical
             architecture, so they are batched into a single `torch.vmap` call.
@@ -410,12 +315,6 @@ class Estimator(nn.Module):
         self.execution: ExecutionMode = execution
         self.num_workers = num_workers
 
-        # Leaf models only get spread across several devices when "parallel" is requested at
-        # construction time, since that's when model placement happens (`_load_models`); a
-        # later per-call `execution="parallel"` override on a "sequential"/"vectorized" instance
-        # still parallelizes, just on whichever single device the models were already loaded to.
-        devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
-
         self.config: MainConfig = load_config(self.results_path / "config.yaml")
         self.estimator_config: EstimatorConfig = self.config.estimators[estimator]
         self.snapshot: _EstimatorSnapshot = load_snapshot(self.results_path, estimator)
@@ -423,6 +322,7 @@ class Estimator(nn.Module):
         self.models = nn.ModuleDict()
         self._scores: Dict[str, Dict[str, float]] = {}
         self._vectorized_groups = nn.ModuleDict()
+        devices = _resolve_devices(device, n_gpus if execution == "parallel" else 1)
         self._load_models(devices)
 
     @property
@@ -460,23 +360,32 @@ class Estimator(nn.Module):
         logger.info(f"Loaded {len(self.models)} models")
 
     def _load_single_model(
-        self, model_config: Any, dataset_config: Any, ckpt_path: str, device: torch.device
+        self,
+        model_config: Any,
+        dataset_config: Any,
+        ckpt_path: str,
+        device: torch.device,
     ) -> Tuple[nn.Module, Dict[str, float]]:
         """Load one checkpoint into a frozen, eval-mode model on `device`, together with the scores
         its training recorded (see `_checkpoint_scores`).
         """
-        model = hydra_instantiate(model_config, dataset_config=dataset_config)
+        lightning_module = hydra_instantiate(model_config, dataset_config=dataset_config)
 
-        if hasattr(model, "configure_model"):
-            model.configure_model()
+        if hasattr(lightning_module, "configure_model"):
+            lightning_module.configure_model()
 
         checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
         state_dict = checkpoint.get("state_dict", checkpoint)
-        model.load_state_dict(_clean_state_dict(state_dict, model))
+        lightning_module.load_state_dict(_clean_state_dict(state_dict, lightning_module))
 
         # Unwrap the Lightning module so `forward()` matches the raw model's signature.
-        if isinstance(model, L.LightningModule) and hasattr(model, "model"):
-            model = model.model
+        if isinstance(lightning_module, L.LightningModule) and hasattr(lightning_module, "model"):
+            if not isinstance(lightning_module.model, torch.nn.Module):
+                raise ValueError(f"LightningModule {lightning_module} does not wrap around a torch.nn.Module")
+
+            model = lightning_module.model
+        else:
+            model = lightning_module  # fallback in case lightning_module actually torch module
 
         model.eval().to(device)
 
@@ -506,42 +415,45 @@ class Estimator(nn.Module):
         """Evaluate every leaf. The result is a flat `{checkpoint_key: output}` map consumed by
         the fold -> ensemble -> systematic aggregation tree in `forward`.
         """
-        if execution == "vectorized":
-            outputs: Dict[str, torch.Tensor] = {}
-
-            for systematic in systematics:
-                outputs.update(self._vectorized_group(systematic)(x))
-
-            return outputs
-
         keys = [leaf.key for leaf in self._leaves(systematics)]
 
-        if execution == "sequential":
-            return {key: self.models[key](x) for key in keys}
+        match execution:
+            case "vectorized":
+                outputs: Dict[str, torch.Tensor] = {}
 
-        # "parallel": models are mutually independent, and each runs on the device it lives on.
-        # `.to()` is a no-op for a tensor that is already on the target device.
-        def _call(key: str) -> torch.Tensor:
-            model = self.models[key]
-            with torch.no_grad():
-                return model(x.to(_module_device(model))).to(x.device)
+                for systematic in systematics:
+                    outputs.update(self._vectorized_group(systematic)(x))
 
-        with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-            return dict(zip(keys, executor.map(_call, keys)))
+                return outputs
+
+            case "sequential":
+                return {key: self.models[key](x) for key in keys}
+
+            case "parallel":
+                def _call(key: str) -> torch.Tensor:
+                    model = self.models[key]
+
+                    with torch.no_grad():
+                        return model(x.to(_module_device(model))).to(x.device)
+
+                with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
+                    return dict(zip(keys, executor.map(_call, keys)))
 
     @staticmethod
-    def _best_metrics(nodes: List[_Node], spec: AggregationSpec) -> Optional[List[float]]:
-        """The per-sibling metric "best" compares, or None for every other method (and for a lone sibling,
-        which is passed through).
+    def _sibling_metrics(nodes: List[_Node], spec: AggregationSpec) -> Optional[List[float]]:
+        """The per-sibling metric named by `spec.metric_key`, handed to the aggregator as `metrics`.
+
+        "best" requires it, any other method (builtin or custom) gets it whenever `metric_key` is set,
+        and None otherwise. A lone sibling is passed through, so needs none.
         """
-        if spec.method != "best" or len(nodes) == 1:
+        if len(nodes) == 1 or (spec.metric_key is None and spec.method != "best"):
             return None
 
         metrics = [node.scores.get(spec.metric_key) for node in nodes] if spec.metric_key else [None]
         if any(metric is None for metric in metrics):
             raise ValueError(
-                f"'best' aggregation needs `metric_key` to name a metric monitored by a ModelCheckpoint "
-                f"in every checkpoint, got {spec.metric_key!r}."
+                f"Aggregation {spec.method!r} needs `metric_key` to name a metric monitored by a "
+                f"ModelCheckpoint in every checkpoint, got {spec.metric_key!r}."
             )
 
         return metrics  # type: ignore[return-value]
@@ -551,7 +463,7 @@ class Estimator(nn.Module):
         output, std = aggregate_siblings(
             [node.output for node in nodes],
             method=spec.method,
-            metrics=self._best_metrics(nodes, spec),
+            metrics=self._sibling_metrics(nodes, spec),
             metric_key=spec.metric_key,
         )
         scores = {
@@ -609,8 +521,6 @@ class Estimator(nn.Module):
 
 
 __all__ = [
-    "Aggregator",
     "Estimator",
     "load_snapshot",
-    "aggregate_siblings",
 ]
