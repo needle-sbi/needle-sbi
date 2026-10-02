@@ -52,7 +52,11 @@ def _best(
     if metrics is None:
         raise ValueError("metrics required for 'best' aggregation")
 
-    best = outputs[int(torch.tensor(metrics).argmin())]
+    if len(metrics) != len(outputs):
+        raise ValueError(f"'best' aggregation got {len(metrics)} metrics for {len(outputs)} outputs")
+
+    # A diverged run has a NaN metric, which `argmin` would otherwise treat as the minimum.
+    best = outputs[int(torch.tensor(metrics).nan_to_num(nan=math.inf).argmin())].clone()
     return best, torch.zeros_like(best)
 
 
@@ -92,15 +96,15 @@ def aggregate_siblings(
     Anything else is resolved as a dotted path to a user-supplied callable (see `Aggregator`); see
     ``docs/concepts/hydra_config.md`` for a worked example.
     """
-    if len(outputs) == 1:
-        return outputs[0], torch.zeros_like(outputs[0])
-
     aggregator = _BUILTIN_AGGREGATORS.get(method)
     if aggregator is None:
         try:
             aggregator = get_method(method)
         except (ImportError, AttributeError, ValueError) as exc:
             raise ValueError(f"Unknown aggregation method: {method}") from exc
+
+    if len(outputs) == 1:
+        return outputs[0].clone(), torch.zeros_like(outputs[0])
 
     return aggregator(outputs, metrics=metrics, **kwargs)
 

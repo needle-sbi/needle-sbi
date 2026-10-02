@@ -96,3 +96,127 @@ class TestAggregate:
         spec = AggregationSpec(method="mean")
         mean, _ = aggregate_siblings(outputs, method=spec.method, metric_key=spec.metric_key)
         assert torch.allclose(mean, torch.full((2, 1), 0.5))
+
+
+def _recording_aggregator(
+    outputs: list[torch.Tensor],
+    metrics: list[float] | None = None,
+    **kwargs: object,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Custom aggregator that reports what `aggregate_siblings` forwarded to it through its return value.
+
+    (A module-level call log would not work: hydra imports this module a second time by dotted path.)
+    The mean is the received `metrics` (``[-1]`` for None) and the std is the number of received kwargs.
+    """
+    received = torch.tensor(metrics if metrics is not None else [-1.0])
+    return received, torch.tensor([float(len(kwargs))])
+
+
+class TestCustomAggregatorForwarding:
+    """Hardening: a dropped `metrics=`/`**kwargs` in `aggregate_siblings` was a real regression."""
+
+    METHOD = "tests.api.test_aggregation._recording_aggregator"
+
+    def test_metrics_and_metric_key_reach_custom_aggregator(self) -> None:
+        outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
+        metrics, n_kwargs = aggregate_siblings(outputs, method=self.METHOD, metrics=[0.5, 0.1], metric_key="val_loss")
+        assert metrics.tolist() == pytest.approx([0.5, 0.1])
+        assert n_kwargs.item() == 1.0
+
+    def test_metrics_default_to_none_for_custom_aggregator(self) -> None:
+        metrics, n_kwargs = aggregate_siblings([torch.zeros(1), torch.ones(1)], method=self.METHOD)
+        assert metrics.tolist() == [-1.0]
+        assert n_kwargs.item() == 0.0
+
+    def test_single_sibling_never_calls_custom_aggregator(self) -> None:
+        output = torch.zeros(1)
+        result, _ = aggregate_siblings([output], method=self.METHOD, metrics=[0.1])
+        assert torch.equal(result, output)
+
+
+class TestAggregateAttacks:
+    @pytest.mark.parametrize("method", ["mean", "sum"])
+    def test_integer_outputs_give_a_clear_error_or_a_result(self, method: str) -> None:
+        # e.g. a classifier returning argmax labels: `Tensor.mean` on int64 raises an opaque dtype error.
+        outputs = [torch.tensor([1, 2]), torch.tensor([3, 4])]
+        try:
+            aggregated, _ = aggregate_siblings(outputs, method=method)
+        except (ValueError, TypeError, RuntimeError) as exc:
+            assert "dtype" in str(exc) or "floating" in str(exc)
+        else:
+            assert aggregated.tolist() == ([2.0, 3.0] if method == "mean" else [4, 6])
+
+    def test_empty_outputs_raise_a_clear_error(self) -> None:
+        with pytest.raises((ValueError, RuntimeError), match="non-empty|at least one|empty"):
+            aggregate_siblings([])
+
+    def test_mismatched_sibling_shapes_raise_a_clear_error(self) -> None:
+        with pytest.raises((ValueError, RuntimeError), match="equal size|shape"):
+            aggregate_siblings([torch.zeros(3, 1), torch.zeros(4, 1)])
+
+    def test_best_ignores_a_nan_metric_instead_of_selecting_it(self) -> None:
+        # A diverged run has val_loss = nan; `argmin` treats nan as the minimum, so it would win.
+        outputs = [torch.full((2, 1), 1.0), torch.full((2, 1), 2.0)]
+        best, _ = aggregate_siblings(outputs, method="best", metrics=[float("nan"), 0.3])
+        assert torch.allclose(best, torch.full((2, 1), 2.0)), "'best' selected the sibling whose metric is NaN"
+
+    @pytest.mark.parametrize("metrics", [[0.1], [0.3, 0.2, 0.1]])
+    def test_best_rejects_metrics_of_the_wrong_length(self, metrics: list[float]) -> None:
+        outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
+        with pytest.raises(ValueError, match="metrics"):
+            aggregate_siblings(outputs, method="best", metrics=metrics)
+
+    def test_best_ties_pick_the_first_sibling(self) -> None:
+        outputs = [torch.full((1,), 1.0), torch.full((1,), 2.0)]
+        best, _ = aggregate_siblings(outputs, method="best", metrics=[0.2, 0.2])
+        assert best.item() == 1.0
+
+    def test_single_sibling_with_unknown_method_still_raises(self) -> None:
+        # A typo in `method` must not be hidden just because only one sibling happens to exist.
+        with pytest.raises(ValueError, match="Unknown aggregation method"):
+            aggregate_siblings([torch.zeros(2, 1)], method="medain")
+
+    @pytest.mark.parametrize("method", ["mean", "sum"])
+    def test_does_not_modify_or_alias_inputs(self, method: str) -> None:
+        outputs = [torch.rand(3, 1), torch.rand(3, 1)]
+        before = [o.clone() for o in outputs]
+        aggregated, std = aggregate_siblings(outputs, method=method)
+        aggregated += 1
+        std += 1
+        assert all(torch.equal(o, b) for o, b in zip(outputs, before))
+
+    def test_passthrough_and_best_do_not_alias_inputs(self) -> None:
+        # In-place edits of the returned prediction (e.g. `mean -= offset`) must not corrupt
+        # the sibling that the caller (or `Estimator`) still holds.
+        single = torch.zeros(2, 1)
+        result, _ = aggregate_siblings([single])
+        result += 1
+        assert torch.equal(single, torch.zeros(2, 1)), "single-sibling passthrough aliases its input"
+
+        outputs = [torch.zeros(2, 1), torch.ones(2, 1)]
+        best, _ = aggregate_siblings(outputs, method="best", metrics=[0.1, 0.5])
+        best += 5
+        assert torch.equal(outputs[0], torch.zeros(2, 1)), "'best' returns the winning input tensor itself"
+
+    @pytest.mark.parametrize("method, metrics", [("mean", None), ("sum", None), ("best", [0.1, 0.2])])
+    def test_zero_events_give_zero_events(self, method: str, metrics: list[float] | None) -> None:
+        outputs = [torch.zeros(0, 2), torch.zeros(0, 2)]
+        aggregated, std = aggregate_siblings(outputs, method=method, metrics=metrics)
+        assert aggregated.shape == std.shape == (0, 2)
+
+    def test_nan_in_one_event_does_not_contaminate_other_events(self) -> None:
+        outputs = [torch.tensor([[1.0], [float("nan")]]), torch.tensor([[3.0], [4.0]])]
+        mean, std = aggregate_siblings(outputs)
+        assert mean[0].item() == 2.0 and torch.isfinite(std[0])
+        assert torch.isnan(mean[1])
+
+    def test_float64_inputs_stay_float64(self) -> None:
+        outputs = [torch.ones(2, 1, dtype=torch.float64), torch.zeros(2, 1, dtype=torch.float64)]
+        for method in ("mean", "sum"):
+            aggregated, std = aggregate_siblings(outputs, method=method)
+            assert aggregated.dtype == std.dtype == torch.float64
+
+    def test_sum_std_for_three_siblings_scales_with_sqrt_n(self) -> None:
+        outputs = [torch.tensor([0.0]), torch.tensor([1.0]), torch.tensor([2.0])]
+        _, std = aggregate_siblings(outputs, method="sum")
+        assert std.item() == pytest.approx(1.0 * 3**0.5)
