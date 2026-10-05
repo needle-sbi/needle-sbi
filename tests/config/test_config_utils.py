@@ -12,8 +12,11 @@ from needle.utils.config_schema import (
     MainConfig,
     SystematicConfig,
 )
-from needle.utils.config_utils import NeedleConfigError, initialize_hydra_config, validate_graph
-
+from needle.utils.config_utils import (
+    NeedleConfigError,
+    initialize_hydra_config,
+    validate_graph,
+)
 
 CONF_TESTS_DIR = Path(__file__).parent.parent / "conf_tests"
 
@@ -130,15 +133,15 @@ class TestHydraOverrides:
         assert not cfg.estimators["model_B"].requires
 
     def test_delete_missing_key_raises(self) -> None:
-        with pytest.raises(NeedleConfigError, match="key not found"):
+        with pytest.raises(NeedleConfigError, match="Key not found"):
             self._load(["~estimators.model_B.doesnotexist"])
 
     def test_delete_missing_parent_raises(self) -> None:
-        with pytest.raises(NeedleConfigError, match="key not found"):
+        with pytest.raises(NeedleConfigError, match="Key not found"):
             self._load(["~estimators.model_C.requires"])
 
     def test_delete_with_mismatching_value_raises(self) -> None:
-        with pytest.raises(NeedleConfigError, match="current value"):
+        with pytest.raises(NeedleConfigError, match="Could not delete"):
             self._load(["~estimators.model_B.requires=[other]"])
 
     def test_add_existing_key_raises(self) -> None:
