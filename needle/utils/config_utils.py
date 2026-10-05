@@ -116,8 +116,10 @@ def _apply_overrides(cfg: DictConfig, overrides: List[str]) -> None:
     """Apply Hydra override strings (`key=value`, `+key=value`, `++key=value`, `~key`) to `cfg` in place.
 
     Hydra's own parser handles the grammar (lists, dicts, quoting, interpolations), but unlike
-    `hydra.compose(overrides=...)` keys that are absent from `cfg` are created rather than rejected;
-    unknown keys are caught later when `cfg` is merged into the `MainConfig` schema.
+    `hydra.compose(overrides=...)` keys that are absent from `cfg` are created rather than rejected.
+    The reason is that not all fields exist at the start of the config composition, with some fields
+    appearing only once defaults are applied and groups are resolved.
+    Unknown keys are caught later when `cfg` is merged into the `MainConfig` schema.
     """
     for override in OverridesParser.create().parse_overrides(overrides):
         key = override.key_or_group
@@ -125,9 +127,23 @@ def _apply_overrides(cfg: DictConfig, overrides: List[str]) -> None:
         if override.is_delete():
             parent, _, name = key.rpartition(".")
             node = OmegaConf.select(cfg, parent) if parent else cfg
-            if isinstance(node, DictConfig) and name in node:
-                del node[name]
+
+            if not isinstance(node, DictConfig) or name not in node:
+                raise ConfigCompositionException(f"Could not delete '{key}'. Key not found in config")
+
+            if override.value() is not None:
+                current = OmegaConf.to_container(node, resolve=False)[name]  # type: ignore[index]
+                expected = override.value()
+
+                if current != expected:
+                    raise ConfigCompositionException(f"Could not delete '{key}={expected}' whose value is '{current}'")
+
+            del node[name]
+
         else:
+            if override.is_add() and OmegaConf.select(cfg, key, default=None) is not None:
+                raise ConfigCompositionException(f"Could not append to '{key}'. The key already exists, use '++{key}'")
+
             OmegaConf.update(cfg, key, override.value(), merge=True, force_add=True)
 
 

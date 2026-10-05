@@ -12,16 +12,8 @@ from needle.utils.config_schema import (
     MainConfig,
     SystematicConfig,
 )
-<<<<<<< HEAD
 from needle.utils.config_utils import NeedleConfigError, initialize_hydra_config, validate_graph
 
-=======
-from needle.utils.config_utils import (
-    NeedleConfigError,
-    initialize_hydra_config,
-    validate_graph,
-)
->>>>>>> f6a35b3 (Fix the overrides order with Hydra)
 
 CONF_TESTS_DIR = Path(__file__).parent.parent / "conf_tests"
 
@@ -131,6 +123,32 @@ class TestHydraOverrides:
 
         assert cfg.estimators["model_B"].dataset_override.paths == "/tmp/a.parquet"
         assert not cfg.estimators["model_B"].requires
+
+    def test_delete_with_matching_value(self) -> None:
+        cfg = self._load(["~estimators.model_B.requires=[model_A]"])
+
+        assert not cfg.estimators["model_B"].requires
+
+    def test_delete_missing_key_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="key not found"):
+            self._load(["~estimators.model_B.doesnotexist"])
+
+    def test_delete_missing_parent_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="key not found"):
+            self._load(["~estimators.model_C.requires"])
+
+    def test_delete_with_mismatching_value_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="current value"):
+            self._load(["~estimators.model_B.requires=[other]"])
+
+    def test_add_existing_key_raises(self) -> None:
+        with pytest.raises(NeedleConfigError, match="already exists"):
+            self._load(["+estimators.model_A.dataset_override.labels_columns=[PRI_n_jets]"])
+
+    def test_force_add_existing_key_overrides(self) -> None:
+        cfg = self._load(["++estimators.model_A.dataset_override.labels_columns=[PRI_n_jets]"])
+
+        assert cfg.estimators["model_A"].dataset_override.labels_columns == ["PRI_n_jets"]
 
     def test_unknown_override_key_raises(self) -> None:
         with pytest.raises(NeedleConfigError, match="doesnotexist"):

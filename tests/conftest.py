@@ -1,15 +1,13 @@
 import os
 import resource
 from pathlib import Path
-from typing import Callable, List, Protocol, cast
+from typing import Callable, List, Protocol
 
 import awkward as ak
-import hydra
 import numpy as np
 import pydantic
 import pytest
 from dask.distributed import Client, LocalCluster
-from omegaconf import OmegaConf
 
 from needle.etl.dask_ingestor import Ingestor
 from needle.utils.config_schema import MainConfig
