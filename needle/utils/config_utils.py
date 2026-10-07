@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Optional, Type, cast
 
 import hydra
+from hydra.core.override_parser.overrides_parser import OverridesParser
 from hydra.errors import ConfigCompositionException
 from omegaconf import DictConfig, OmegaConf
 from omegaconf.errors import (
@@ -140,6 +141,41 @@ def _normalize_expansion(value: Any, cls: Type) -> Any:
     return value
 
 
+def _apply_overrides(cfg: DictConfig, overrides: List[str]) -> None:
+    """Apply Hydra override strings (`key=value`, `+key=value`, `++key=value`, `~key`) to `cfg` in place.
+
+    Hydra's own parser handles the grammar (lists, dicts, quoting, interpolations), but unlike
+    `hydra.compose(overrides=...)` keys that are absent from `cfg` are created rather than rejected.
+    The reason is that not all fields exist at the start of the config composition, with some fields
+    appearing only once defaults are applied and groups are resolved.
+    Unknown keys are caught later when `cfg` is merged into the `MainConfig` schema.
+    """
+    for override in OverridesParser.create().parse_overrides(overrides):
+        key = override.key_or_group
+
+        if override.is_delete():
+            parent, _, name = key.rpartition(".")
+            node = OmegaConf.select(cfg, parent) if parent else cfg
+
+            if not isinstance(node, DictConfig) or name not in node:
+                raise ConfigCompositionException(f"Could not delete '{key}'. Key not found in config")
+
+            if override.value() is not None:
+                current = OmegaConf.to_container(node, resolve=False)[name]  # type: ignore[index]
+                expected = override.value()
+
+                if current != expected:
+                    raise ConfigCompositionException(f"Could not delete '{key}={expected}' whose value is '{current}'")
+
+            del node[name]
+
+        else:
+            if override.is_add() and OmegaConf.select(cfg, key, default=None) is not None:
+                raise ConfigCompositionException(f"Could not append to '{key}'. The key already exists, use '++{key}'")
+
+            OmegaConf.update(cfg, key, override.value(), merge=True, force_add=True)
+
+
 def initialize_hydra_config(
     config_dir: str,
     config_name: str,
@@ -150,7 +186,8 @@ def initialize_hydra_config(
     Args:
         config_dir (str): Absolute path to the Hydra config directory.
         config_name (str): Base name of the config file to compose (without `.yaml`).
-        overrides (List[str] | None, optional): Hydra override strings. Defaults to None.
+        overrides (List[str] | None, optional): Hydra override strings, applied on top of the YAML
+            and the referenced sub-configs. Defaults to None.
 
     Returns:
         MainConfig: Partially resolved `MainConfig` instance with defaults applied and the
@@ -166,21 +203,24 @@ def initialize_hydra_config(
             config_dir=config_dir,
             version_base=None,
         ):
-            cfg_as_dict: DictConfig = OmegaConf.merge(
-                OmegaConf.structured(MainConfig),
-                hydra.compose(config_name=config_name, overrides=overrides),
-            )  # type: ignore
-            cfg_as_dict = resolve_defaults(cfg_as_dict, Path(config_dir))
+            # Layers, lowest to highest precedence: schema defaults < group sub-configs < YAML < overrides.
+            # YAML and overrides form the "explicit" layer, which is built first and without schema defaults
+            # so that only keys the user actually set can overwrite the sub-configs.
+            explicit_cfg = hydra.compose(config_name=config_name)
+            OmegaConf.set_struct(explicit_cfg, False)
+            _apply_overrides(explicit_cfg, overrides or [])
+            explicit_cfg = resolve_defaults(explicit_cfg, Path(config_dir))
+            cfg_as_dict: DictConfig = OmegaConf.merge(OmegaConf.structured(MainConfig), explicit_cfg)  # type: ignore
             OmegaConf.resolve(cfg_as_dict)
             cfg: MainConfig = cast(MainConfig, cfg_as_dict)
     except ConfigKeyError as e:
-        raise NeedleConfigError(_describe_config_key_error(e)) from None
+        raise NeedleConfigError(_describe_config_key_error(e)) from e
     except MissingMandatoryValue as e:
-        raise NeedleConfigError(_describe_missing_mandatory(e)) from None
+        raise NeedleConfigError(_describe_missing_mandatory(e)) from e
     except ConfigCompositionException as e:
-        raise NeedleConfigError(_describe_composition_error(e, config_name)) from None
+        raise NeedleConfigError(_describe_composition_error(e, config_name)) from e
     except OmegaConfBaseException as e:
-        raise NeedleConfigError(_describe_omegaconf_error(e)) from None
+        raise NeedleConfigError(_describe_omegaconf_error(e)) from e
 
     validate_graph(cfg)
     return cfg
@@ -255,15 +295,8 @@ def resolve_defaults(
             override_key = f"{field}_override"
             base_cfg = est_cfg.get(override_key)
 
-            if base_cfg:
-                if override_key == "dataset_override":
-                    est_cfg[override_key] = OmegaConf.merge(base_cfg, group_cfg)
-                else:
-                    base_dict = OmegaConf.to_container(base_cfg, resolve=False)
-                    group_dict = OmegaConf.to_container(group_cfg, resolve=False)
-                    est_cfg[override_key] = OmegaConf.create({**base_dict, **group_dict})  # type: ignore
-            else:
-                est_cfg[override_key] = group_cfg
+            # `base_cfg` holds only the keys the user set explicitly, so it wins over the group sub-config
+            est_cfg[override_key] = OmegaConf.merge(group_cfg, base_cfg) if base_cfg else group_cfg
 
     # Mark as resolved to prevent re-resolution
     cfg["_resolved"] = True
