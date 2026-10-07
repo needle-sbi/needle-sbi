@@ -276,8 +276,11 @@ def resolve_defaults(
     estimators: DictConfig = cfg.get(node, {})
 
     for _, est_cfg in estimators.items():
-        est_cfg.expands.ensembles = _normalize_expansion(est_cfg.expands.ensembles, EnsembleConfig)
-        est_cfg.expands.folds = _normalize_expansion(est_cfg.expands.folds, FoldConfig)
+        # The explicit layer carries no schema defaults, so `expands` and its fields may be absent
+        if est_cfg.get("expands") is None:
+            est_cfg.expands = {}
+        est_cfg.expands.ensembles = _normalize_expansion(est_cfg.expands.get("ensembles", 1), EnsembleConfig)
+        est_cfg.expands.folds = _normalize_expansion(est_cfg.expands.get("folds", 1), FoldConfig)
 
         for field, group in DEFAULT_GROUPS.items():
             group_member: str = est_cfg.get(field)
