@@ -57,5 +57,5 @@ class BaseEnsembleTask(BaseExpansionTask):
                 fold_index=fold_index,
                 results_path=self.results_path,
             )
-            for fold_index in range(self.estimator_config.expands.folds)
+            for fold_index in range(self.estimator_config.expands.folds.num)
         ]

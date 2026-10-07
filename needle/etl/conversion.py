@@ -1,6 +1,7 @@
 """
 Convert root to parquet files using uproot and Awkward
 """
+
 from collections import defaultdict
 from pathlib import Path
 from typing import List
@@ -16,7 +17,7 @@ def convert_root_to_parquet(
     input_paths: str | Path,
     output_dir: str | Path,
     drop_branches: List[str] = ["fBits"],
-    row_group_size: int | None = 1_000_000,
+    row_group_size: int = 1_000_000,
     step_size: str = "1 GB",
     output_file_basename: str = "events",
     test_mode: bool = False,
@@ -42,8 +43,8 @@ def convert_root_to_parquet(
             branch, that branch will be dropped. For example, adding `"Genjet"` will remove all
             branches containing that keyword. Defaults to ["fBits"], since that column often breaks
             uproot when it tries to read Delphes-schema files.
-        row_group_size (int | None, optional): Size of the row_groups in the final parquet file.
-            Defaults to None, which reduces to the `ak.to_parquet` default.
+        row_group_size (int, optional): Size of the row_groups in the final parquet file.
+            Defaults to 1 million,
         step_size (str, optional): Cache size for `uproot.iterate`. Defaults to "1 GB".
         output_file_basename (str, optional): Name base for the parquet files. Defaults to "events",
             with all files being named `events_0`... `events_<N>` where N is the number of root

@@ -297,7 +297,7 @@ class TestLawEnsembleTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
         config = config_factory()
-        n_folds = config.estimators[estimator_name].expands.folds
+        n_folds = config.estimators[estimator_name].expands.folds.num
 
         ensemble = EnsembleTask(
             config_file=config_file,
@@ -340,7 +340,7 @@ class TestLawSystematicTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
         config = config_factory()
-        num_ensembles = max(1, config.estimators[estimator_name].expands.ensembles.num_ensembles or 1)
+        num_ensembles = max(1, config.estimators[estimator_name].expands.ensembles.num or 1)
 
         syst = SystematicTask(
             config_file=config_file,

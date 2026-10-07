@@ -12,7 +12,8 @@ from needle.tasks.base.training import BaseTrainingTask
 class TrainingTask(BaseTrainingTask, b2luigi.Task):
     """b2luigi TrainingTask — trains one cross-validation fold.
 
-    This is the only task in the b2luigi backend that inherits from ``b2luigi.Task``.
+    Like the other b2luigi backend tasks, it inherits from ``b2luigi.Task`` so b2luigi's local
+    scheduler can run it; only this task carries batch-dispatch resources.
     Batch dispatch is configured globally via ``configure_b2luigi()`` or ``settings.json``, with
     per-estimator/systematic ``resources`` (see ``BaseTrainingTask.batch_resources``) merged on top via
     ``htcondor_settings``/``slurm_settings``.

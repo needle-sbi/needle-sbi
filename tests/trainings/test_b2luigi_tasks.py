@@ -221,7 +221,7 @@ class TestB2LuiEnsembleTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
         config = config_factory()
-        n_folds = config.estimators[estimator_name].expands.folds
+        n_folds = config.estimators[estimator_name].expands.folds.num
 
         ensemble = EnsembleTask(
             config_file=config_file,
@@ -263,7 +263,7 @@ class TestB2LuiSystematicTask:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
         config = config_factory()
-        num_ensembles = max(1, config.estimators[estimator_name].expands.ensembles.num_ensembles or 1)
+        num_ensembles = max(1, config.estimators[estimator_name].expands.ensembles.num or 1)
 
         syst = SystematicTask(
             config_file=config_file,
@@ -423,7 +423,7 @@ class TestB2LuiDownstreamTaskBranching:
 
 
 # ---------------------------------------------------------------------------
-# Backend isolation: TrainingTask is the only b2luigi.Task
+# Backend isolation: all b2luigi backend tasks are b2luigi.Task, none are law
 # ---------------------------------------------------------------------------
 
 
@@ -433,11 +433,11 @@ class TestBackendIsolation:
         """FoldTask is a plain marker wrapper — no law workflow attributes."""
         assert not hasattr(FoldTask, "create_branch_map")
 
-    def test_fold_task_is_not_b2luigi_task(self) -> None:
-        """Only TrainingTask should be a b2luigi.Task; FoldTask is plain luigi."""
+    def test_fold_task_is_b2luigi_task(self) -> None:
+        """FoldTask must be a b2luigi.Task for b2luigi's local scheduler to run it."""
         import b2luigi
 
-        assert not issubclass(FoldTask, b2luigi.Task)
+        assert issubclass(FoldTask, b2luigi.Task)
 
     def test_training_task_is_b2luigi_task(self) -> None:
         import b2luigi

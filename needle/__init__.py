@@ -3,16 +3,22 @@
 import importlib
 from typing import TYPE_CHECKING
 
+import needle.utils.logging  # noqa: F401
+
 if TYPE_CHECKING:
     from needle import etl, ml, utils
     from needle.api import (
-        Config,
+        Aggregator,
+        Estimator,
         InitResult,
         RunResult,
         UnknownTaskError,
+        aggregate_siblings,
         configure_b2luigi,
         configure_law,
         init,
+        load_config,
+        load_snapshot,
         run,
         train_single,
     )
@@ -21,7 +27,7 @@ __all__ = [
     "etl",
     "ml",
     "utils",
-    "Config",
+    "load_config",
     "train_single",
     "run",
     "RunResult",
@@ -30,9 +36,13 @@ __all__ = [
     "InitResult",
     "configure_law",
     "configure_b2luigi",
+    "Estimator",
+    "aggregate_siblings",
+    "Aggregator",
+    "load_snapshot",
 ]
 
-_SUBMODULES = {"etl", "ml", "utils"}
+_SUBMODULES = {"etl", "ml", "utils", "eval"}
 _API_NAMES = set(__all__) - _SUBMODULES
 
 

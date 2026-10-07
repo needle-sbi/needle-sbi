@@ -204,6 +204,93 @@ if-else statements for each site.
 :::
 
 
+### The `aggregation` block
+
+`FoldConfig` and `EnsembleConfig` each carry an `aggregation: AggregationSpec` field, and
+`EstimatorConfig` carries `systematic_aggregation: AggregationSpec`. Together they control how
+`needle.api.eval.Estimator` combines sibling predictions bottom-up at inference time, it is not used
+during training.
+
+| Field        | Python Type | Description |
+|--------------|-------------|-------------|
+| `method`     | `str`       | One of the built-ins `"mean"`, `"sum"`, `"best"`, or a dotted import path to a custom callable (see below). |
+| `metric_key` | `Optional[str]` | The metric monitored by a `ModelCheckpoint` during training (e.g. `"val_loss"`). Required for `"best"`, where the sibling with the lowest value wins. For any other method, including a custom aggregator, the per-sibling values are passed as `metrics` (and the key itself as the `metric_key` kwarg). Raises if a checkpoint lacks the metric. |
+
+```yaml
+estimators:
+  my_estimator:
+    expands:
+      folds: 5
+      ensembles:
+        num: 3
+        aggregation:
+          method: "best"   # pick the best ensemble member instead of averaging
+    systematic_aggregation:
+      method: "mean"        # default: average across systematic variations
+```
+
+#### Writing a custom aggregator
+
+There is the possibility to include your own aggregation function which gets executed for siblings of
+a given layer. The `aggregation` field is meant to be generic, so specific implementations such as a
+`weighted_mean` for example can be supplied by you for your own analysis. In order to do so, replace
+the `aggregation` with a dotted `method` path (see the resolution with `needle.api.aggregation.aggregate_siblings`)
+in the same way Hydra usually resolves `_target_` strings elsewhere in the config. The callable must
+implement the `needle.api.aggregation.Aggregator` protocol - the single, formal definition of this
+signature (not restated here, so the two never drift apart):
+
+```python
+class Aggregator(Protocol):
+    def __call__(
+        self, outputs: list[Tensor], metrics: list[float] | None = None, **kwargs
+    ) -> tuple[Tensor, Tensor]: ...
+```
+
+`metrics` holds one value per sibling (same order as `outputs`) whenever `metric_key` is set, else `None`.
+`**kwargs` carries any other field your `AggregationSpec` sets (e.g. `metric_key`), since
+`aggregate_siblings` is called as `aggregate_siblings(outputs, method=spec.method,
+metric_key=spec.metric_key)`.
+
+Example:
+
+```python
+def weighted_mean(outputs, metrics=None, **kwargs):
+    """outputs: list[Tensor] (one per sibling); metrics: per-sibling validation metric, only
+    populated for "best"-style use cases; **kwargs: any other `AggregationSpec` field (unused here).
+
+    Must return (aggregated, std) Tensors, matching the shape of a single sibling's output.
+
+    Weights aren't part of the framework's aggregation contract, so supply them yourself, e.g.
+    read them off your own config, hardcode them, or bind them with `functools.partial`.
+    """
+    weights = [3.0, 1.0, 1.0]
+    stacked = torch.stack(outputs, dim=0)
+    w = torch.tensor(weights, dtype=stacked.dtype)
+    w = w / w.sum()
+    view_shape = (-1,) + (1,) * (stacked.dim() - 1)
+    aggregated = (w.view(view_shape) * stacked).sum(dim=0)
+    std = torch.sqrt((w.view(view_shape) * (stacked - aggregated) ** 2).sum(dim=0))
+    return aggregated, std
+```
+
+Called directly (outside a config-driven `AggregationSpec`), `aggregate_siblings` also takes
+`method`/`metrics` as plain keyword arguments, e.g. `aggregate_siblings(outputs, method="mean")` or
+`aggregate_siblings(outputs, method="my_package.my_module.weighted_mean")`.
+
+Reference it by dotted path, e.g. if it lives in `my_package/aggregators.py`:
+
+```yaml
+expands:
+  ensembles:
+    num: 3
+    aggregation:
+      method: "my_package.aggregators.weighted_mean"
+```
+
+See `tests/api/test_eval.py::TestAggregate` (`_weighted_mean`) for a complete, runnable version
+of this example.
+
+
 ## Estimator groups
 
 In contrast to regular configs blocks as above, groups point to a further sub-config file with the

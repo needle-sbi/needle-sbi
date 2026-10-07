@@ -20,11 +20,29 @@ from omegaconf.errors import (
 if TYPE_CHECKING:
     from luigi import Task
 
-from needle.utils.config_schema import MainConfig
+from needle.utils.config_schema import (
+    EnsembleConfig,
+    EstimatorConfig,
+    FoldConfig,
+    MainConfig,
+    SystematicConfig,
+)
 from needle.utils.logging import ColorFormatter
 
 logger = ColorFormatter.get_logger("config")
 OmegaConf.register_new_resolver("if", lambda cond, t, f: t if cond else f)
+
+
+def merge_systematic_config(estimator_config: EstimatorConfig, systematic: str) -> SystematicConfig:
+    """Override the estimator config with the fields of one systematic variation.
+
+    Shared by the training/fold tasks and `needle.api.eval.Estimator` so a model is always rebuilt from
+    exactly the config it was trained with.
+    """
+    return OmegaConf.merge(
+        OmegaConf.to_container(estimator_config.expands.systematics[systematic], resolve=False),
+        estimator_config,
+    )  # type: ignore[return-value]
 
 
 class NeedleConfigError(Exception):
@@ -110,6 +128,17 @@ def validate_graph(self: "MainConfig") -> None:
 
     list(graphlib.TopologicalSorter(graph).static_order())
     return None
+
+
+def _normalize_expansion(value: Any, cls: Type) -> Any:
+    """Resolve a `int | dict` shorthand. If int, the value is assigned to `cls(num=<value>)`, a dict
+    is merged into the `cls`'s defaults.
+    """
+    if isinstance(value, int):
+        return OmegaConf.structured(cls(num=value))
+    if isinstance(value, (dict, DictConfig)):
+        return OmegaConf.merge(OmegaConf.structured(cls), value)
+    return value
 
 
 def _apply_overrides(cfg: DictConfig, overrides: List[str]) -> None:
@@ -247,6 +276,12 @@ def resolve_defaults(
     estimators: DictConfig = cfg.get(node, {})
 
     for _, est_cfg in estimators.items():
+        # The explicit layer carries no schema defaults, so `expands` and its fields may be absent
+        if est_cfg.get("expands") is None:
+            est_cfg.expands = {}
+        est_cfg.expands.ensembles = _normalize_expansion(est_cfg.expands.get("ensembles", 1), EnsembleConfig)
+        est_cfg.expands.folds = _normalize_expansion(est_cfg.expands.get("folds", 1), FoldConfig)
+
         for field, group in DEFAULT_GROUPS.items():
             group_member: str = est_cfg.get(field)
 
