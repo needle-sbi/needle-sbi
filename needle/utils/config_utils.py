@@ -260,6 +260,10 @@ def resolve_defaults(
             else:
                 group_cfg = _load_group(group, group_member)  # Case: .yaml file inside folder with group name
 
+            # Hydra-composed group configs are struct-typed. The `*_override` may add keys that
+            # are not declared in the group sub-config, so allow them before merging.
+            OmegaConf.set_struct(group_cfg, False)
+
             override_key = f"{field}_override"
             base_cfg = est_cfg.get(override_key)
 
