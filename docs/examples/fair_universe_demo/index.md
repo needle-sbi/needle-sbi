@@ -21,21 +21,31 @@ source setup.sh
 cd examples/fair_universe_demo
 
 # Train everything and run the full analysis
-law run DownstreamTask --downstream plot \
-    --config-file examples/fair_universe_demo/conf/config.yaml
+law run DownstreamTask \
+    --downstream plot \
+    --config-file conf/config.yaml
 
 # Test with the bundled ~1000-event dataset
-law run DownstreamTask --downstream eval \
-    --config-file examples/fair_universe_demo/conf/config.yaml \
+law run DownstreamTask \
+    --downstream eval \
+    --config-file conf/config.yaml \
     --hydra-overrides "custom_settings.use_test_data=True"
 ```
 
 See [Usage](../../setup/usage.md), [LAW Tasks](../../concepts/law_tasks.md) and
-[b2luigi Tasks](../../concepts/b2luigi_tasks.md) for the full per-backend CLI reference (`law run`
-above maps onto `b2luigi run DownstreamTask --param downstream=plot ...` the same way).
+[b2luigi Tasks](../../concepts/b2luigi_tasks.md) for the full per-backend CLI reference.
+
+Running with b2luigi is simply
+
+```bash
+b2luigi run DownstreamTask \
+    --param downstream=plot \
+    --param config-file conf/config.yaml
+
+```
 
 When using `b2luigi`, you might need to install the `fair_universe_demo` package locally in order to
-register the Tasks. A simple `pip install -e .` suffices.
+register the Tasks. A simple `pip install -e .` is enough. Also keep the `--param` change in mind.
 
 ## What the pipeline produces
 
