@@ -22,11 +22,11 @@ cd examples/fair_universe_demo
 
 # Train everything and run the full analysis
 law run DownstreamTask --downstream plot \
-    --config-file examples/fair_universe_demo/conf/config.yaml
+    --config-file ./conf/config.yaml
 
 # Test with the bundled ~1000-event dataset
 law run DownstreamTask --downstream eval \
-    --config-file examples/fair_universe_demo/conf/config.yaml \
+    --config-file ./conf/config.yaml \
     --hydra-overrides "custom_settings.use_test_data=True"
 ```
 
