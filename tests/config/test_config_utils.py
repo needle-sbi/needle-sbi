@@ -98,6 +98,13 @@ class TestHydraOverrides:
 
         assert cfg.estimators["model_B"].dataset_override.paths == "/tmp/demo.parquet"
 
+    def test_override_may_add_key_absent_from_sub_config(self) -> None:
+        # `mock_transformer.yaml` does not define `num_jets`; overrides are allowed to add keys
+        # to the referenced group sub-config.
+        cfg = self._load(["estimators.model_A.model_override.num_jets=2"])
+
+        assert cfg.estimators["model_A"].model_override.num_jets == 2
+
     def test_schema_defaults_do_not_overwrite_sub_config(self) -> None:
         cfg = self._load()
         sub_cfg = OmegaConf.load(CONF_TESTS_DIR / "datasets" / "fair_universe.yaml")

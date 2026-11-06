@@ -1,8 +1,8 @@
 from logging import Logger
 from multiprocessing.managers import BaseManager
 
-from fair_universe_demo.utils.dataset import Data
-from fair_universe_demo.utils.selection import load_train_set_data
+from .dataset import Data
+from .selection import load_train_set_data
 
 logger = Logger("dataset")
 
