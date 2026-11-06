@@ -4,6 +4,7 @@ Compute normalization constants from Parquet file metadata.
 Collects per-file (partition) column statistics such as min/max,
 without reading any data into memory.
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol

@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any, List, Type
 
 import luigi
-from omegaconf import OmegaConf
 
 from needle.tasks.base.expansion import BaseExpansionTask
 from needle.utils.config_schema import EstimatorConfig, SystematicConfig
+from needle.utils.config_utils import merge_systematic_config
 
 
 class BaseFoldTask(BaseExpansionTask):
@@ -52,13 +52,7 @@ class BaseFoldTask(BaseExpansionTask):
 
     @property
     def systematic_config(self) -> SystematicConfig:
-        return OmegaConf.merge(
-            OmegaConf.to_container(
-                self.estimator_config.expands.systematics[self.systematic],
-                resolve=False,
-            ),
-            self.estimator_config,
-        )  # type: ignore
+        return merge_systematic_config(self.estimator_config, self.systematic)
 
     def _training_task_class(self) -> Type[luigi.Task]:
         raise NotImplementedError("Backend subclass must implement _training_task_class()")

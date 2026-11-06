@@ -45,7 +45,7 @@ class BaseSystematicTask(BaseExpansionTask):
 
     def requires(self) -> List[Any]:
         EnsembleTask = self._ensemble_task_class()
-        num_ensembles: int = max(1, self.estimator_config.expands.ensembles.num_ensembles or 1)
+        num_ensembles: int = max(1, self.estimator_config.expands.ensembles.num or 1)
         return [
             EnsembleTask(
                 config_file=str(self.config_file),

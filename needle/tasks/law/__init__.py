@@ -15,6 +15,7 @@ Usage:
     law run MainTask --config-file path/to/config.yaml
     law run DownstreamTask --downstream my_analysis_task --config-file path/to/config.yaml
 """
+
 from .downstream import DownstreamTask
 from .ensemble import EnsembleTask
 from .estimator import EstimatorTask

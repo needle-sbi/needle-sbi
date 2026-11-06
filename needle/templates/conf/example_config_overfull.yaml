@@ -19,7 +19,7 @@ estimators:
           dataset: default  # if not set, will inherit from parent estimator (model_A.dataset)
           trainer: default
       ensembles:
-        num_ensembles: 1
+        num: 1
       folds: 1
 
 downstream_tasks:

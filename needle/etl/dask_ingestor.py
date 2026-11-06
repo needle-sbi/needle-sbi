@@ -18,8 +18,10 @@ import uproot
 
 from needle.etl.array import (
     NestedArrayIndexer,
+    are_divisions_valid,
     brute_force_divisions,
     brute_force_length,
+    brute_force_row_group_divisions,
     check_columns_found,
     resolve_input_format,
     resolve_paths,
@@ -214,8 +216,19 @@ class Ingestor:
             except AttributeError:
                 raise ValueError("Input array does not have attribute 'fields' or is empty.")
 
-        if not any(array.divisions):
-            self.array._divisions = brute_force_divisions(resolve_paths(paths))
+        if not are_divisions_valid(array.divisions):
+            resolved_paths = resolve_paths(paths)
+
+            if len(resolved_paths) == 1 and array.npartitions > 1:
+                # A single input file was split into several partitions (e.g. via
+                # `split_row_groups=True`), so `eager_compute_divisions()` cannot rely on
+                # per-file lengths. Reconstruct the per-row-group boundaries directly from the
+                # file's parquet metadata instead.
+                self.array._divisions = brute_force_row_group_divisions(resolved_paths[0])
+                logger.debug("Found divisions using per-row-group 'brute force' method (pyarrow.parquet)")
+            else:
+                self.array._divisions = brute_force_divisions(resolved_paths)
+                logger.debug("Found divisions using per-file 'brute force' method (pyarrow.parquet)")
 
     @classmethod
     def _resolve_format(cls: Type[Self], fmt: str, path: str) -> str:

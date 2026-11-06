@@ -13,7 +13,7 @@ estimators:
           dataset_override:
             labels_columns: ['PRI_n_jets']
       ensembles:
-        num_ensembles: 2
+        num: 2
       folds: 2
   model_B:
     model: mock_transformer
@@ -23,4 +23,4 @@ estimators:
     requires: ["model_A"]
     expands:
       ensembles:
-        num_ensembles: 1
+        num: 1
