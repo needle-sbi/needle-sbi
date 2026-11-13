@@ -246,7 +246,9 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         trainer.save_checkpoint(checkpoint_path)
 
         with mlflow.start_run(run_id=self.mlflow_logger.run_id):
-            mlflow.pytorch.log_model(pytorch_model=model, name="model")  # type: ignore
+
+            # pt2 needs a concrete input_example; user models have arbitrary forward() signatures.
+            mlflow.pytorch.log_model(pytorch_model=model, name="model", serialization_format="pickle")  # type: ignore
             mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
 
         with open(Path(self.output()["model_config"].path), "w") as f:
