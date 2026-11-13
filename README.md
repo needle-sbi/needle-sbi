@@ -58,7 +58,8 @@ script (Steps 1 and 3).
 
 ### FAIR Universe Demo (Optional)
 
-This example requires a `git clone` to be included.
+This example requires a `git clone` to be included. For installation and run instructions, see
+`examples/fair_universe_demo/README.md`.
 
 We provide an example of how to implement a full NSBI pipeline within needle. For this, we use the
 FAIR Universe dataset. If you dont want to use the full dataset (a few GB), there is a test dataset

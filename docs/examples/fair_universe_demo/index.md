@@ -14,10 +14,17 @@ performs statistical inference to estimate the signal strength parameter μ.
 
 Install the code with `git clone` to access the source code for the examples.
 
+From the repository root, install NEEDLE and the demo. `uv sync` installs both, since the demo is a
+uv workspace member; with imperative uv use `uv pip install .` in the root and again in
+`examples/fair_universe_demo`; with pip use `pip install -e .` and
+`pip install -e examples/fair_universe_demo`.
+
 ```bash
-export FAIR_UNIVERSE_DATA=/path/to/fair_universe_data
+uv sync
 source .venv/bin/activate
-source setup.sh
+source setup.sh   # sets LAW_* and puts the repository root on PYTHONPATH
+
+export FAIR_UNIVERSE_DATA=/path/to/fair_universe_data
 cd examples/fair_universe_demo
 
 # Train everything and run the full analysis
@@ -44,8 +51,10 @@ b2luigi run DownstreamTask \
 
 ```
 
-When using `b2luigi`, you might need to install the `fair_universe_demo` package locally in order to
-register the Tasks. A simple `pip install -e .` is enough. Also keep the `--param` change in mind.
+When using `b2luigi`, install the `fair_universe_demo` package locally so the Tasks can be
+registered: `pip install -e examples/fair_universe_demo` from the repository root. `source setup.sh`
+(or `export PYTHONPATH=$PWD`) is still required for the `examples.*` targets. Also keep the `--param`
+change in mind.
 
 ## What the pipeline produces
 

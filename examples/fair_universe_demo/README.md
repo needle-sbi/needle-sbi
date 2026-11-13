@@ -5,26 +5,43 @@ followed by training a combined classifier using the flow outputs as features.
 
 ## Setup
 
+Run these commands from the **repository root** (`needle-sbi/`), not from this directory.
+
 ### Using `uv` (Recommended)
 
 ```bash
-# Install project dependencies
+# Installs NEEDLE and this demo (a uv workspace member)
 uv sync
+# Equivalent with imperative uv: `uv pip install .` in the repository root,
+# then `uv pip install .` again in examples/fair_universe_demo
 
-# Activate the environment
 source .venv/bin/activate
+source setup.sh   # sets LAW_* and puts the repository root on PYTHONPATH
 ```
 
 ### Using `pip`
 
 ```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 
-# Install dependencies
-pip install -e .
+pip install -e .                              # 1) NEEDLE, from the repository root
+pip install -e examples/fair_universe_demo    # 2) this demo package
+source setup.sh
 ```
+
+If `setup.sh`/`law.cfg` do not exist yet, run `needle init` once in the repository root first
+(see [Setup](../../docs/setup/index.md)). Then run the demo:
+
+```bash
+cd examples/fair_universe_demo
+law run DownstreamTask --downstream histogram --config-file conf/config.yaml
+```
+
+The demo install matters for the `fair_universe_demo.*` `_target_`s shown below (and for b2luigi
+task registration). The checked-in configs use `examples.*` `_target_`s, which import straight from
+the repository root — for those, `source setup.sh` (or `export PYTHONPATH=$PWD`) is what makes the
+imports resolve.
 
 ## Docs
 
