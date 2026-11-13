@@ -107,7 +107,7 @@ class HistogramTask(luigi.Task):
     def parse_snapshot(filepath: str) -> Tuple[Dict[str, str], Dict[str, str]]:
         """Parse a snapshot JSON file and extract model checkpoint paths.
 
-        The snapshot is expected to contain nodes with query-string-style names. Normalizing flow
+        The snapshot maps query-string-style node names to checkpoint paths. Normalizing flow
         checkpoints are collected separately from the classifier checkpoint.
 
         Args:
@@ -136,9 +136,7 @@ class HistogramTask(luigi.Task):
             return checkpoint_path
 
         with open(snapshot_path, "r") as f:
-            snapshot = json.load(f)
-
-        nodes: Dict[str, Any] = snapshot["nodes"]
+            nodes: Dict[str, str] = json.load(f)
 
         if not nodes:
             raise ValueError(f"Snapshot file does not contain any nodes: {nodes}")
@@ -146,15 +144,14 @@ class HistogramTask(luigi.Task):
         nf_nodes: Dict[str, Any] = {}
         classifier_node: Dict[str, Any] = {"classifier": None}
 
-        for name, node in nodes.items():
-            name_dict: Dict[str, Any] = parse_qs(name)
-            estimator_name: str = name_dict["est"][0]
+        for name, checkpoint_path in nodes.items():
+            estimator_name: str = parse_qs(name)["est"][0]
 
             if estimator_name.startswith("nf"):
-                nf_nodes[name] = resolve_checkpoint_path(node["checkpoint_path"])
+                nf_nodes[name] = resolve_checkpoint_path(checkpoint_path)
             elif estimator_name.startswith("classifier"):
                 if not classifier_node.get("classifier"):
-                    classifier_node["classifier"] = resolve_checkpoint_path(node["checkpoint_path"])
+                    classifier_node["classifier"] = resolve_checkpoint_path(checkpoint_path)
                 else:
                     raise ValueError(
                         f"More than one classifier found in snapshot: existing are {list(classifier_node.keys())} and"
