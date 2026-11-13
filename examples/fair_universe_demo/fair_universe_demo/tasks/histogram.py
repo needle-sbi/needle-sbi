@@ -94,10 +94,8 @@ class HistogramTask(luigi.Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not self.json_save_path.endswith(".json") and not os.path.exists(Path(self.json_save_path).parent):
-            raise FileNotFoundError(
-                f"Argument `json_save_path`='{self.json_save_path}' must point to a valid .json file"
-            )
+        if not self.json_save_path.endswith(".json"):
+            raise ValueError(f"Argument `json_save_path`='{self.json_save_path}' must point to a valid .json file")
 
     def output(self) -> luigi.LocalTarget:  # type: ignore
         """Return the Luigi target for the generated histogram file."""
@@ -190,6 +188,7 @@ class HistogramTask(luigi.Task):
         serializable_dict = {
             str(key): {"sig": val[0].tolist(), "bg": val[1].tolist()} for key, val in hist_dict_class.items()
         }
+        os.makedirs(Path(self.output().path).parent, exist_ok=True)
         with open(self.output().path, "w") as f:
             json.dump(serializable_dict, f)
 
