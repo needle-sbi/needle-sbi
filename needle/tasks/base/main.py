@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Type
+from typing import Any, Dict, List, Type
 
 import luigi
 from omegaconf import OmegaConf
@@ -159,6 +159,7 @@ class BaseMainTask(HydraParamsMixin, luigi.Task):
 
         raise FileNotFoundError(f"No checkpoint found at {ckpt_path}")
 
-    def complete(self) -> Literal[False]:
-        """Always force a re-check of the config first"""
-        return False
+    def complete(self) -> bool:
+        """Re-check the cached config, then report whether the snapshot exists."""
+        self._check_cached_config(Path(self.abs_results_path) / "config.yaml")
+        return super().complete()

@@ -190,6 +190,12 @@ The FAIR Universe demo's `HistogramTask.parse_snapshot()` has a good reference i
     and `law` failed to load the Tasks. You can debug this by opening python in the terminal and check if
     you can import the module with the current interpreter.
 
+ - **`ModuleNotFoundError: No module named 'examples'`** (demo configs)
+
+    → The project root is not on `sys.path`, so the `examples.*` `_target_` entries cannot be imported.
+    Run `source setup.sh` (re-generate it with `needle init` if it predates the `PYTHONPATH` export), or
+    prepend the project root manually: `export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"`.
+
  - **`Unfulfilled dependencies at RunTime`**
 
     → LAW expected an output file that doesn't exist. Check which file it reports and look at the

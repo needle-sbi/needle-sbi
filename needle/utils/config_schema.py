@@ -110,4 +110,5 @@ class MainConfig(SerializableDataclass):
     results_path: Optional[str] = None
     results_path_downstream: Optional[str] = None
     custom_settings: Any = None
+    mlflow_logging: bool = True
     _resolved: bool = False

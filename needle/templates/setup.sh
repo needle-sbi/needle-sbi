@@ -45,6 +45,9 @@ export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")" && pwd)"
 export _OLD_PYTHONPATH="${PYTHONPATH:-}"
 export _OLD_PS1="$PS1"
 
+# Make the project root importable (e.g. `examples.*` targets in the demo configs).
+export PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
 export LAW_HOME="$SCRIPT_DIR"
 export LAW_CONFIG_FILE="$SCRIPT_DIR/law.cfg"
 
