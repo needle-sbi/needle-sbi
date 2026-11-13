@@ -179,7 +179,10 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
         ]
 
     @property
-    def mlflow_logger(self) -> MLFlowLogger:
+    def mlflow_logger(self) -> MLFlowLogger | bool:
+        if not self.config.mlflow_logging:
+            return False
+
         if self.single:
             experiment_name = urlencode({"est": self.estimator, "mode": "single"})
         else:
@@ -236,20 +239,22 @@ class BaseTrainingTask(HydraParamsMixin, luigi.Task):
             n_folds=1 if self.single else self.estimator_config.expands.folds,
         )
 
+        mlflow_logger = self.mlflow_logger
+
         trainer: lightning.Trainer = hydra.utils.instantiate(
             trainer_config,
-            logger=self.mlflow_logger,
+            logger=mlflow_logger,
         )
         trainer.fit(model=model, datamodule=data_module)
 
         checkpoint_path = Path(self.output()["ckpt"].path)
         trainer.save_checkpoint(checkpoint_path)
 
-        with mlflow.start_run(run_id=self.mlflow_logger.run_id):
-
-            # pt2 needs a concrete input_example; user models have arbitrary forward() signatures.
-            mlflow.pytorch.log_model(pytorch_model=model, name="model", serialization_format="pickle")  # type: ignore
-            mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
+        if mlflow_logger:
+            with mlflow.start_run(run_id=mlflow_logger.run_id):
+                # pt2 needs a concrete input_example; user models have arbitrary forward() signatures.
+                mlflow.pytorch.log_model(pytorch_model=model, name="model", serialization_format="pickle")  # type: ignore
+                mlflow.log_artifact(str(checkpoint_path), artifact_path="checkpoints")
 
         with open(Path(self.output()["model_config"].path), "w") as f:
             OmegaConf.save(model_config, f)

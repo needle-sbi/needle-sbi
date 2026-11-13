@@ -50,6 +50,7 @@ These are the allowed top level fields.
 | `results_path` | `Optional[str]` | Root output directory for training artifacts. |
 | `results_path_downstream` | `Optional[str]` | Root output directory for downstream task outputs. Can use OmegaConf interpolations. |
 | `custom_settings` | `Optional[Any]` | Extra settings that you want to access throughout the config files via `${custom_settings.*}`. |
+| `mlflow_logging` | `bool` | Log metrics and model artifacts to MLflow during training. Set to `false` on offline/air-gapped nodes. |
 
 ### Minimal `config.yaml`
 

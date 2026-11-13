@@ -158,6 +158,21 @@ class TestLawTrainingTask:
         out = task.output()
         assert TrainingTask.output_as_dict(out) is out
 
+    def test_mlflow_logging_can_be_disabled(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(["mlflow_logging=false"]), tmp_path)
+        estimator_name = list(config_factory().estimators.keys())[0]
+
+        task = TrainingTask(
+            config_file=config_file,
+            estimator=estimator_name,
+            systematic="nominal",
+            ensemble=0,
+            fold_index=0,
+            results_path=str(tmp_path),
+            branch=0,
+        )
+        assert task.mlflow_logger is False
+
     def test_create_branch_map_is_single_branch(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
         estimator_name = list(config_factory().estimators.keys())[0]
@@ -422,6 +437,17 @@ class TestLawMainTask:
         out = main.output()
         assert isinstance(out["dag_snapshot"], law.LocalFileTarget)
         assert Path(out["dag_snapshot"].path).name == "dag_snapshot.json"
+
+    def test_complete_follows_snapshot_existence(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
+        config_file = _write_config(config_factory(), tmp_path)
+        main = MainTask(
+            config_file=config_file,
+            results_path=str(tmp_path),
+        )
+
+        assert main.complete() is False
+        Path(main.output()["dag_snapshot"].path).write_text("{}")
+        assert main.complete() is True
 
     def test_requires_creates_estimator_tasks(self, config_factory: MainConfigFactory, tmp_path: Path) -> None:
         config_file = _write_config(config_factory(), tmp_path)
